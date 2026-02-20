@@ -102,12 +102,23 @@ const signNode = async (state: DTEState): Promise<Partial<DTEState>> => {
     // Obtener las credenciales del negocio para sacar el token de la API de firma
     const credentials = await getMHCredentials(state.businessId!, state.ambiente || '00');
     
+    if (!credentials) {
+      console.error(`❌ No hay credenciales en Supabase para el NIT: ${state.businessId!}`);
+      return {
+        status: 'failed',
+        errorCode: 'SIGN_ERROR_NO_CREDENTIALS',
+        errorMessage: `El NIT ${state.businessId!} no está registrado o no tiene credenciales activas en Supabase para el ambiente ${state.ambiente || '00'}`,
+        canRetry: false,
+        progressPercentage: 25
+      };
+    }
+
     // Ejecutar firma real
     const jwsFirmado = await firmarDocumento({
       nit: nitEmisor,
       passwordPri: state.passwordPri,
       dteJson: dteLimpio,
-      apiToken: credentials?.api_token // Pasamos el token del negocio
+      apiToken: credentials.api_token // Pasamos el token del negocio
     });
 
     console.log("✅ Firma exitosa");
