@@ -9,6 +9,7 @@ export interface FirmaRequest {
   nit: string;
   passwordPri: string;
   dteJson: Record<string, unknown>;
+  apiToken?: string; // Token de autenticación para el servicio de firma
 }
 
 export interface FirmaResponse {
@@ -21,10 +22,20 @@ export const firmarDocumento = async (request: FirmaRequest): Promise<string> =>
   try {
     logger.info('Enviando solicitud de firma', { nit: request.nit });
     
+    // Headers base
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    
+    // Si se proporciona un token, añadirlo a los headers (según lo que espere api-firma)
+    if (request.apiToken) {
+      headers['Authorization'] = `Bearer ${request.apiToken}`;
+      // O si espera un header personalizado:
+      // headers['x-api-key'] = request.apiToken;
+    }
+    
     const response = await axios.post<FirmaResponse>(FIRMA_SERVICE_URL, request, {
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers,
       timeout: 30000, // 30 segundos timeout
     });
 

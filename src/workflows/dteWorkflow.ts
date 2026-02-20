@@ -2,7 +2,8 @@ import { StateGraph, END } from "@langchain/langgraph";
 import { DTEState } from "./state";
 import { convertirAContingencia } from "../dte/generator";
 import { updateTaxAccumulator, createEmptyAccumulator, getPeriodFromDate } from "../tax/taxCalculator";
-import { getAccumulator, saveAccumulator } from "../tax/taxStorage";
+import { getAccumulator, saveAccumulator } from '../tax/taxStorage';
+import { getMHCredentials } from '../business/businessStorage';
 import { saveDTEDocument } from "../dte/dteStorage";
 import { firmarDocumento, limpiarDteParaFirma, wakeFirmaService } from "../integrations/firmaClient";
 import { processDTE } from "../mh/process";
@@ -98,11 +99,15 @@ const signNode = async (state: DTEState): Promise<Partial<DTEState>> => {
     const dteLimpio = limpiarDteParaFirma(processed.dte as unknown as Record<string, unknown>);
     const nitEmisor = (state.dte.emisor?.nit || '').toString().replace(/[\s-]/g, '').trim();
 
+    // Obtener las credenciales del negocio para sacar el token de la API de firma
+    const credentials = await getMHCredentials(state.businessId!, state.ambiente || '00');
+    
     // Ejecutar firma real
     const jwsFirmado = await firmarDocumento({
       nit: nitEmisor,
       passwordPri: state.passwordPri,
       dteJson: dteLimpio,
+      apiToken: credentials?.api_token // Pasamos el token del negocio
     });
 
     console.log("✅ Firma exitosa");
