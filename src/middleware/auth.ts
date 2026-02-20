@@ -1,5 +1,4 @@
 import { Request, Response, NextFunction } from 'express';
-import jwt from 'jsonwebtoken';
 import { createError } from './errorHandler';
 import { createLogger } from '../utils/logger';
 
@@ -11,9 +10,9 @@ export interface AuthRequest extends Omit<Request, 'headers' | 'params' | 'query
   query: Request['query'];
   body: Request['body'];
   user?: {
-    id: string;
+    id: string; // Opcional o usar el mismo NIT
     nit: string;
-    email: string;
+    email?: string;
   };
 }
 
@@ -23,34 +22,23 @@ export const authMiddleware = async (
   next: NextFunction
 ) => {
   try {
-    const authHeader = req.headers.authorization;
-    
-    if (!authHeader) {
-      throw createError('Authorization header required', 401);
+    // 1. Extraer el NIT (businessId) del body o los headers
+    const nit = req.body.businessId || req.headers['x-business-id'] || req.query.businessId;
+
+    if (!nit) {
+      throw createError('Se requiere el NIT del emisor (businessId) para procesar la solicitud', 401);
     }
 
-    const [bearer, token] = authHeader.split(' ');
-    
-    if (bearer !== 'Bearer' || !token) {
-      throw createError('Invalid authorization format', 401);
-    }
-
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any;
-    
+    // 2. Establecer el usuario en el request basado en el NIT
     req.user = {
-      id: decoded.id,
-      nit: decoded.nit,
-      email: decoded.email
+      id: nit as string, // Usamos el NIT como ID
+      nit: nit as string
     };
 
-    logger.debug('User authenticated', { userId: req.user.id });
+    logger.debug('Solicitud autenticada por NIT', { nit: req.user.nit });
     next();
   } catch (error) {
-    if (error instanceof jwt.JsonWebTokenError) {
-      next(createError('Invalid token', 401));
-    } else {
-      next(error);
-    }
+    next(error);
   }
 };
 
