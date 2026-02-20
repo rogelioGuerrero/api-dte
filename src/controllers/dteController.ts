@@ -15,7 +15,7 @@ const logger = createLogger('dteController');
 // Request interface para /api/dte/process
 interface ProcessDTERequest {
   dte: any;                    // DTE JSON completo
-  passwordPri: string;         // Password para firma
+  passwordPri?: string;        // Password para firma (ahora opcional, se busca en Supabase)
   ambiente: '00' | '01';       // Pruebas/Producción
   flowType: 'emission' | 'reception';
   businessId: string;          // UUID del negocio
@@ -116,8 +116,8 @@ router.post('/process', async (req: AuthRequest, res: Response, next: NextFuncti
     const request: ProcessDTERequest = req.body;
     
     // Validar campos requeridos
-    if (!request.dte || !request.passwordPri || !request.businessId) {
-      throw createError('Faltan campos requeridos: dte, passwordPri, businessId', 400);
+    if (!request.dte || !request.businessId) {
+      throw createError('Faltan campos requeridos: dte, businessId', 400);
     }
 
     // Extraer código de generación del DTE
@@ -135,7 +135,7 @@ router.post('/process', async (req: AuthRequest, res: Response, next: NextFuncti
     // Crear estado inicial para LangGraph
     const initialState: Partial<DTEState> = {
       dte: request.dte,
-      passwordPri: request.passwordPri,
+      passwordPri: request.passwordPri, // Puede ser null, lo sacará de Supabase
       ambiente: request.ambiente || '00',
       flowType: request.flowType || 'emission',
       businessId: request.businessId,

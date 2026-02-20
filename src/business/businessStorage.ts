@@ -27,6 +27,7 @@ export interface MHCredentials {
   nit: string;
   nrc: string;
   api_token?: string;
+  password_pri?: string;
   ambiente: '00' | '01';
   activo: boolean;
   created_at?: string;

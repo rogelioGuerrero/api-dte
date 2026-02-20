@@ -80,16 +80,6 @@ const signNode = async (state: DTEState): Promise<Partial<DTEState>> => {
       progressPercentage: 25
     };
   }
-  
-  if (!state.passwordPri) {
-    return { 
-      status: 'failed', 
-      errorCode: 'SIGN_ERROR_NO_PASSWORD',
-      errorMessage: 'No se proporcionó contraseña de firma',
-      canRetry: true,
-      progressPercentage: 25
-    };
-  }
 
   try {
     // Asegurar que el servicio de firma esté despierto
@@ -99,7 +89,7 @@ const signNode = async (state: DTEState): Promise<Partial<DTEState>> => {
     const dteLimpio = limpiarDteParaFirma(processed.dte as unknown as Record<string, unknown>);
     const nitEmisor = (state.dte.emisor?.nit || '').toString().replace(/[\s-]/g, '').trim();
 
-    // Obtener las credenciales del negocio para sacar el token de la API de firma
+    // Obtener las credenciales del negocio para sacar el token y la contraseña de firma
     const credentials = await getMHCredentials(state.businessId!, state.ambiente || '00');
     
     if (!credentials) {
@@ -113,10 +103,24 @@ const signNode = async (state: DTEState): Promise<Partial<DTEState>> => {
       };
     }
 
+    // Usar la contraseña del request (si viene, para retrocompatibilidad/pruebas) o la guardada en Supabase
+    const finalPasswordPri = state.passwordPri || credentials.password_pri;
+
+    if (!finalPasswordPri) {
+      console.error(`❌ No hay contraseña configurada en Supabase para el NIT: ${state.businessId!}`);
+      return { 
+        status: 'failed', 
+        errorCode: 'SIGN_ERROR_NO_PASSWORD',
+        errorMessage: 'La contraseña del certificado no está configurada en la base de datos para este NIT',
+        canRetry: false,
+        progressPercentage: 25
+      };
+    }
+
     // Ejecutar firma real
     const jwsFirmado = await firmarDocumento({
       nit: nitEmisor,
-      passwordPri: state.passwordPri,
+      passwordPri: finalPasswordPri,
       dteJson: dteLimpio,
       apiToken: credentials.api_token // Pasamos el token del negocio
     });
