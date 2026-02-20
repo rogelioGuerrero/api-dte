@@ -370,7 +370,16 @@ const channels: any = {
     rawInput: { reducer: (x: any, y: any) => y ?? x },
     passwordPri: { reducer: (x: any, y: any) => y ?? x },
     ambiente: { reducer: (x: any, y: any) => y ?? x },
-    flowType: { reducer: (x: any, y: any) => y ?? x }
+    flowType: { reducer: (x: any, y: any) => y ?? x },
+    errorCode: { reducer: (x: any, y: any) => y ?? x },
+    errorMessage: { reducer: (x: any, y: any) => y ?? x },
+    canRetry: { reducer: (x: any, y: any) => y ?? x },
+    progressPercentage: { reducer: (x: any, y: any) => y ?? x },
+    currentStep: { reducer: (x: any, y: any) => y ?? x },
+    estimatedTime: { reducer: (x: any, y: any) => y ?? x },
+    businessId: { reducer: (x: any, y: any) => y ?? x },
+    deviceId: { reducer: (x: any, y: any) => y ?? x },
+    codigoGeneracion: { reducer: (x: any, y: any) => y ?? x }
 };
 
 const workflow = new StateGraph<DTEState>({ channels })

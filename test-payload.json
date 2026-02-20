@@ -1,0 +1,126 @@
+{
+  "dte": {
+    "identificacion": {
+      "version": 1,
+      "ambiente": "00",
+      "tipoDte": "01",
+      "numeroControl": "DTE-01-M001P001-000000000033202",
+      "codigoGeneracion": "3AC05500-949A-46A4-A700-7864B4454A44",
+      "tipoModelo": 1,
+      "tipoOperacion": 1,
+      "tipoContingencia": null,
+      "motivoContin": null,
+      "fecEmi": "2026-02-20",
+      "horEmi": "17:12:13",
+      "tipoMoneda": "USD"
+    },
+    "documentoRelacionado": null,
+    "emisor": {
+      "nit": "1401-280576-102-5",
+      "nrc": "157126-6",
+      "nombre": "dsdkSDÑSLKSDÑ",
+      "codActividad": "96092",
+      "descActividad": "Servicios n.c.p.",
+      "nombreComercial": null,
+      "tipoEstablecimiento": "01",
+      "codEstable": null,
+      "codPuntoVenta": null,
+      "direccion": {
+        "departamento": "06",
+        "municipio": "15",
+        "complemento": "adfdfadfsa"
+      },
+      "telefono": "7929-3710",
+      "correo": "cirrk@coand.com",
+      "codEstableMH": null,
+      "codPuntoVentaMH": null
+    },
+    "receptor": {
+      "tipoDocumento": null,
+      "numDocumento": null,
+      "nrc": null,
+      "nombre": "Consumidor Final",
+      "codActividad": null,
+      "descActividad": null,
+      "direccion": null,
+      "telefono": null,
+      "correo": ""
+    },
+    "otrosDocumentos": null,
+    "ventaTercero": null,
+    "cuerpoDocumento": [
+      {
+        "numItem": 1,
+        "tipoItem": 2,
+        "cantidad": 1,
+        "codigo": null,
+        "uniMedida": 99,
+        "descripcion": "ad",
+        "precioUni": 2.07079646,
+        "montoDescu": 0,
+        "ventaNoSuj": 0,
+        "ventaExenta": 0,
+        "ventaGravada": 2.07079646,
+        "tributos": [
+          "20"
+        ],
+        "numeroDocumento": null,
+        "codTributo": null,
+        "psv": 0,
+        "noGravado": 0,
+        "ivaItem": 0.27
+      }
+    ],
+    "resumen": {
+      "totalNoSuj": 0,
+      "totalExenta": 0,
+      "totalGravada": 2.07,
+      "subTotalVentas": 2.07,
+      "descuNoSuj": 0,
+      "descuExenta": 0,
+      "descuGravada": 0,
+      "porcentajeDescuento": 0,
+      "totalDescu": 0,
+      "totalIva": 0.27,
+      "tributos": [
+        {
+          "codigo": "20",
+          "descripcion": "Impuesto al Valor Agregado 13%",
+          "valor": 0.27
+        }
+      ],
+      "subTotal": 2.07,
+      "ivaRete1": 0,
+      "reteRenta": 0,
+      "montoTotalOperacion": 2.34,
+      "totalNoGravado": 0,
+      "totalPagar": 2.34,
+      "totalLetras": "DOS DÓLARES CON 34/100 USD",
+      "saldoFavor": 0,
+      "condicionOperacion": 1,
+      "pagos": [
+        {
+          "codigo": "01",
+          "montoPago": 2.34,
+          "referencia": null,
+          "plazo": null,
+          "periodo": null
+        }
+      ],
+      "numPagoElectronico": null
+    },
+    "extension": {
+      "nombEntrega": null,
+      "docuEntrega": null,
+      "nombRecibe": null,
+      "docuRecibe": null,
+      "observaciones": null,
+      "placaVehiculo": null
+    },
+    "apendice": null
+  },
+  "passwordPri": "clave123",
+  "ambiente": "00",
+  "flowType": "emission",
+  "businessId": "1401-280576-102-5"
+}
