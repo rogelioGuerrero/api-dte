@@ -5,7 +5,11 @@ import { createLogger } from '../utils/logger';
 
 const logger = createLogger('auth');
 
-export interface AuthRequest extends Request {
+export interface AuthRequest extends Omit<Request, 'headers' | 'params' | 'query' | 'body'> {
+  headers: Request['headers'];
+  params: Request['params'];
+  query: Request['query'];
+  body: Request['body'];
   user?: {
     id: string;
     nit: string;
