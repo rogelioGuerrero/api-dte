@@ -7,5 +7,6 @@ export default defineConfig({
   clean: true,
   outDir: 'dist',
   sourcemap: true,
-  noExternal: [/@langchain/, /ansi-styles/]
+  noExternal: [/@langchain/, /ansi-styles/],
+  external: ['uuid']
 });
