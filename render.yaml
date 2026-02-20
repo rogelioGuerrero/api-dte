@@ -1,0 +1,22 @@
+services:
+  # Web Service
+  - type: web
+    name: dte-backend
+    env: node
+    plan: free
+    buildCommand: "npm install && npm run build"
+    startCommand: "npm start"
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3001
+    healthCheckPath: /health
+    
+  # Background Worker (opcional, para procesamiento batch)
+  # - type: worker
+  #   name: dte-worker
+  #   env: node
+  #   plan: free
+  #   buildCommand: "npm install && npm run build"
+  #   startCommand: "node dist/worker.js"
