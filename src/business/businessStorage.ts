@@ -181,6 +181,28 @@ export const getMHCredentials = async (businessId: string, ambiente: '00' | '01'
   }
 };
 
+export const getMHCredentialsByNIT = async (nit: string, ambiente: '00' | '01'): Promise<MHCredentials | null> => {
+  try {
+    const { data, error } = await supabase
+      .from('mh_credentials')
+      .select('*')
+      .eq('nit', nit)
+      .eq('ambiente', ambiente)
+      .eq('activo', true)
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') return null;
+      throw error;
+    }
+
+    return data as MHCredentials;
+  } catch (error: any) {
+    logger.error('Error fetching MH credentials by NIT', { nit, ambiente, error: error.message });
+    throw error;
+  }
+};
+
 export const updateMHCredentialsStatus = async (businessId: string, ambiente: '00' | '01', activo: boolean): Promise<void> => {
   try {
     const { error } = await supabase

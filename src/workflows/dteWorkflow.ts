@@ -3,7 +3,7 @@ import { DTEState } from "./state";
 import { convertirAContingencia } from "../dte/generator";
 import { updateTaxAccumulator, createEmptyAccumulator, getPeriodFromDate } from "../tax/taxCalculator";
 import { getAccumulator, saveAccumulator } from '../tax/taxStorage';
-import { getMHCredentials } from '../business/businessStorage';
+import { getMHCredentialsByNIT, getMHCredentials } from '../business/businessStorage';
 import { saveDTEDocument } from "../dte/dteStorage";
 import { firmarDocumento, limpiarDteParaFirma, wakeFirmaService } from "../integrations/firmaClient";
 import { processDTE } from "../mh/process";
@@ -90,14 +90,16 @@ const signNode = async (state: DTEState): Promise<Partial<DTEState>> => {
     const nitEmisor = (state.dte.emisor?.nit || '').toString().replace(/[\s-]/g, '').trim();
 
     // Obtener las credenciales del negocio para sacar el token y la contraseña de firma
-    const credentials = await getMHCredentials(state.businessId!, state.ambiente || '00');
+    // Buscamos por NIT y lo limpiamos de guiones para ser más robustos
+    const nitLimpioBusqueda = (state.businessId || nitEmisor).replace(/[\s-]/g, '').trim();
+    const credentials = await getMHCredentialsByNIT(nitLimpioBusqueda, state.ambiente || '00');
     
     if (!credentials) {
-      console.error(`❌ No hay credenciales en Supabase para el NIT: ${state.businessId!}`);
+      console.error(`❌ No hay credenciales en Supabase para el NIT: ${nitLimpioBusqueda}`);
       return {
         status: 'failed',
         errorCode: 'SIGN_ERROR_NO_CREDENTIALS',
-        errorMessage: `El NIT ${state.businessId!} no está registrado o no tiene credenciales activas en Supabase para el ambiente ${state.ambiente || '00'}`,
+        errorMessage: `El NIT ${nitLimpioBusqueda} no está registrado o no tiene credenciales activas en Supabase para el ambiente ${state.ambiente || '00'}`,
         canRetry: false,
         progressPercentage: 25
       };
