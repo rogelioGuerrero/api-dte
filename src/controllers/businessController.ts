@@ -22,7 +22,13 @@ router.post('/credentials', async (req: AuthRequest, res: Response, next: NextFu
 
     const nitLimpio = targetNit.replace(/[\s-]/g, '').trim();
 
-    logger.info('Guardando credenciales MH', { nit: nitLimpio, ambiente, hasCert: !!certificadoB64 });
+    logger.info('Guardando credenciales MH', { 
+      nit: nitLimpio, 
+      ambiente, 
+      hasCert: !!certificadoB64,
+      certLength: certificadoB64 ? certificadoB64.length : 0,
+      certStart: certificadoB64 ? certificadoB64.substring(0, 50) : null
+    });
 
     const saved = await saveMHCredentials({
       business_id: nitLimpio, // Mantenemos relación (usando NIT como ID si no hay UUID)
