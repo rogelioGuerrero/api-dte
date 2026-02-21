@@ -1,6 +1,8 @@
 import { DTEState } from "../state";
-import { saveDTEDocument } from "../../dte/dteStorage";
 import { transmitirDTESandbox } from "../../mh/sandboxClient";
+import { createLogger } from '../../utils/logger';
+
+const logger = createLogger('transmitNode');
 
 export const transmitNode = async (state: DTEState): Promise<Partial<DTEState>> => {
   console.log("📡 Transmisor: Enviando a Ministerio de Hacienda...");
@@ -24,24 +26,8 @@ export const transmitNode = async (state: DTEState): Promise<Partial<DTEState>> 
     if (result.success) {
       console.log("✅ MH: Recibido exitosamente.", result.selloRecepcion);
       
-      // Guardar documento procesado
-      if (state.businessId && state.codigoGeneracion) {
-        await saveDTEDocument({
-          codigo_generacion: state.codigoGeneracion,
-          tipo_dte: state.dte!.identificacion.tipoDte,
-          numero_control: state.dte!.identificacion.numeroControl,
-          estado: 'processed',
-          dte_json: state.dte!,
-          firma_jws: state.signature,
-          mh_response: result,
-          business_id: state.businessId,
-          issuer_nit: state.dte!.emisor.nit,
-          clase_documento: 'emitido',
-          sello_recibido: result.selloRecepcion,
-          fh_procesamiento: result.fechaHoraRecepcion
-        });
-      }
-
+      // El guardado y correo lo maneja emailNode
+      
       return {
         isTransmitted: true,
         mhResponse: result,

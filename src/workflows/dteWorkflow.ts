@@ -5,6 +5,7 @@ import { DTEState } from "./state";
 import { validateNode } from "./nodes/validateNode";
 import { signNode } from "./nodes/signNode";
 import { transmitNode } from "./nodes/transmitNode";
+import { emailNode } from "./nodes/emailNode";
 import { contingencyNode } from "./nodes/contingencyNode";
 import { receptionNode } from "./nodes/receptionNode";
 import { taxNode } from "./nodes/taxNode";
@@ -43,6 +44,7 @@ const workflow = new StateGraph<DTEState>({ channels })
   .addNode("validator", validateNode)
   .addNode("signer", signNode)
   .addNode("transmitter", transmitNode)
+  .addNode("email_sender", emailNode)
   .addNode("contingency", contingencyNode)
   .addNode("reception_processor", receptionNode)
   .addNode("tax_keeper", taxNode)
@@ -60,11 +62,12 @@ const workflow = new StateGraph<DTEState>({ channels })
     return "transmitter";
   })
   .addConditionalEdges("transmitter", (state: any) => {
-      if (state.status === 'completed') return "tax_keeper";
+      if (state.status === 'completed') return "email_sender";
       if (state.status === 'contingency') return "contingency";
       if (state.status === 'transmitting') return "transmitter"; 
       return END;
   })
+  .addEdge("email_sender", "tax_keeper")
   .addEdge("contingency", "tax_keeper")
   
   // Flujo Recepción
