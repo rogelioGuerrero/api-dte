@@ -10,6 +10,9 @@ import dteController from './controllers/dteController';
 import taxController from './controllers/taxController';
 import batchController from './controllers/batchController';
 import businessController from './controllers/businessController';
+import pushController from './controllers/pushController';
+import adminController from './controllers/adminController';
+import licensingController from './controllers/licensingController';
 
 // Cargar variables de entorno
 dotenv.config();
@@ -38,6 +41,9 @@ app.use('/api/business', authMiddleware, businessController);
 app.use('/api/dte', authMiddleware, dteController);
 app.use('/api/tax', authMiddleware, taxController);
 app.use('/api/batch', authMiddleware, batchController);
+app.use('/api/push', authMiddleware, pushController);
+app.use('/api/admin', authMiddleware, adminController);
+app.use('/api/licensing', licensingController);
 
 // Error handling
 app.use(errorHandler);

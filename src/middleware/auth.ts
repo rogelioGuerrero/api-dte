@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { createError } from './errorHandler';
 import { createLogger } from '../utils/logger';
+import { supabase } from '../database/supabase';
 
 const logger = createLogger('auth');
 
@@ -13,6 +14,7 @@ export interface AuthRequest extends Omit<Request, 'headers' | 'params' | 'query
     id: string; // Opcional o usar el mismo NIT
     nit: string;
     email?: string;
+    role?: 'owner' | 'admin' | 'operator';
   };
 }
 
@@ -29,13 +31,25 @@ export const authMiddleware = async (
       throw createError('Se requiere el NIT del emisor (businessId o nit) para procesar la solicitud', 401);
     }
 
-    // 2. Establecer el usuario en el request basado en el NIT
+    // 2. Buscar información del usuario en business_users
+    const { data: userData, error: userError } = await supabase
+      .from('business_users')
+      .select('id, role')
+      .eq('business_id', nit)
+      .single();
+
+    if (userError && userError.code !== 'PGRST116') {
+      throw createError('Error verificando usuario', 500);
+    }
+
+    // 3. Establecer el usuario en el request
     req.user = {
-      id: nit as string, // Usamos el NIT como ID
-      nit: nit as string
+      id: userData?.id || nit as string, // Usar ID de business_users o NIT como fallback
+      nit: nit as string,
+      role: userData?.role || 'operator' // Default a operator si no se encuentra
     };
 
-    logger.debug('Solicitud autenticada por NIT', { nit: req.user.nit });
+    logger.debug('Solicitud autenticada', { nit: req.user.nit, role: req.user.role });
     next();
   } catch (error) {
     next(error);
