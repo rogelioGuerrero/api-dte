@@ -23,12 +23,6 @@ export const firmarDocumento = async (request: FirmaRequest): Promise<string> =>
   try {
     logger.info('Enviando solicitud de firma', { nit: request.nit });
     
-    // MOCK TEMPORAL - Reemplazar cuando el servicio real esté activo
-    if (FIRMA_SERVICE_URL.includes('api-firma.onrender.com')) {
-      logger.warn('Usando mock de firma - servicio api-firma no disponible');
-      return `JWS_MOCK_${Date.now()}_${request.nit}`;
-    }
-    
     // Headers base
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
