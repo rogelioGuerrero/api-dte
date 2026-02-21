@@ -13,6 +13,7 @@ import businessController from './controllers/businessController';
 import pushController from './controllers/pushController';
 import adminController from './controllers/adminController';
 import licensingController from './controllers/licensingController';
+import testController from './controllers/testController';
 
 // Cargar variables de entorno
 dotenv.config();
@@ -44,6 +45,7 @@ app.use('/api/batch', authMiddleware, batchController);
 app.use('/api/push', authMiddleware, pushController);
 app.use('/api/admin', authMiddleware, adminController);
 app.use('/api/licensing', licensingController);
+app.use('/api/test', authMiddleware, testController);
 
 // Error handling
 app.use(errorHandler);
