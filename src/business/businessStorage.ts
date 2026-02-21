@@ -28,6 +28,7 @@ export interface MHCredentials {
   nrc: string;
   api_token?: string;
   password_pri?: string;
+  certificado_b64?: string;
   ambiente: '00' | '01';
   activo: boolean;
   created_at?: string;

@@ -66,10 +66,22 @@ export const signNode = async (state: DTEState): Promise<Partial<DTEState>> => {
       };
     }
 
+    if (!credentials.certificado_b64) {
+      console.error(`❌ No hay certificado (Base64) configurado en Supabase para el NIT: ${nitLimpioBusqueda}`);
+      return { 
+        status: 'failed', 
+        errorCode: 'SIGN_ERROR_NO_CERTIFICATE',
+        errorMessage: 'El certificado digital (.p12/.pfx) no está configurado en la base de datos para este NIT',
+        canRetry: false,
+        progressPercentage: 25
+      };
+    }
+
     // Ejecutar firma real
     const jwsFirmado = await firmarDocumento({
       nit: nitEmisor,
       passwordPri: finalPasswordPri,
+      certificadoB64: credentials.certificado_b64,
       dteJson: dteLimpio,
       apiToken: credentials.api_token // Pasamos el token del negocio
     });

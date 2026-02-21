@@ -3,11 +3,12 @@ import { createLogger } from '../utils/logger';
 
 const logger = createLogger('firmaClient');
 
-const FIRMA_SERVICE_URL = process.env.FIRMA_SERVICE_URL || 'https://api-firma.onrender.com/firma';
+const FIRMA_SERVICE_URL = process.env.FIRMA_SERVICE_URL || 'https://api-firma.onrender.com/firmardocumento/';
 
 export interface FirmaRequest {
   nit: string;
   passwordPri: string;
+  certificadoB64: string; // Certificado en formato Base64
   dteJson: Record<string, unknown>;
   apiToken?: string; // Token de autenticación para el servicio de firma
 }

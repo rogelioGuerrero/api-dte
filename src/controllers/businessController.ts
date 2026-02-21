@@ -11,7 +11,7 @@ const logger = createLogger('businessController');
 // Guarda o actualiza la contraseña del certificado y configuración en Supabase
 router.post('/credentials', async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const { nit, nrc, ambiente = '00', passwordPri, apiToken, activo = true } = req.body;
+    const { nit, nrc, ambiente = '00', passwordPri, certificadoB64, apiToken, activo = true } = req.body;
 
     // Usamos el NIT validado por el middleware (o el enviado en el body)
     const targetNit = nit || req.user?.nit;
@@ -22,7 +22,7 @@ router.post('/credentials', async (req: AuthRequest, res: Response, next: NextFu
 
     const nitLimpio = targetNit.replace(/[\s-]/g, '').trim();
 
-    logger.info('Guardando credenciales MH', { nit: nitLimpio, ambiente });
+    logger.info('Guardando credenciales MH', { nit: nitLimpio, ambiente, hasCert: !!certificadoB64 });
 
     const saved = await saveMHCredentials({
       business_id: nitLimpio, // Mantenemos relación (usando NIT como ID si no hay UUID)
@@ -30,6 +30,7 @@ router.post('/credentials', async (req: AuthRequest, res: Response, next: NextFu
       nrc: nrc || '',
       ambiente,
       password_pri: passwordPri,
+      certificado_b64: certificadoB64,
       api_token: apiToken,
       activo
     });
@@ -41,7 +42,8 @@ router.post('/credentials', async (req: AuthRequest, res: Response, next: NextFu
         nit: saved.nit,
         ambiente: saved.ambiente,
         activo: saved.activo,
-        hasPassword: !!saved.password_pri
+        hasPassword: !!saved.password_pri,
+        hasCert: !!saved.certificado_b64
       }
     });
   } catch (error) {
