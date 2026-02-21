@@ -2,7 +2,7 @@ import { Router, Response, NextFunction } from 'express';
 import { createLogger } from '../utils/logger';
 import { createError } from '../middleware/errorHandler';
 import { AuthRequest } from '../middleware/auth';
-import { saveMHCredentials } from '../business/businessStorage';
+import { saveMHCredentials, getBusinessByNIT } from '../business/businessStorage';
 
 const router = Router();
 const logger = createLogger('businessController');
@@ -22,6 +22,12 @@ router.post('/credentials', async (req: AuthRequest, res: Response, next: NextFu
 
     const nitLimpio = targetNit.replace(/[\s-]/g, '').trim();
 
+    // Obtener el business_id real desde la tabla businesses
+    const business = await getBusinessByNIT(nitLimpio);
+    if (!business) {
+      throw createError('Business no encontrado para el NIT proporcionado', 404);
+    }
+
     logger.info('Guardando credenciales MH', { 
       nit: nitLimpio, 
       ambiente, 
@@ -31,7 +37,7 @@ router.post('/credentials', async (req: AuthRequest, res: Response, next: NextFu
     });
 
     const saved = await saveMHCredentials({
-      business_id: nitLimpio, // Mantenemos relación (usando NIT como ID si no hay UUID)
+      business_id: business.id, // Usar el UUID real del business
       nit: nitLimpio,
       nrc: nrc || '',
       ambiente,
