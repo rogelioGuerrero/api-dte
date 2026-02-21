@@ -18,7 +18,8 @@ interface ProcessDTERequest {
   passwordPri?: string;        // Password para firma (ahora opcional, se busca en Supabase)
   ambiente: '00' | '01';       // Pruebas/Producción
   flowType: 'emission' | 'reception';
-  businessId: string;          // UUID del negocio
+  businessId?: string;         // UUID del negocio (legacy)
+  nit?: string;                // NIT del emisor (nuevo estándar)
   deviceId?: string;           // Fingerprint opcional
 }
 
@@ -116,9 +117,11 @@ router.post('/process', async (req: AuthRequest, res: Response, next: NextFuncti
     const request: ProcessDTERequest = req.body;
     
     // Validar campos requeridos
-    if (!request.dte || !request.businessId) {
-      throw createError('Faltan campos requeridos: dte, businessId', 400);
+    if (!request.dte || (!request.businessId && !request.nit)) {
+      throw createError('Faltan campos requeridos: dte, businessId o nit', 400);
     }
+
+    const targetNit = request.nit || request.businessId;
 
     // Extraer código de generación del DTE
     const codigoGeneracion = request.dte.identificacion?.codigoGeneracion;
@@ -128,7 +131,7 @@ router.post('/process', async (req: AuthRequest, res: Response, next: NextFuncti
 
     logger.info('Iniciando procesamiento DTE', { 
       codigoGeneracion, 
-      businessId: request.businessId,
+      businessId: targetNit,
       flowType: request.flowType 
     });
 
@@ -138,7 +141,7 @@ router.post('/process', async (req: AuthRequest, res: Response, next: NextFuncti
       passwordPri: request.passwordPri, // Puede ser null, lo sacará de Supabase
       ambiente: request.ambiente || '00',
       flowType: request.flowType || 'emission',
-      businessId: request.businessId,
+      businessId: targetNit,
       deviceId: request.deviceId,
       codigoGeneracion,
       status: 'validating',
