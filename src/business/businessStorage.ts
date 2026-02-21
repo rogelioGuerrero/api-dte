@@ -146,7 +146,7 @@ export const saveMHCredentials = async (credentials: Omit<MHCredentials, 'id' | 
   try {
     const { data, error } = await supabase
       .from('mh_credentials')
-      .upsert(credentials, { onConflict: 'nit,ambiente' })
+      .upsert(credentials, { onConflict: 'business_id,ambiente' })
       .select()
       .single();
 
