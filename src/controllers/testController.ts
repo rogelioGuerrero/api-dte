@@ -5,7 +5,7 @@ import { sendEmail } from '../services/emailService';
 const router = Router();
 const logger = createLogger('testController');
 
-// POST /api/test/email - Solo para desarrollo/testing
+// POST /api/test/email - Solo para desarrollo/testing (sin auth)
 router.post('/email', async (req: Request, res: Response) => {
   try {
     const { to, subject, html } = req.body;
