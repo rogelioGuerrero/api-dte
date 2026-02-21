@@ -39,6 +39,7 @@ export const authMiddleware = async (
       .single();
 
     if (userError && userError.code !== 'PGRST116') {
+      logger.error('Error detallado de Supabase al verificar usuario:', { userError });
       throw createError('Error verificando usuario', 500);
     }
 
