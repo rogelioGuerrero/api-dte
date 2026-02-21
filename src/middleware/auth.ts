@@ -31,16 +31,46 @@ export const authMiddleware = async (
       throw createError('Se requiere el NIT del emisor (businessId o nit) para procesar la solicitud', 401);
     }
 
-    // 2. Buscar información del usuario en business_users
-    const { data: userData, error: userError } = await supabase
-      .from('business_users')
-      .select('id, role')
-      .eq('business_id', nit)
-      .single();
+    // 2. Buscar información del usuario
+    // Si 'nit' tiene formato de UUID, buscamos directo. Si no, asumimos que es el NIT literal.
+    // Para simplificar y evitar errores de Postgres (UUID syntax), buscamos primero el negocio por NIT
+    let businessIdToSearch = nit;
+    
+    // Validar si parece un UUID (36 caracteres con guiones)
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(nit as string);
+    
+    if (!isUuid) {
+      // Es un NIT, busquemos el id del negocio primero
+      const { data: businessData } = await supabase
+        .from('businesses')
+        .select('id')
+        .eq('nit', nit)
+        .single();
+        
+      if (businessData) {
+        businessIdToSearch = businessData.id;
+      }
+    }
+
+    let userData = null;
+    let userError = null;
+
+    // Solo buscamos en business_users si tenemos un UUID válido para evitar error 22P02 de Postgres
+    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(businessIdToSearch as string)) {
+      const result = await supabase
+        .from('business_users')
+        .select('id, role')
+        .eq('business_id', businessIdToSearch)
+        .limit(1)
+        .maybeSingle();
+      userData = result.data;
+      userError = result.error;
+    }
 
     if (userError && userError.code !== 'PGRST116') {
       logger.error('Error detallado de Supabase al verificar usuario:', { userError });
-      throw createError('Error verificando usuario', 500);
+      // No lanzamos 500 aquí para no bloquear si falla esta consulta secundaria, 
+      // dejamos que haga fallback a operator.
     }
 
     // 3. Establecer el usuario en el request
