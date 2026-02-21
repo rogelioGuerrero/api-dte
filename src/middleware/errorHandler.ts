@@ -9,16 +9,15 @@ export interface AppError extends Error {
 }
 
 export const errorHandler = (
-  err: AppError,
+  err: any,
   req: Request,
   res: Response,
   next: NextFunction
 ) => {
-  const statusCode = err.statusCode || 500;
+  const statusCode = err.statusCode || err.status || 500;
   const message = err.message || 'Internal Server Error';
 
-  logger.error({
-    error: err.message,
+  logger.error(message, {
     stack: err.stack,
     url: req.url,
     method: req.method,
