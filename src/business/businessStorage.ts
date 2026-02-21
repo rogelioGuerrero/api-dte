@@ -145,13 +145,13 @@ export const saveMHCredentials = async (credentials: Omit<MHCredentials, 'id' | 
   try {
     const { data, error } = await supabase
       .from('mh_credentials')
-      .upsert(credentials, { onConflict: 'business_id,ambiente' })
+      .upsert(credentials, { onConflict: 'nit,ambiente' })
       .select()
       .single();
 
     if (error) throw error;
 
-    logger.info('MH credentials saved successfully', { businessId: credentials.business_id, ambiente: credentials.ambiente });
+    logger.info('MH credentials saved successfully', { nit: credentials.nit, ambiente: credentials.ambiente });
     return data as MHCredentials;
   } catch (error: any) {
     logger.error('Error saving MH credentials', { error: error.message });

@@ -9,6 +9,7 @@ import { authMiddleware } from './middleware/auth';
 import dteController from './controllers/dteController';
 import taxController from './controllers/taxController';
 import batchController from './controllers/batchController';
+import businessController from './controllers/businessController';
 
 // Cargar variables de entorno
 dotenv.config();
@@ -33,6 +34,7 @@ app.get('/health', (req, res) => {
 });
 
 // API Routes
+app.use('/api/business', authMiddleware, businessController);
 app.use('/api/dte', authMiddleware, dteController);
 app.use('/api/tax', authMiddleware, taxController);
 app.use('/api/batch', authMiddleware, batchController);
