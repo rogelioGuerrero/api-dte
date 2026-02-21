@@ -45,7 +45,7 @@ app.use('/api/batch', authMiddleware, batchController);
 app.use('/api/push', authMiddleware, pushController);
 app.use('/api/admin', authMiddleware, adminController);
 app.use('/api/licensing', licensingController);
-app.use('/api/test', authMiddleware, testController);
+app.use('/api/test', testController); // Sin auth para testing
 
 // Error handling
 app.use(errorHandler);
