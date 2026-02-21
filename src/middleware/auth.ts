@@ -22,11 +22,11 @@ export const authMiddleware = async (
   next: NextFunction
 ) => {
   try {
-    // 1. Extraer el NIT (businessId) del body o los headers
-    const nit = req.body.businessId || req.headers['x-business-id'] || req.query.businessId;
+    // 1. Extraer el NIT (businessId o nit) del body o los headers
+    const nit = req.body.businessId || req.body.nit || req.headers['x-business-id'] || req.query.businessId;
 
     if (!nit) {
-      throw createError('Se requiere el NIT del emisor (businessId) para procesar la solicitud', 401);
+      throw createError('Se requiere el NIT del emisor (businessId o nit) para procesar la solicitud', 401);
     }
 
     // 2. Establecer el usuario en el request basado en el NIT
