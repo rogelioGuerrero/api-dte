@@ -85,6 +85,26 @@ export const transmitirDTESandbox = async (
   const MAX_RETRIES = 3;
   const TIMEOUT_MS = 8000;
 
+  const payload = {
+    ambiente,
+    idEnvio,
+    version,
+    tipoDte,
+    documento: jws
+  };
+
+  console.log('📤 Enviando a MH:', {
+    url: baseUrl,
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': apiToken.substring(0, 50) + '...'
+    },
+    payload: {
+      ...payload,
+      documento: jws.substring(0, 100) + '...'
+    }
+  });
+
   let lastError: any;
 
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
@@ -111,6 +131,8 @@ export const transmitirDTESandbox = async (
       clearTimeout(timeoutId);
 
       const data = (await res.json().catch(() => ({}))) as TransmitirResponse;
+      
+      console.log(`🔍 Respuesta MH (${res.status}):`, JSON.stringify(data, null, 2));
 
       const estadoRaw = (data.estado || '').toUpperCase();
       const estado = (estadoRaw as TransmisionResult['estado']) || 'RECHAZADO';
