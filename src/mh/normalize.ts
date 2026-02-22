@@ -43,9 +43,9 @@ export const normalizeDTE = (dte: DTEJSON): DTEJSON => {
       correo: dte.emisor?.correo ? dte.emisor.correo.trim() : '',
       direccion: {
         departamento: trimOrNull(dte.emisor?.direccion?.departamento) as any,
-        municipio: trimOrNull(dte.emisor?.direccion?.municipio) as any,
+        municipio: onlyDigits(trimOrNull(dte.emisor?.direccion?.municipio)) as any, // Solo códigos numéricos
         complemento: trimOrNull(dte.emisor?.direccion?.complemento) as any,
-        distrito: trimOrNull(dte.emisor?.direccion?.distrito) as any, // Campo requerido por MH
+        distrito: onlyDigits(trimOrNull(dte.emisor?.direccion?.distrito)) as any, // Solo códigos numéricos
       },
     },
     receptor: {
@@ -61,9 +61,9 @@ export const normalizeDTE = (dte: DTEJSON): DTEJSON => {
       direccion: dte.receptor?.direccion
         ? {
             departamento: trimOrNull(dte.receptor.direccion.departamento) as any,
-            municipio: trimOrNull(dte.receptor.direccion.municipio) as any,
+            municipio: onlyDigits(trimOrNull(dte.receptor.direccion.municipio)) as any, // Solo códigos numéricos
             complemento: trimOrNull(dte.receptor.direccion.complemento) as any,
-            distrito: trimOrNull(dte.receptor.direccion.distrito) as any, // Campo requerido por MH
+            distrito: onlyDigits(trimOrNull(dte.receptor.direccion.distrito)) as any, // Solo códigos numéricos
           }
         : null,
     },
@@ -80,7 +80,12 @@ export const normalizeDTE = (dte: DTEJSON): DTEJSON => {
       tributos:
         i.tributos === null
           ? null
-          : (i.tributos ?? []).map((t) => String(t).trim()).filter(Boolean) as any,
+          : (i.tributos ?? []).map((t) => {
+              const codigo = String(t).trim();
+              // Validar que sea un código del Catálogo 015
+              const codigosValidos = ['20', 'D1', 'C8', 'J1', 'J2', 'J3']; // IVA, FOVIAL, etc.
+              return codigosValidos.includes(codigo) ? codigo : '20'; // Default a IVA si es inválido
+            }).filter(Boolean) as any,
       numeroDocumento: trimOrNull(i.numeroDocumento) as any,
       codTributo: trimOrNull(i.codTributo) as any,
       psv: roundTo(i.psv ?? 0, 2),
@@ -100,7 +105,7 @@ export const normalizeDTE = (dte: DTEJSON): DTEJSON => {
       totalDescu: roundTo(dte.resumen?.totalDescu ?? 0, 2),
       totalIva: roundTo(dte.resumen?.totalIva ?? 0, 2),
       subTotal: roundTo(dte.resumen?.subTotal ?? 0, 2),
-      ivaRete: roundTo(dte.resumen?.ivaRete1 ?? 0, 2), // Corregir nombre de campo
+      ivaRete: roundTo((dte.resumen as any)?.ivaRete1 ?? 0, 2), // Usar ivaRete1 si existe, sino 0
       reteRenta: 0, // Remover campo no permitido
       montoTotalOperacion: roundTo(dte.resumen?.montoTotalOperacion ?? 0, 2),
       totalNoGravado: roundTo(dte.resumen?.totalNoGravado ?? 0, 2),
@@ -111,6 +116,11 @@ export const normalizeDTE = (dte: DTEJSON): DTEJSON => {
           ? null
           : (dte.resumen?.tributos ?? []).map((t) => ({
               ...t,
+              codigo: (() => {
+                const codigo = String(t.codigo).trim();
+                const codigosValidos = ['20', 'D1', 'C8', 'J1', 'J2', 'J3']; // Catálogo 015
+                return codigosValidos.includes(codigo) ? codigo : '20'; // Default a IVA
+              })(),
               valor: roundTo(t.valor, 2),
             })),
       totalLetras: dte.resumen?.totalLetras ? dte.resumen.totalLetras.trim() : '',
