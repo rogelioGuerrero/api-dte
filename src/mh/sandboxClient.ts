@@ -93,6 +93,8 @@ export const transmitirDTESandbox = async (
     documento: jws
   };
 
+  const requestBody = JSON.stringify(payload);
+      
   console.log('📤 Enviando a MH:', {
     url: baseUrl,
     headers: {
@@ -102,9 +104,12 @@ export const transmitirDTESandbox = async (
     payload: {
       ...payload,
       documento: jws.substring(0, 100) + '...'
-    }
+    },
+    bodyLength: requestBody.length
   });
-
+      
+  console.log('🔍 Body completo (primeros 500 chars):', requestBody.substring(0, 500) + '...');
+      
   let lastError: any;
 
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
@@ -118,13 +123,7 @@ export const transmitirDTESandbox = async (
           'Content-Type': 'application/json',
           'Authorization': apiToken,
         },
-        body: JSON.stringify({
-          ambiente,
-          idEnvio,
-          version,
-          tipoDte,
-          documento: jws
-        }),
+        body: requestBody,
         signal: controller.signal,
       });
 
