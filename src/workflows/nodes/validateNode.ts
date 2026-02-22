@@ -19,6 +19,14 @@ export const validateNode = async (state: DTEState): Promise<Partial<DTEState>> 
 
   try {
     const processed = processDTE(dte);
+
+    // Debug puntual para rastrear ivaRete1 en runtime
+    const resumenIn: any = (dte as any)?.resumen;
+    const resumenOut: any = (processed as any)?.dte?.resumen;
+    console.log('DEBUG ivaRete1', {
+      input: resumenIn?.ivaRete1,
+      normalized: resumenOut?.ivaRete1,
+    });
     
     if (processed.errores.length > 0) {
       console.warn("❌ Agente Validador: DTE Rechazado", processed.errores);
