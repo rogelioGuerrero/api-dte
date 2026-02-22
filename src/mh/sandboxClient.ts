@@ -122,6 +122,9 @@ export const transmitirDTESandbox = async (
           const payload = JSON.parse(Buffer.from(jwsParts[1], 'base64').toString());
           console.log('✅ JWS header:', header);
           console.log('✅ JWS payload identificacion:', payload.identificacion?.tipoDte, payload.identificacion?.numeroControl);
+          if (process.env.DEBUG_MH_PAYLOAD === 'true') {
+            console.log('🔍 JWS payload completo (sanitized):', JSON.stringify(payload, null, 2));
+          }
         } catch (e) {
           console.error('❌ Error parseando JWS:', e.message);
         }
