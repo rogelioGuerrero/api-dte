@@ -37,17 +37,6 @@ export const transmitNode = async (state: DTEState): Promise<Partial<DTEState>> 
     // Obtener credenciales para extraer el token
     const credentials = await getMHCredentialsByNIT(nitLimpioBusqueda, ambiente);
     
-    if (!credentials || !credentials.api_token) {
-       console.error(`❌ No hay credenciales o API Token para el NIT: ${nitLimpioBusqueda}`);
-       return {
-         status: 'failed',
-         errorCode: 'TRANSMIT_ERROR_NO_CREDENTIALS',
-         errorMessage: 'No hay credenciales (API Token) configuradas para el negocio.',
-         canRetry: false,
-         progressPercentage: 50
-       };
-    }
-
     // Extraer metadata necesaria para el MH
     const version = state.dte.identificacion?.version || 1;
     const tipoDte = state.dte.identificacion?.tipoDte || '01'; // Default CCF
@@ -57,7 +46,7 @@ export const transmitNode = async (state: DTEState): Promise<Partial<DTEState>> 
     const result = await transmitirDTESandbox(
       state.signature, 
       ambiente, 
-      credentials.api_token, 
+      credentials?.api_token || '', // Pasamos el token si existe, sino string vacío 
       version, 
       tipoDte, 
       idEnvio
