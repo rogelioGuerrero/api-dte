@@ -102,10 +102,7 @@ export const normalizeDTE = (dte: DTEJSON): DTEJSON => {
       ventaNoSuj: roundTo(i.ventaNoSuj, 8),
       ventaExenta: roundTo(i.ventaExenta, 8),
       ventaGravada: roundTo(i.ventaGravada, 8),
-      tributos:
-        i.ventaGravada > 0
-          ? (i.tributos === null ? null : ['20'])
-          : (i.tributos === null ? null : null),
+      tributos: i.ventaGravada > 0 ? ['20'] : null,
       psv: roundTo(i.psv ?? 0, 2),
       noGravado: roundTo(i.noGravado ?? 0, 2),
       ivaItem: roundTo(i.ivaItem ?? 0, 2),
@@ -122,15 +119,12 @@ export const normalizeDTE = (dte: DTEJSON): DTEJSON => {
       totalDescu: roundTo((dte as any).resumen?.totalDescu ?? 0, 2),
       totalIva: roundTo((dte as any).resumen?.totalIva ?? 0, 2),
       tributos:
-        (dte as any).resumen?.tributos === null
-          ? null
-          : ((dte as any).resumen?.tributos ?? []).map((t: any) => ({
-              codigo: codigosValidos015.includes(String(t.codigo).trim()) ? String(t.codigo).trim() : '20',
-              descripcion: String(t.descripcion || '').trim(),
-              valor: roundTo(t.valor ?? 0, 2),
-            })),
+        (dte as any).resumen?.totalIva && (dte as any).resumen?.totalIva > 0
+          ? [{ codigo: '20', descripcion: 'Impuesto al Valor Agregado 13%', valor: roundTo((dte as any).resumen?.totalIva ?? 0, 2) }]
+          : null,
       subTotal: roundTo((dte as any).resumen?.subTotal ?? 0, 2),
-      ivaRete: roundTo(((dte as any).resumen?.ivaRete ?? 0) as number, 2),
+      ivaRete1: roundTo(((dte as any).resumen?.ivaRete1 ?? 0) as number, 2),
+      reteRenta: roundTo(((dte as any).resumen?.reteRenta ?? 0) as number, 2),
       montoTotalOperacion: roundTo((dte as any).resumen?.montoTotalOperacion ?? 0, 2),
       totalNoGravado: roundTo((dte as any).resumen?.totalNoGravado ?? 0, 2),
       totalPagar: roundTo((dte as any).resumen?.totalPagar ?? 0, 2),
