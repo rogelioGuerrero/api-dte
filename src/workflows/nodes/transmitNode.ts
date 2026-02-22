@@ -105,9 +105,32 @@ export const transmitNode = async (state: DTEState): Promise<Partial<DTEState>> 
     } else {
       // Manejo de errores
       console.error("❌ MH Rechazo/Error:", result);
+
+      // Log puntual de IVA normalizado para comparar con MH
+      try {
+        const items = (state.dte?.cuerpoDocumento || []).map((i: any) => ({
+          numItem: i.numItem,
+          ventaGravada: i.ventaGravada,
+          ivaItem: i.ivaItem,
+        }));
+        const resumen = state.dte?.resumen;
+        logger.info('DEBUG IVA NORMALIZADO', { items, resumen: {
+          totalGravada: resumen?.totalGravada,
+          totalIva: resumen?.totalIva,
+          ivaRete1: resumen?.ivaRete1,
+          reteRenta: resumen?.reteRenta,
+          montoTotalOperacion: resumen?.montoTotalOperacion,
+          totalPagar: resumen?.totalPagar,
+        }});
+      } catch (e) {
+        logger.warn('No se pudo loggear IVA normalizado', { error: (e as any)?.message });
+      }
       
+      // Detectar errores de negocio MH (estado RECHAZADO) -> no reintentar
+      const mhRejected = result.estado === 'RECHAZADO' || (result as any).codigoMsg || (result as any).clasificaMsg;
+
       // Detectar problemas de conexión o errores 500 para contingencia
-      const isCommError = result.errores?.some(e => e.codigo === 'COM-ERR' || e.codigo.startsWith('HTTP-'));
+      const isCommError = !mhRejected && result.errores?.some((e: any) => e.codigo === 'COM-ERR' || e.codigo.startsWith('HTTP-'));
       
       if (isCommError) {
         if ((state.retryCount || 0) < 2) {
