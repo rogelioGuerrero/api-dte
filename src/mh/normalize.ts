@@ -28,7 +28,8 @@ const DEFAULT_RECEPTOR_EMAIL = 'consumidor.final@example.com';
 export const normalizeDTE = (dte: DTEJSON): DTEJSON => {
   const codigosValidos015 = ['20', 'D1', 'C8', 'J1', 'J2', 'J3'];
   const tipoDte = (dte.identificacion?.tipoDte || '').trim();
-  const versionIdentificacion = tipoDte === '03' ? 3 : 1;
+  const versionIdentificacion = dte.identificacion?.version
+    ?? (tipoDte === '03' ? 3 : tipoDte === '11' ? 1 : 1);
 
   const normalized: DTEJSON = {
     identificacion: {
@@ -54,11 +55,16 @@ export const normalizeDTE = (dte: DTEJSON): DTEJSON => {
       codActividad: (onlyDigits((dte as any).emisor?.codActividad) || String((dte as any).emisor?.codActividad || '')).trim(),
       descActividad: (dte as any).emisor?.descActividad ? String((dte as any).emisor.descActividad).trim() : '',
       nombreComercial: trimOrNull((dte as any).emisor?.nombreComercial) as any,
-      // No incluir tipoEstablecimiento/codEstableMH/codPuntoVentaMH para evitar 096 cuando el esquema no los permite
+      tipoEstablecimiento: (dte as any).emisor?.tipoEstablecimiento ?? null,
+      codEstable: trimOrNull((dte as any).emisor?.codEstable) as any,
+      codPuntoVenta: trimOrNull((dte as any).emisor?.codPuntoVenta) as any,
+      codEstableMH: ((dte as any).emisor?.codEstableMH ?? 'M001')?.toString().trim().toUpperCase().padEnd(4, '0').slice(0, 4),
+      codPuntoVentaMH: ((dte as any).emisor?.codPuntoVentaMH ?? 'P001')?.toString().trim().toUpperCase().padEnd(4, '0').slice(0, 4),
       direccion: {
         departamento: normalizeTwoDigitCode((dte as any).emisor?.direccion?.departamento) as any,
         municipio: normalizeTwoDigitCode((dte as any).emisor?.direccion?.municipio) as any,
         complemento: trimOrNull((dte as any).emisor?.direccion?.complemento) as any,
+        distrito: trimOrNull((dte as any).emisor?.direccion?.distrito) as any,
       },
       telefono: (dte as any).emisor?.telefono ? String((dte as any).emisor.telefono).trim() : '',
       correo: (dte as any).emisor?.correo ? String((dte as any).emisor.correo).trim() : '',

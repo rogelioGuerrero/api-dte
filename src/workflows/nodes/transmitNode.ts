@@ -73,7 +73,7 @@ export const transmitNode = async (state: DTEState): Promise<Partial<DTEState>> 
     }
     
     // Extraer metadata necesaria para el MH
-    const version = 2; // MH siempre espera version 2 para transmisión (Modelo Uno a Uno)
+    const version = state.dte.identificacion?.version || 1; // Usar versión declarada en el DTE
     const tipoDte = state.dte.identificacion?.tipoDte || '01'; // Default CCF
     const codigoGeneracion = state.dte.identificacion?.codigoGeneracion || randomUUID(); // Usar el mismo del DTE o generar uno
     const idEnvio = Math.floor(Math.random() * 999999) + 1; // MH espera número entero, no UUID
