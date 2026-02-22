@@ -5,6 +5,7 @@ import { DTEState } from "./state";
 import { validateNode } from "./nodes/validateNode";
 import { signNode } from "./nodes/signNode";
 import { transmitNode } from "./nodes/transmitNode";
+import { tokenNode } from "./nodes/tokenNode";
 import { emailNode } from "./nodes/emailNode";
 import { contingencyNode } from "./nodes/contingencyNode";
 import { receptionNode } from "./nodes/receptionNode";
@@ -20,6 +21,8 @@ const channels: any = {
     signature: { reducer: (x: any, y: any) => y ?? x },
     isTransmitted: { reducer: (x: any, y: any) => y ?? x },
     mhResponse: { reducer: (x: any, y: any) => y ?? x },
+    apiToken: { reducer: (x: any, y: any) => y ?? x },
+    apiTokenExpiresAt: { reducer: (x: any, y: any) => y ?? x },
     isOffline: { reducer: (x: any, y: any) => y ?? x },
     contingencyReason: { reducer: (x: any, y: any) => y ?? x },
     taxImpact: { reducer: (x: any, y: any) => y ?? x },
@@ -43,6 +46,7 @@ const channels: any = {
 const workflow = new StateGraph<DTEState>({ channels })
   .addNode("validator", validateNode)
   .addNode("signer", signNode)
+  .addNode("token_manager", tokenNode)
   .addNode("transmitter", transmitNode)
   .addNode("email_sender", emailNode)
   .addNode("contingency", contingencyNode)
@@ -59,6 +63,10 @@ const workflow = new StateGraph<DTEState>({ channels })
   .addConditionalEdges("signer", (state: any) => {
     // Si la firma falló o no se generó, terminar (o manejar error)
     if (state.status === 'failed' || !state.isSigned) return END;
+    return "token_manager";
+  })
+  .addConditionalEdges("token_manager", (state: any) => {
+    if (state.status === 'failed') return END;
     return "transmitter";
   })
   .addConditionalEdges("transmitter", (state: any) => {

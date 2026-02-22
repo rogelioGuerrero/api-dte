@@ -3,7 +3,7 @@ import { transmitirDTESandbox } from "../../mh/sandboxClient";
 import { createLogger } from '../../utils/logger';
 import { getMHCredentialsByNIT, updateMHTokenByNIT } from '../../business/businessStorage';
 import { randomUUID } from 'crypto';
-import { getCachedMHAuthToken, normalizeBearerToken, shouldRefreshToken } from '../../mh/authClient';
+import { getCachedMHAuthToken, normalizeBearerToken, shouldRefreshTokenWithExp } from '../../mh/authClient';
 
 const logger = createLogger('transmitNode');
 
@@ -49,8 +49,9 @@ export const transmitNode = async (state: DTEState): Promise<Partial<DTEState>> 
     }
 
     let apiToken = normalizeBearerToken(credentials.api_token);
+    let apiTokenExpiresAt = credentials.api_token_expires_at;
 
-    if (shouldRefreshToken(credentials.api_token, credentials.updated_at, ambiente)) {
+    if (shouldRefreshTokenWithExp(credentials.api_token, credentials.api_token_expires_at, ambiente)) {
       console.log(`🔄 Token necesita refresh para NIT ${nitLimpioBusqueda}`);
       
       if (!credentials.api_password) {
@@ -64,9 +65,11 @@ export const transmitNode = async (state: DTEState): Promise<Partial<DTEState>> 
         };
       }
 
-      apiToken = await getCachedMHAuthToken(nitLimpioBusqueda, credentials.api_password, ambiente);
+      const { token, expMs } = await getCachedMHAuthToken(nitLimpioBusqueda, credentials.api_password, ambiente);
+      apiToken = token;
+      apiTokenExpiresAt = expMs ? new Date(expMs).toISOString() : undefined;
       console.log(`💾 Guardando token actualizado en BD...`);
-      await updateMHTokenByNIT(nitLimpioBusqueda, ambiente, apiToken);
+      await updateMHTokenByNIT(nitLimpioBusqueda, ambiente, apiToken, apiTokenExpiresAt);
     }
     
     // Extraer metadata necesaria para el MH

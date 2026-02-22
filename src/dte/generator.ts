@@ -169,9 +169,9 @@ export const generarNumeroControl = (tipoDte: string, correlativo: number, codEs
   const tipoDoc = tipoDte.padStart(2, '0');
   const corr = correlativo.toString().padStart(15, '0');
   
-  // Usar códigos MH si existen, sino fallback a valores por defecto
-  const establecimiento = (codEstableMH || 'M001').padEnd(4, '0').slice(0, 4);
-  const puntoVenta = (codPuntoVentaMH || 'P001').padEnd(4, '0').slice(0, 4);
+  // Usar códigos MH provistos; solo fallback a valores por defecto si vienen vacíos
+  const establecimiento = (codEstableMH ?? 'M001').toString().trim().toUpperCase().padEnd(4, '0').slice(0, 4);
+  const puntoVenta = (codPuntoVentaMH ?? 'P001').toString().trim().toUpperCase().padEnd(4, '0').slice(0, 4);
   const segmentoMedio = `${establecimiento}${puntoVenta}`;
   
   return `DTE-${tipoDoc}-${segmentoMedio}-${corr}`;

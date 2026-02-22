@@ -64,11 +64,33 @@ const getCachedToken = (nit: string, ambiente: '00' | '01'): string => {
   return entry.token;
 };
 
-const cacheToken = (nit: string, ambiente: '00' | '01', token: string): void => {
+const cacheToken = (
+  nit: string,
+  ambiente: '00' | '01',
+  token: string,
+  explicitExpiresAtMs?: number
+): void => {
   const ttlHours = ambiente === '00' ? 48 : 24;
   const bufferHours = 1;
-  const expiresAt = Date.now() + (ttlHours - bufferHours) * 60 * 60 * 1000;
+  const defaultExpiresAt = Date.now() + (ttlHours - bufferHours) * 60 * 60 * 1000;
+  const expiresAt = explicitExpiresAtMs ? Math.min(explicitExpiresAtMs, defaultExpiresAt) : defaultExpiresAt;
   tokenCache.set(getCacheKey(nit, ambiente), { token, expiresAt });
+};
+
+const decodeJwtExpMs = (rawToken?: string): number | null => {
+  if (!rawToken) return null;
+  const token = rawToken.replace(/^Bearer\s+/i, '').trim();
+  const parts = token.split('.');
+  if (parts.length < 2) return null;
+  try {
+    const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString());
+    if (payload?.exp && Number.isFinite(payload.exp)) {
+      return payload.exp * 1000;
+    }
+  } catch (err) {
+    return null;
+  }
+  return null;
 };
 
 export const requestMHAuthToken = async (
@@ -117,12 +139,16 @@ export const getCachedMHAuthToken = async (
   nit: string,
   apiPassword: string,
   ambiente: '00' | '01'
-): Promise<string> => {
+): Promise<{ token: string; expMs: number | null }> => {
   const cached = getCachedToken(nit, ambiente);
-  if (cached) return cached;
+  if (cached) {
+    return { token: cached, expMs: null };
+  }
+
   const token = await requestMHAuthToken(nit, apiPassword, ambiente);
-  cacheToken(nit, ambiente, token);
-  return token;
+  const expMs = decodeJwtExpMs(token);
+  cacheToken(nit, ambiente, token, expMs || undefined);
+  return { token, expMs };
 };
 
 export const shouldRefreshToken = (
@@ -133,4 +159,18 @@ export const shouldRefreshToken = (
   if (!apiToken) return true;
   if (!normalizeBearerToken(apiToken)) return true;
   return isTokenExpired(updatedAt, ambiente);
+};
+
+export const shouldRefreshTokenWithExp = (
+  apiToken: string | undefined,
+  apiTokenExpiresAt: string | undefined,
+  ambiente: '00' | '01'
+): boolean => {
+  if (!apiToken) return true;
+  if (!normalizeBearerToken(apiToken)) return true;
+  if (!apiTokenExpiresAt) return true;
+  const expiresMs = new Date(apiTokenExpiresAt).getTime();
+  if (Number.isNaN(expiresMs)) return true;
+  const bufferMinutes = 5;
+  return Date.now() >= expiresMs - bufferMinutes * 60 * 1000;
 };
