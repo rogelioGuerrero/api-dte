@@ -1,14 +1,16 @@
 import { DTEState } from "../state";
 import { transmitirDTESandbox } from "../../mh/sandboxClient";
 import { createLogger } from '../../utils/logger';
+import { getMHCredentialsByNIT } from '../../business/businessStorage';
+import { randomUUID } from 'crypto';
 
 const logger = createLogger('transmitNode');
 
 export const transmitNode = async (state: DTEState): Promise<Partial<DTEState>> => {
   console.log("📡 Transmisor: Enviando a Ministerio de Hacienda...");
-  
-  if (!state.signature) { 
-    return { 
+
+  if (!state.signature) {
+    return {
       status: 'failed',
       errorCode: 'TRANSMIT_ERROR_NO_SIGNATURE',
       errorMessage: 'No hay firma JWS para transmitir',
@@ -17,11 +19,49 @@ export const transmitNode = async (state: DTEState): Promise<Partial<DTEState>> 
     };
   }
 
+  if (!state.dte) {
+    return {
+      status: 'failed',
+      errorCode: 'TRANSMIT_ERROR_NO_DTE',
+      errorMessage: 'No hay DTE en el estado para extraer metadata',
+      canRetry: true,
+      progressPercentage: 50
+    };
+  }
+
   try {
     const ambiente = state.ambiente || '00';
+    const nitEmisor = (state.dte.emisor?.nit || '').toString().replace(/[\s-]/g, '').trim();
+    const nitLimpioBusqueda = (state.businessId || nitEmisor).replace(/[\s-]/g, '').trim();
     
+    // Obtener credenciales para extraer el token
+    const credentials = await getMHCredentialsByNIT(nitLimpioBusqueda, ambiente);
+    
+    if (!credentials || !credentials.api_token) {
+       console.error(`❌ No hay credenciales o API Token para el NIT: ${nitLimpioBusqueda}`);
+       return {
+         status: 'failed',
+         errorCode: 'TRANSMIT_ERROR_NO_CREDENTIALS',
+         errorMessage: 'No hay credenciales (API Token) configuradas para el negocio.',
+         canRetry: false,
+         progressPercentage: 50
+       };
+    }
+
+    // Extraer metadata necesaria para el MH
+    const version = state.dte.identificacion?.version || 1;
+    const tipoDte = state.dte.identificacion?.tipoDte || '01'; // Default CCF
+    const idEnvio = randomUUID(); // MH requiere un UUID único por envío
+
     // Transmisión real
-    const result = await transmitirDTESandbox(state.signature, ambiente);
+    const result = await transmitirDTESandbox(
+      state.signature, 
+      ambiente, 
+      credentials.api_token, 
+      version, 
+      tipoDte, 
+      idEnvio
+    );
     
     if (result.success) {
       console.log("✅ MH: Recibido exitosamente.", result.selloRecepcion);

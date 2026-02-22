@@ -1,4 +1,5 @@
 import type { TransmisionResult, AdvertenciaMH, ErrorValidacionMH } from './types';
+import { getMHMode } from './config';
 
 interface TransmitirResponse {
   estado?: string;
@@ -20,11 +21,12 @@ interface TransmitirResponse {
 }
 
 const getProxyUrl = (): string => {
-  // Forzar URL de producción para evitar errores de proxy local (404)
-  // en entornos donde no se puede reiniciar el servidor de desarrollo.
-  const prodUrl = 'https://api-firma.onrender.com/firma';
-  console.log('🔌 Usando backend de firma:', prodUrl);
-  return prodUrl;
+  const mode = getMHMode();
+  if (mode === 'prod') {
+    return 'https://api.dtes.mh.gob.sv/fesv/recepciondte';
+  } else {
+    return 'https://apitest.dtes.mh.gob.sv/fesv/recepciondte';
+  }
 };
 
 const mapErrores = (raw?: TransmitirResponse['errores']): ErrorValidacionMH[] | undefined => {
@@ -71,7 +73,14 @@ export const consultarDTESandbox = async <T = unknown>(
   return data;
 };
 
-export const transmitirDTESandbox = async (jws: string, ambiente: '00' | '01' = '00'): Promise<TransmisionResult> => {
+export const transmitirDTESandbox = async (
+  jws: string, 
+  ambiente: '00' | '01' = '00',
+  apiToken: string,
+  version: number,
+  tipoDte: string,
+  idEnvio: string
+): Promise<TransmisionResult> => {
   const baseUrl = getProxyUrl();
   const MAX_RETRIES = 3;
   const TIMEOUT_MS = 8000;
@@ -83,14 +92,18 @@ export const transmitirDTESandbox = async (jws: string, ambiente: '00' | '01' = 
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
-      const res = await fetch(`${baseUrl}/transmitir`, {
+      const res = await fetch(baseUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': apiToken,
         },
         body: JSON.stringify({
-          dte: jws,
           ambiente,
+          idEnvio,
+          version,
+          tipoDte,
+          documento: jws
         }),
         signal: controller.signal,
       });
