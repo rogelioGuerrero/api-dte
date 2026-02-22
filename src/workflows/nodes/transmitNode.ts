@@ -51,7 +51,10 @@ export const transmitNode = async (state: DTEState): Promise<Partial<DTEState>> 
     let apiToken = normalizeBearerToken(credentials.api_token);
 
     if (shouldRefreshToken(credentials.api_token, credentials.updated_at, ambiente)) {
+      console.log(`🔄 Token necesita refresh para NIT ${nitLimpioBusqueda}`);
+      
       if (!credentials.api_password) {
+        console.error(`❌ No api_password para NIT ${nitLimpioBusqueda}`);
         return {
           status: 'failed',
           errorCode: 'TRANSMIT_ERROR_NO_API_PASSWORD',
@@ -62,6 +65,7 @@ export const transmitNode = async (state: DTEState): Promise<Partial<DTEState>> 
       }
 
       apiToken = await getCachedMHAuthToken(nitLimpioBusqueda, credentials.api_password, ambiente);
+      console.log(`💾 Guardando token actualizado en BD...`);
       await updateMHTokenByNIT(nitLimpioBusqueda, ambiente, apiToken);
     }
     

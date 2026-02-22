@@ -84,6 +84,8 @@ export const requestMHAuthToken = async (
     pwd: apiPassword,
   });
 
+  console.log(`🔐 Solicitando token MH para NIT ${nit} ambiente ${ambiente}`);
+  
   const res = await fetch(url, {
     method: 'POST',
     headers: {
@@ -93,15 +95,20 @@ export const requestMHAuthToken = async (
   });
 
   const data = (await res.json().catch(() => ({}))) as MHAuthResponse;
+  
+  console.log(`🔍 Respuesta MH (${res.status}):`, JSON.stringify(data, null, 2));
+  
   if (!res.ok) {
     throw new Error(`Auth MH falló (${res.status}): ${JSON.stringify(data)}`);
   }
 
   const token = data.body?.token || '';
   if (!token) {
+    console.error('❌ Estructura inesperada en respuesta MH:', data);
     throw new Error('Auth MH no devolvió token');
   }
 
+  console.log('✅ Token obtenido:', token.substring(0, 50) + '...');
   return normalizeBearerToken(token);
 };
 
