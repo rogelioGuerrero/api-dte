@@ -118,6 +118,7 @@ export const normalizeDTE = (dte: DTEJSON): DTEJSON => {
       descuGravada: roundTo((dte as any).resumen?.descuGravada ?? 0, 2),
       porcentajeDescuento: roundTo((dte as any).resumen?.porcentajeDescuento ?? 0, 2),
       totalDescu: roundTo((dte as any).resumen?.totalDescu ?? 0, 2),
+      totalIva: roundTo((dte as any).resumen?.totalIva ?? 0, 2),
       tributos:
         (dte as any).resumen?.tributos === null
           ? null

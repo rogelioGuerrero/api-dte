@@ -79,8 +79,7 @@ export const DTE_SCHEMA = {
         'totalIva',
         'tributos',
         'subTotal',
-        'ivaRete1',
-        'reteRenta',
+        'ivaRete',
         'montoTotalOperacion',
         'totalNoGravado',
         'totalPagar',
@@ -114,8 +113,7 @@ export const DTE_SCHEMA = {
           },
         },
         subTotal: { type: 'number', multipleOf: 0.01 },
-        ivaRete1: { type: 'number', multipleOf: 0.01, minimum: 0 },
-        reteRenta: { type: 'number', multipleOf: 0.01, minimum: 0 },
+        ivaRete: { type: 'number', multipleOf: 0.01, minimum: 0 },
         montoTotalOperacion: { type: 'number', multipleOf: 0.01, minimum: 0 },
         totalNoGravado: { type: 'number', multipleOf: 0.01 },
         totalPagar: { type: 'number', multipleOf: 0.01 },
@@ -136,6 +134,7 @@ export const DTE_SCHEMA = {
           },
         },
         numPagoElectronico: { type: ['string', 'null'], maxLength: 100 },
+        observaciones: { type: ['string', 'null'], maxLength: 3000 },
       },
     },
     Extension: {
@@ -169,7 +168,7 @@ export const DTE_SCHEMA = {
           type: 'object',
           required: ['version', 'ambiente', 'tipoDte', 'numeroControl', 'codigoGeneracion', 'tipoModelo', 'tipoOperacion', 'fecEmi', 'horEmi', 'tipoMoneda'],
           properties: {
-            version: { type: 'integer', const: 1 },
+            version: { type: 'integer', enum: [1, 3] },
             ambiente: { type: 'string', enum: ['00', '01'] },
             tipoDte: { type: 'string', const: '01' },
             numeroControl: { type: 'string', pattern: '^DTE-01-[A-Z0-9]{8}-\\d{15}$' },
@@ -186,7 +185,7 @@ export const DTE_SCHEMA = {
         documentoRelacionado: { type: ['object', 'null'] },
         emisor: {
           type: 'object',
-          required: ['nit', 'nrc', 'nombre', 'codActividad', 'descActividad', 'tipoEstablecimiento', 'codEstable', 'codPuntoVenta', 'direccion', 'telefono', 'correo'],
+          required: ['nit', 'nrc', 'nombre', 'codActividad', 'descActividad', 'direccion', 'telefono', 'correo'],
           properties: {
             nit: { $ref: '#/definitions/NIT' },
             nrc: { $ref: '#/definitions/NRC' },
@@ -194,9 +193,6 @@ export const DTE_SCHEMA = {
             codActividad: { type: 'string', pattern: '^\\d{5,6}$' },
             descActividad: { type: 'string', maxLength: 150 },
             nombreComercial: { type: ['string', 'null'], maxLength: 150 },
-            tipoEstablecimiento: { type: 'string', enum: ['01', '02', '03', '04', '05'] },
-            codEstable: { type: ['string', 'null'], maxLength: 10 },
-            codPuntoVenta: { type: ['string', 'null'], maxLength: 15 },
             direccion: {
               type: 'object',
               required: ['departamento', 'municipio', 'complemento'],
@@ -208,8 +204,6 @@ export const DTE_SCHEMA = {
             },
             telefono: { type: 'string', maxLength: 30, minLength: 8 },
             correo: { type: 'string', format: 'email', maxLength: 100 },
-            codEstableMH: { type: ['string', 'null'], maxLength: 10 },
-            codPuntoVentaMH: { type: ['string', 'null'], maxLength: 15 },
           },
         },
         receptor: {
@@ -238,7 +232,6 @@ export const DTE_SCHEMA = {
         ventaTercero: { type: ['object', 'null'] },
         cuerpoDocumento: { $ref: '#/definitions/CuerpoDocumento' },
         resumen: { $ref: '#/definitions/Resumen' },
-        extension: { $ref: '#/definitions/Extension' },
         apendice: { $ref: '#/definitions/Apendice' },
       },
     },
