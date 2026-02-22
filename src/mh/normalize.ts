@@ -25,7 +25,7 @@ export const normalizeDTE = (dte: DTEJSON): DTEJSON => {
     identificacion: {
       ...dte.identificacion,
       ambiente: dte.identificacion?.ambiente === '01' ? '01' : '00',
-      version: 1, // Forzar versión 1 para Factura según MH
+      version: dte.identificacion?.tipoDte === '03' ? 3 : 1, // CCFE=3, FE=1 según ejemplo MH
       tipoMoneda: 'USD',
       tipoContingencia: dte.identificacion?.tipoOperacion === 2 ? dte.identificacion?.tipoContingencia : null,
       motivoContin: dte.identificacion?.tipoContingencia === 5 ? (trimOrNull(dte.identificacion?.motivoContin) as any) : null,
@@ -38,14 +38,17 @@ export const normalizeDTE = (dte: DTEJSON): DTEJSON => {
       codActividad: (onlyDigits(dte.emisor?.codActividad) || dte.emisor?.codActividad || '').trim(),
       descActividad: dte.emisor?.descActividad ? dte.emisor.descActividad.trim() : '',
       nombreComercial: trimOrNull(dte.emisor?.nombreComercial) as any,
-      // Remover campos no permitidos por MH
+      // Campos según ejemplo MH - CCFE permite estos campos
+      tipoEstablecimiento: trimOrNull(dte.emisor?.tipoEstablecimiento) || '01', // Default si no existe
+      codEstableMH: trimOrNull(dte.emisor?.codEstableMH) || 'M001', // Default según ejemplo
+      codPuntoVentaMH: trimOrNull(dte.emisor?.codPuntoVentaMH) || 'P001', // Default según ejemplo
       telefono: dte.emisor?.telefono ? dte.emisor.telefono.trim() : '',
       correo: dte.emisor?.correo ? dte.emisor.correo.trim() : '',
       direccion: {
         departamento: trimOrNull(dte.emisor?.direccion?.departamento) as any,
         municipio: onlyDigits(trimOrNull(dte.emisor?.direccion?.municipio)) as any, // Solo códigos numéricos
         complemento: trimOrNull(dte.emisor?.direccion?.complemento) as any,
-        distrito: onlyDigits(trimOrNull(dte.emisor?.direccion?.distrito)) as any, // Solo códigos numéricos
+        distrito: null, // MH ejemplo no incluye distrito en emisor
       },
     },
     receptor: {
@@ -63,7 +66,7 @@ export const normalizeDTE = (dte: DTEJSON): DTEJSON => {
             departamento: trimOrNull(dte.receptor.direccion.departamento) as any,
             municipio: onlyDigits(trimOrNull(dte.receptor.direccion.municipio)) as any, // Solo códigos numéricos
             complemento: trimOrNull(dte.receptor.direccion.complemento) as any,
-            distrito: onlyDigits(trimOrNull(dte.receptor.direccion.distrito)) as any, // Solo códigos numéricos
+            distrito: null, // MH ejemplo no incluye distrito en receptor tampoco
           }
         : null,
     },
@@ -106,7 +109,7 @@ export const normalizeDTE = (dte: DTEJSON): DTEJSON => {
       totalIva: roundTo(dte.resumen?.totalIva ?? 0, 2),
       subTotal: roundTo(dte.resumen?.subTotal ?? 0, 2),
       ivaRete: roundTo((dte.resumen as any)?.ivaRete1 ?? 0, 2), // Usar ivaRete1 si existe, sino 0
-      reteRenta: 0, // Remover campo no permitido
+      // reteRenta: 0, // Removido - no incluir campo no permitido
       montoTotalOperacion: roundTo(dte.resumen?.montoTotalOperacion ?? 0, 2),
       totalNoGravado: roundTo(dte.resumen?.totalNoGravado ?? 0, 2),
       totalPagar: roundTo(dte.resumen?.totalPagar ?? 0, 2),
