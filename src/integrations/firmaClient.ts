@@ -48,20 +48,29 @@ export const firmarDocumento = async (request: FirmaRequest): Promise<string> =>
       dteJson: request.dteJson
     };
     
-    const response = await axios.post<FirmaResponse>(FIRMA_SIGN_URL, payload, {
+    const response = await axios.post(FIRMA_SIGN_URL, payload, {
       headers,
       timeout: 30000, // 30 segundos timeout
     });
 
-    if (response.data.success && response.data.jws) {
+    // Adaptamos para soportar tanto el formato {success, jws} como el formato del MH {status, body}
+    const data = response.data;
+    
+    if (data.success && data.jws) {
       logger.info('Documento firmado exitosamente');
-      return response.data.jws;
+      return data.jws;
+    } else if (data.status === 'OK' && data.body) {
+      logger.info('Documento firmado exitosamente (formato MH)');
+      return data.body;
     } else {
-      throw new Error(response.data.error || 'Error en la firma del documento');
+      const errorMsg = data.error || (data.body && data.body.mensaje) || JSON.stringify(data);
+      throw new Error(`Error del servicio de firma: ${errorMsg}`);
     }
   } catch (error: any) {
-    logger.error('Error firmando documento', { error: error.message });
-    throw new Error(`Error al firmar: ${error.message}`);
+    const responseData = error.response?.data;
+    const errorDetails = responseData ? JSON.stringify(responseData) : error.message;
+    logger.error('Error firmando documento', { error: errorDetails });
+    throw new Error(`Error al firmar: ${errorDetails}`);
   }
 };
 
