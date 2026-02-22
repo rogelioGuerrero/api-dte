@@ -45,7 +45,8 @@ export const firmarDocumento = async (request: FirmaRequest): Promise<string> =>
       nit: request.nit,
       passwordPri: request.passwordPri,
       certificadoB64: request.certificadoB64,
-      dteJson: request.dteJson
+      // Convertimos explícitamente a string para evitar el error "Problemas al convertir String a Json"
+      dteJson: typeof request.dteJson === 'string' ? request.dteJson : JSON.stringify(request.dteJson)
     };
     
     const response = await axios.post(FIRMA_SIGN_URL, payload, {
@@ -53,24 +54,36 @@ export const firmarDocumento = async (request: FirmaRequest): Promise<string> =>
       timeout: 30000, // 30 segundos timeout
     });
 
-    // Adaptamos para soportar tanto el formato {success, jws} como el formato del MH {status, body}
     const data = response.data;
     
+    // Éxito: { success: true, jws: "..." }
     if (data.success && data.jws) {
       logger.info('Documento firmado exitosamente');
       return data.jws;
-    } else if (data.status === 'OK' && data.body) {
-      logger.info('Documento firmado exitosamente (formato MH)');
-      return data.body;
-    } else {
-      const errorMsg = data.error || (data.body && data.body.mensaje) || JSON.stringify(data);
-      throw new Error(`Error del servicio de firma: ${errorMsg}`);
+    } 
+    // Error: { status: "ERROR", body: { codigo: "...", mensaje: "..." } }
+    else if (data.status === 'ERROR' && data.body) {
+      throw new Error(`Código ${data.body.codigo}: ${data.body.mensaje}`);
+    } 
+    // Fallback
+    else {
+      throw new Error(data.error || JSON.stringify(data));
     }
   } catch (error: any) {
-    const responseData = error.response?.data;
-    const errorDetails = responseData ? JSON.stringify(responseData) : error.message;
-    logger.error('Error firmando documento', { error: errorDetails });
-    throw new Error(`Error al firmar: ${errorDetails}`);
+    // Si Axios lanza un error (ej. HTTP 400, 500)
+    if (error.response && error.response.data) {
+      const data = error.response.data;
+      if (data.status === 'ERROR' && data.body) {
+        const errorMsg = `Código ${data.body.codigo}: ${data.body.mensaje}`;
+        logger.error('Error del servicio de firma', { error: errorMsg });
+        throw new Error(errorMsg);
+      }
+      logger.error('Error del servicio de firma', { error: JSON.stringify(data) });
+      throw new Error(JSON.stringify(data));
+    }
+    
+    logger.error('Error firmando documento', { error: error.message });
+    throw new Error(`Error al firmar: ${error.message}`);
   }
 };
 
