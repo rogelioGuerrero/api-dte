@@ -72,7 +72,8 @@ export const transmitNode = async (state: DTEState): Promise<Partial<DTEState>> 
     // Extraer metadata necesaria para el MH
     const version = 2; // MH siempre espera version 2 para transmisión (Modelo Uno a Uno)
     const tipoDte = state.dte.identificacion?.tipoDte || '01'; // Default CCF
-    const idEnvio = randomUUID(); // MH requiere un UUID único por envío
+    const codigoGeneracion = state.dte.identificacion?.codigoGeneracion || randomUUID(); // Usar el mismo del DTE o generar uno
+    const idEnvio = Math.floor(Math.random() * 999999) + 1; // MH espera número entero, no UUID
 
     // Transmisión real
     const result = await transmitirDTESandbox(
@@ -81,7 +82,8 @@ export const transmitNode = async (state: DTEState): Promise<Partial<DTEState>> 
       apiToken,
       version, 
       tipoDte, 
-      idEnvio
+      idEnvio,
+      codigoGeneracion
     );
     
     if (result.success) {

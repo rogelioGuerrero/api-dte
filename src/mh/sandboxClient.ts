@@ -79,7 +79,8 @@ export const transmitirDTESandbox = async (
   apiToken: string,
   version: number,
   tipoDte: string,
-  idEnvio: string
+  idEnvio: number,
+  codigoGeneracion?: string
 ): Promise<TransmisionResult> => {
   const baseUrl = getProxyUrl();
   const MAX_RETRIES = 3;
@@ -90,7 +91,8 @@ export const transmitirDTESandbox = async (
     idEnvio,
     version,
     tipoDte,
-    documento: jws
+    documento: jws,
+    ...(codigoGeneracion && { codigoGeneracion })
   };
 
   const requestBody = JSON.stringify(payload);
@@ -132,12 +134,26 @@ export const transmitirDTESandbox = async (
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
+      // Probar con headers adicionales que MH podría requerir
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json; charset=utf-8',
+        'Authorization': apiToken,
+        'User-Agent': 'API-DTE/1.0',
+        'Accept': 'application/json',
+      };
+      
+      console.log('📤 Headers completos:', headers);
+      
+      // Asegurar que el body esté correctamente codificado
+      console.log('🔍 Body encoding check:', {
+        bodyLength: requestBody.length,
+        bodyBytes: new TextEncoder().encode(requestBody).length,
+        isValidJSON: true
+      });
+      
       const res = await fetch(baseUrl, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': apiToken,
-        },
+        headers,
         body: requestBody,
         signal: controller.signal,
       });
