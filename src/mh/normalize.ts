@@ -37,13 +37,9 @@ export const normalizeDTE = (dte: DTEJSON): DTEJSON => {
       codActividad: (onlyDigits(dte.emisor?.codActividad) || dte.emisor?.codActividad || '').trim(),
       descActividad: dte.emisor?.descActividad ? dte.emisor.descActividad.trim() : '',
       nombreComercial: trimOrNull(dte.emisor?.nombreComercial) as any,
-      tipoEstablecimiento: dte.emisor?.tipoEstablecimiento ? dte.emisor.tipoEstablecimiento.trim() : '',
-      codEstable: trimOrNull(dte.emisor?.codEstable) as any,
-      codPuntoVenta: trimOrNull(dte.emisor?.codPuntoVenta) as any,
+      // Remover campos no permitidos por MH
       telefono: dte.emisor?.telefono ? dte.emisor.telefono.trim() : '',
       correo: dte.emisor?.correo ? dte.emisor.correo.trim() : '',
-      codEstableMH: trimOrNull(dte.emisor?.codEstableMH) as any,
-      codPuntoVentaMH: trimOrNull(dte.emisor?.codPuntoVentaMH) as any,
     },
     receptor: {
       ...dte.receptor,
@@ -60,6 +56,7 @@ export const normalizeDTE = (dte: DTEJSON): DTEJSON => {
             departamento: trimOrNull(dte.receptor.direccion.departamento) as any,
             municipio: trimOrNull(dte.receptor.direccion.municipio) as any,
             complemento: trimOrNull(dte.receptor.direccion.complemento) as any,
+            distrito: trimOrNull(dte.receptor.direccion.distrito) as any, // Campo requerido por MH
           }
         : null,
     },
@@ -96,8 +93,8 @@ export const normalizeDTE = (dte: DTEJSON): DTEJSON => {
       totalDescu: roundTo(dte.resumen?.totalDescu ?? 0, 2),
       totalIva: roundTo(dte.resumen?.totalIva ?? 0, 2),
       subTotal: roundTo(dte.resumen?.subTotal ?? 0, 2),
-      ivaRete1: roundTo(dte.resumen?.ivaRete1 ?? 0, 2),
-      reteRenta: roundTo(dte.resumen?.reteRenta ?? 0, 2),
+      ivaRete: roundTo(dte.resumen?.ivaRete1 ?? 0, 2), // Corregir nombre de campo
+      reteRenta: 0, // Remover campo no permitido
       montoTotalOperacion: roundTo(dte.resumen?.montoTotalOperacion ?? 0, 2),
       totalNoGravado: roundTo(dte.resumen?.totalNoGravado ?? 0, 2),
       totalPagar: roundTo(dte.resumen?.totalPagar ?? 0, 2),
@@ -110,8 +107,9 @@ export const normalizeDTE = (dte: DTEJSON): DTEJSON => {
               valor: roundTo(t.valor, 2),
             })),
       totalLetras: dte.resumen?.totalLetras ? dte.resumen.totalLetras.trim() : '',
+      observaciones: dte.resumen?.observaciones ?? null, // Campo requerido por MH
     },
-    extension: dte.extension ?? null,
-    apendice: dte.apendice ?? null,
+    // Remover extension no permitido para algunos tipos de DTE
+    // apendice: dte.apendice ?? null,
   };
 };
