@@ -85,6 +85,7 @@ export const requestMHAuthToken = async (
   });
 
   console.log(`🔐 Solicitando token MH para NIT ${nit} ambiente ${ambiente}`);
+  console.log(`🔑 Usando contraseña API (longitud): ${apiPassword.length}`);
   
   const res = await fetch(url, {
     method: 'POST',

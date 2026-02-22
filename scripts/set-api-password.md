@@ -33,5 +33,12 @@ Ahora puedes enviar un DTE. El sistema:
 ## Token actual (válido por ~48 horas)
 
 ```
-Bearer eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiIxNDAxMjgwNTc2MTAyNSIsImF1dGhvcml0aWVzIjpbIlVTRVIiLCJVU0VSX0FQSSIsIlVTRVJfV0VCIiwiVXN1YXJpbyJdLCJjX25pdCI6IjE0MDEyODA1NzYxMDI1IiwiY19kdWkiOiIwMjQ1MzA5OTYiLCJpYXQiOjE3NzE3MzAyNDAsImV4cCI6MTc3MTgxNjY0MH0.a0uLwVWQWnO3j90qHa_z4Ompssx1WOyjwWMJWWCKqgkTlujzqPZrCnhcI4zy8EsNmaGmJbB99CDWSrzs6_47NA
+Bearer eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiIxNDAxMjgwNTc2MTAyNSIsImF1dGhvcml0aWVzIjpbIlVTRVIiLCJVU0VSX0FQSSIsIlVTRVJfV0VCIiwiVXN1YXJpbyJdLCJjX25pdCI6IjE0MDEyODA1NzYxMDI1IiwiY19kdWkiOiIwMjQ1MzA5OTYiLCJpYXQiOjE3NzE3MzA3MDMsImV4cCI6MTc3MTgxNzEwM30.IGfS-pOd4XmQUfFcCwIAa3JJou6A-ItCTMX4galpxaL_ZLJB33VaYK6ha-IvFNAcwEjnZUnfPLKFSxbC_mbXQA
 ```
+
+## Diagnóstico
+
+Si sigues recibiendo "CREDENCIALES INVÁLIDAS":
+1. Verifica que `api_password` esté guardada en Supabase
+2. Revisa que no tenga espacios extra
+3. Confirma que el NIT esté acreditado en ambiente de pruebas
