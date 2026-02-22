@@ -88,55 +88,75 @@ export const normalizeDTE = (dte: DTEJSON): DTEJSON => {
     } as any,
     otrosDocumentos: (dte as any).otrosDocumentos ?? null,
     ventaTercero: (dte as any).ventaTercero ?? null,
-    cuerpoDocumento: (dte.cuerpoDocumento || []).map((i: any) => ({
-      numItem: i.numItem,
-      tipoItem: i.tipoItem,
-      numeroDocumento: trimOrNull(i.numeroDocumento) as any,
-      codigo: i.codigo ? String(i.codigo).trim() : null,
-      codTributo: trimOrNull(i.codTributo) as any,
-      descripcion: String(i.descripcion || '').trim(),
-      cantidad: roundTo(i.cantidad, 8),
-      uniMedida: i.uniMedida,
-      precioUni: roundTo(i.precioUni, 8),
-      montoDescu: roundTo(i.montoDescu, 8),
-      ventaNoSuj: roundTo(i.ventaNoSuj, 8),
-      ventaExenta: roundTo(i.ventaExenta, 8),
-      ventaGravada: roundTo(i.ventaGravada, 8),
-      tributos: tipoDte === '01' ? null : (i.ventaGravada > 0 ? ['20'] : null),
-      psv: roundTo(i.psv ?? 0, 2),
-      noGravado: roundTo(i.noGravado ?? 0, 2),
-      ivaItem: roundTo(i.ivaItem ?? 0, 2),
-    })),
-    resumen: {
-      totalNoSuj: roundTo((dte as any).resumen?.totalNoSuj ?? 0, 2),
-      totalExenta: roundTo((dte as any).resumen?.totalExenta ?? 0, 2),
-      totalGravada: roundTo((dte as any).resumen?.totalGravada ?? 0, 2),
-      subTotalVentas: roundTo((dte as any).resumen?.subTotalVentas ?? 0, 2),
-      descuNoSuj: roundTo((dte as any).resumen?.descuNoSuj ?? 0, 2),
-      descuExenta: roundTo((dte as any).resumen?.descuExenta ?? 0, 2),
-      descuGravada: roundTo((dte as any).resumen?.descuGravada ?? 0, 2),
-      porcentajeDescuento: roundTo((dte as any).resumen?.porcentajeDescuento ?? 0, 2),
-      totalDescu: roundTo((dte as any).resumen?.totalDescu ?? 0, 2),
-      totalIva: roundTo((dte as any).resumen?.totalIva ?? 0, 2),
-      tributos:
-        tipoDte === '01'
-          ? null
-          : ((dte as any).resumen?.totalIva && (dte as any).resumen?.totalIva > 0
-              ? [{ codigo: '20', descripcion: 'Impuesto al Valor Agregado 13%', valor: roundTo((dte as any).resumen?.totalIva ?? 0, 2) }]
-              : null),
-      subTotal: roundTo((dte as any).resumen?.subTotal ?? 0, 2),
-      // MH requiere ivaRete1
-      ivaRete1: roundTo(((dte as any).resumen?.ivaRete1 ?? 0) as number, 2),
-      reteRenta: roundTo(((dte as any).resumen?.reteRenta ?? 0) as number, 2),
-      montoTotalOperacion: roundTo((dte as any).resumen?.montoTotalOperacion ?? 0, 2),
-      totalNoGravado: roundTo((dte as any).resumen?.totalNoGravado ?? 0, 2),
-      totalPagar: roundTo((dte as any).resumen?.totalPagar ?? 0, 2),
-      totalLetras: (dte as any).resumen?.totalLetras ? String((dte as any).resumen.totalLetras).trim() : '',
-      saldoFavor: roundTo((dte as any).resumen?.saldoFavor ?? 0, 2),
-      condicionOperacion: (dte as any).resumen?.condicionOperacion ?? 1,
-      pagos: (dte as any).resumen?.pagos ?? null,
-      numPagoElectronico: (dte as any).resumen?.numPagoElectronico ?? null,
-    } as any,
+    cuerpoDocumento: (dte.cuerpoDocumento || []).map((i: any) => {
+      const ventaGravada = roundTo(i.ventaGravada ?? 0, 8);
+      const ivaCalculado = tipoDte === '01' ? roundTo(ventaGravada * 0.13, 2) : roundTo(i.ivaItem ?? 0, 2);
+      return {
+        numItem: i.numItem,
+        tipoItem: i.tipoItem,
+        numeroDocumento: trimOrNull(i.numeroDocumento) as any,
+        codigo: i.codigo ? String(i.codigo).trim() : null,
+        codTributo: trimOrNull(i.codTributo) as any,
+        descripcion: String(i.descripcion || '').trim(),
+        cantidad: roundTo(i.cantidad, 8),
+        uniMedida: i.uniMedida,
+        precioUni: roundTo(i.precioUni, 8),
+        montoDescu: roundTo(i.montoDescu, 8),
+        ventaNoSuj: roundTo(i.ventaNoSuj, 8),
+        ventaExenta: roundTo(i.ventaExenta, 8),
+        ventaGravada,
+        tributos: tipoDte === '01' ? null : (ventaGravada > 0 ? ['20'] : null),
+        psv: roundTo(i.psv ?? 0, 2),
+        noGravado: roundTo(i.noGravado ?? 0, 2),
+        ivaItem: ivaCalculado,
+      };
+    }),
+    resumen: (() => {
+      const items = (dte.cuerpoDocumento || []).map((i: any) => {
+        const ventaGravada = roundTo(i.ventaGravada ?? 0, 8);
+        const ivaCalculado = tipoDte === '01' ? roundTo(ventaGravada * 0.13, 2) : roundTo(i.ivaItem ?? 0, 2);
+        return { ventaGravada, ventaNoSuj: roundTo(i.ventaNoSuj ?? 0, 8), ventaExenta: roundTo(i.ventaExenta ?? 0, 8), ivaItem: ivaCalculado };
+      });
+      const totalGravada = roundTo(items.reduce((a, b) => a + b.ventaGravada, 0), 2);
+      const totalNoSuj = roundTo(items.reduce((a, b) => a + b.ventaNoSuj, 0), 2);
+      const totalExenta = roundTo(items.reduce((a, b) => a + b.ventaExenta, 0), 2);
+      const totalIva = roundTo(items.reduce((a, b) => a + b.ivaItem, 0), 2);
+      const subTotalVentas = roundTo(totalNoSuj + totalExenta + totalGravada, 2);
+      const subTotal = subTotalVentas;
+      const montoTotalOperacion = roundTo(subTotal + totalIva, 2);
+      const totalPagar = montoTotalOperacion;
+
+      return {
+        totalNoSuj,
+        totalExenta,
+        totalGravada,
+        subTotalVentas,
+        descuNoSuj: roundTo((dte as any).resumen?.descuNoSuj ?? 0, 2),
+        descuExenta: roundTo((dte as any).resumen?.descuExenta ?? 0, 2),
+        descuGravada: roundTo((dte as any).resumen?.descuGravada ?? 0, 2),
+        porcentajeDescuento: roundTo((dte as any).resumen?.porcentajeDescuento ?? 0, 2),
+        totalDescu: roundTo((dte as any).resumen?.totalDescu ?? 0, 2),
+        totalIva,
+        tributos:
+          tipoDte === '01'
+            ? null
+            : (totalIva > 0
+                ? [{ codigo: '20', descripcion: 'Impuesto al Valor Agregado 13%', valor: totalIva }]
+                : null),
+        subTotal,
+        // MH requiere ivaRete1
+        ivaRete1: roundTo(((dte as any).resumen?.ivaRete1 ?? 0) as number, 2),
+        reteRenta: roundTo(((dte as any).resumen?.reteRenta ?? 0) as number, 2),
+        montoTotalOperacion,
+        totalNoGravado: roundTo((dte as any).resumen?.totalNoGravado ?? 0, 2),
+        totalPagar,
+        totalLetras: (dte as any).resumen?.totalLetras ? String((dte as any).resumen.totalLetras).trim() : '',
+        saldoFavor: roundTo((dte as any).resumen?.saldoFavor ?? 0, 2),
+        condicionOperacion: (dte as any).resumen?.condicionOperacion ?? 1,
+        pagos: (dte as any).resumen?.pagos ?? null,
+        numPagoElectronico: (dte as any).resumen?.numPagoElectronico ?? null,
+      } as any;
+    })(),
     extension: null,
     apendice: null,
   };
