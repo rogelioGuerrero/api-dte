@@ -10,7 +10,6 @@ export interface FirmaRequest {
   passwordPri: string;
   certificadoB64: string; // Certificado en formato Base64
   dteJson: Record<string, unknown>;
-  apiToken?: string; // Token de autenticación para el servicio de firma
 }
 
 export interface FirmaResponse {
@@ -28,12 +27,7 @@ export const firmarDocumento = async (request: FirmaRequest): Promise<string> =>
       'Content-Type': 'application/json',
     };
     
-    // Si se proporciona un token, añadirlo como header Authorization
-    if (request.apiToken) {
-      headers['Authorization'] = `Bearer ${request.apiToken}`;
-    }
-    
-    // Crear payload sin apiToken (no existe en FirmarDocumentoFilter)
+    // Payload sin apiToken (el API no requiere autenticación)
     const payload = {
       nit: request.nit,
       passwordPri: request.passwordPri,

@@ -82,8 +82,7 @@ export const signNode = async (state: DTEState): Promise<Partial<DTEState>> => {
       nit: nitEmisor,
       passwordPri: finalPasswordPri,
       certificadoB64: credentials.certificado_b64,
-      dteJson: dteLimpio,
-      apiToken: credentials.api_token // Pasamos el token del negocio
+      dteJson: dteLimpio
     });
 
     console.log("✅ Firma exitosa");
