@@ -102,7 +102,7 @@ export const normalizeDTE = (dte: DTEJSON): DTEJSON => {
       ventaNoSuj: roundTo(i.ventaNoSuj, 8),
       ventaExenta: roundTo(i.ventaExenta, 8),
       ventaGravada: roundTo(i.ventaGravada, 8),
-      tributos: i.ventaGravada > 0 ? ['20'] : null,
+      tributos: tipoDte === '01' ? null : (i.ventaGravada > 0 ? ['20'] : null),
       psv: roundTo(i.psv ?? 0, 2),
       noGravado: roundTo(i.noGravado ?? 0, 2),
       ivaItem: roundTo(i.ivaItem ?? 0, 2),
@@ -119,9 +119,11 @@ export const normalizeDTE = (dte: DTEJSON): DTEJSON => {
       totalDescu: roundTo((dte as any).resumen?.totalDescu ?? 0, 2),
       totalIva: roundTo((dte as any).resumen?.totalIva ?? 0, 2),
       tributos:
-        (dte as any).resumen?.totalIva && (dte as any).resumen?.totalIva > 0
-          ? [{ codigo: '20', descripcion: 'Impuesto al Valor Agregado 13%', valor: roundTo((dte as any).resumen?.totalIva ?? 0, 2) }]
-          : null,
+        tipoDte === '01'
+          ? null
+          : ((dte as any).resumen?.totalIva && (dte as any).resumen?.totalIva > 0
+              ? [{ codigo: '20', descripcion: 'Impuesto al Valor Agregado 13%', valor: roundTo((dte as any).resumen?.totalIva ?? 0, 2) }]
+              : null),
       subTotal: roundTo((dte as any).resumen?.subTotal ?? 0, 2),
       ivaRete1: roundTo(((dte as any).resumen?.ivaRete1 ?? 0) as number, 2),
       reteRenta: roundTo(((dte as any).resumen?.reteRenta ?? 0) as number, 2),
