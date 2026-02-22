@@ -6,6 +6,12 @@ const onlyDigits = (value: string | null | undefined): string | null => {
   return cleaned.length > 0 ? cleaned : null;
 };
 
+ const normalizeTwoDigitCode = (value: string | null | undefined): string | null => {
+   const digits = onlyDigits(value);
+   if (!digits) return null;
+   return digits.padStart(2, '0').slice(-2);
+ };
+
 const trimOrNull = (value: string | null | undefined): string | null => {
   if (value === null || value === undefined) return null;
   const t = value.trim();
@@ -20,61 +26,72 @@ const roundTo = (value: number, decimals: number): number => {
 const DEFAULT_RECEPTOR_EMAIL = 'consumidor.final@example.com';
 
 export const normalizeDTE = (dte: DTEJSON): DTEJSON => {
-  return {
-    ...dte,
+  const codigosValidos015 = ['20', 'D1', 'C8', 'J1', 'J2', 'J3'];
+  const tipoDte = (dte.identificacion?.tipoDte || '').trim();
+  const versionIdentificacion = tipoDte === '03' ? 3 : 1;
+
+  const normalized: DTEJSON = {
     identificacion: {
-      ...dte.identificacion,
+      version: versionIdentificacion,
       ambiente: dte.identificacion?.ambiente === '01' ? '01' : '00',
-      version: dte.identificacion?.tipoDte === '03' ? 3 : 1, // CCFE=3, FE=1 según ejemplo MH
+      tipoDte: tipoDte || (dte.identificacion?.tipoDte as any),
+      numeroControl: (dte.identificacion?.numeroControl || '').trim(),
+      codigoGeneracion: (dte.identificacion?.codigoGeneracion || '').trim(),
+      tipoModelo: dte.identificacion?.tipoModelo ?? 1,
+      tipoOperacion: dte.identificacion?.tipoOperacion ?? 1,
+      tipoContingencia: dte.identificacion?.tipoOperacion === 2 ? (dte.identificacion?.tipoContingencia ?? null) : null,
+      motivoContin:
+        dte.identificacion?.tipoContingencia === 5 ? (trimOrNull(dte.identificacion?.motivoContin) as any) : null,
+      fecEmi: (dte.identificacion?.fecEmi || '').trim(),
+      horEmi: (dte.identificacion?.horEmi || '').trim(),
       tipoMoneda: 'USD',
-      tipoContingencia: dte.identificacion?.tipoOperacion === 2 ? dte.identificacion?.tipoContingencia : null,
-      motivoContin: dte.identificacion?.tipoContingencia === 5 ? (trimOrNull(dte.identificacion?.motivoContin) as any) : null,
     },
+    documentoRelacionado: (dte as any).documentoRelacionado ?? null,
     emisor: {
-      ...dte.emisor,
-      nit: (onlyDigits(dte.emisor?.nit) || ''),
-      nrc: (onlyDigits(dte.emisor?.nrc) || ''),
-      nombre: dte.emisor?.nombre ? dte.emisor.nombre.trim() : '',
-      codActividad: (onlyDigits(dte.emisor?.codActividad) || dte.emisor?.codActividad || '').trim(),
-      descActividad: dte.emisor?.descActividad ? dte.emisor.descActividad.trim() : '',
-      nombreComercial: trimOrNull(dte.emisor?.nombreComercial) as any,
-      // Campos según ejemplo MH - CCFE permite estos campos
-      tipoEstablecimiento: trimOrNull(dte.emisor?.tipoEstablecimiento) || '01', // Default si no existe
-      codEstableMH: trimOrNull(dte.emisor?.codEstableMH) || 'M001', // Default según ejemplo
-      codPuntoVentaMH: trimOrNull(dte.emisor?.codPuntoVentaMH) || 'P001', // Default según ejemplo
-      telefono: dte.emisor?.telefono ? dte.emisor.telefono.trim() : '',
-      correo: dte.emisor?.correo ? dte.emisor.correo.trim() : '',
+      nit: onlyDigits((dte as any).emisor?.nit) || '',
+      nrc: onlyDigits((dte as any).emisor?.nrc) || '',
+      nombre: (dte as any).emisor?.nombre ? String((dte as any).emisor.nombre).trim() : '',
+      codActividad: (onlyDigits((dte as any).emisor?.codActividad) || String((dte as any).emisor?.codActividad || '')).trim(),
+      descActividad: (dte as any).emisor?.descActividad ? String((dte as any).emisor.descActividad).trim() : '',
+      nombreComercial: trimOrNull((dte as any).emisor?.nombreComercial) as any,
+      // No incluir tipoEstablecimiento/codEstableMH/codPuntoVentaMH para evitar 096 cuando el esquema no los permite
       direccion: {
-        departamento: trimOrNull(dte.emisor?.direccion?.departamento) as any,
-        municipio: onlyDigits(trimOrNull(dte.emisor?.direccion?.municipio)) as any, // Solo códigos numéricos
-        complemento: trimOrNull(dte.emisor?.direccion?.complemento) as any,
-        distrito: null, // MH ejemplo no incluye distrito en emisor
+        departamento: normalizeTwoDigitCode((dte as any).emisor?.direccion?.departamento) as any,
+        municipio: normalizeTwoDigitCode((dte as any).emisor?.direccion?.municipio) as any,
+        complemento: trimOrNull((dte as any).emisor?.direccion?.complemento) as any,
       },
-    },
+      telefono: (dte as any).emisor?.telefono ? String((dte as any).emisor.telefono).trim() : '',
+      correo: (dte as any).emisor?.correo ? String((dte as any).emisor.correo).trim() : '',
+    } as any,
     receptor: {
-      ...dte.receptor,
-      tipoDocumento: (trimOrNull(dte.receptor?.tipoDocumento) as any) ?? null,
-      numDocumento: onlyDigits(dte.receptor?.numDocumento),
-      nrc: onlyDigits(dte.receptor?.nrc),
-      nombre: dte.receptor?.nombre ? dte.receptor.nombre.trim() : '',
-      codActividad: trimOrNull(dte.receptor?.codActividad) as any,
-      descActividad: trimOrNull(dte.receptor?.descActividad) as any,
-      correo: (trimOrNull(dte.receptor?.correo) || DEFAULT_RECEPTOR_EMAIL) as any,
-      telefono: trimOrNull(dte.receptor?.telefono) as any,
-      direccion: dte.receptor?.direccion
+      ...(dte as any).receptor,
+      tipoDocumento: (trimOrNull((dte as any).receptor?.tipoDocumento) as any) ?? null,
+      numDocumento: onlyDigits((dte as any).receptor?.numDocumento),
+      nrc: onlyDigits((dte as any).receptor?.nrc),
+      nombre: (dte as any).receptor?.nombre ? String((dte as any).receptor.nombre).trim() : '',
+      codActividad: trimOrNull((dte as any).receptor?.codActividad) as any,
+      descActividad: trimOrNull((dte as any).receptor?.descActividad) as any,
+      correo: (trimOrNull((dte as any).receptor?.correo) || DEFAULT_RECEPTOR_EMAIL) as any,
+      telefono: trimOrNull((dte as any).receptor?.telefono) as any,
+      direccion: (dte as any).receptor?.direccion
         ? {
-            departamento: trimOrNull(dte.receptor.direccion.departamento) as any,
-            municipio: onlyDigits(trimOrNull(dte.receptor.direccion.municipio)) as any, // Solo códigos numéricos
-            complemento: trimOrNull(dte.receptor.direccion.complemento) as any,
-            distrito: null, // MH ejemplo no incluye distrito en receptor tampoco
+            departamento: normalizeTwoDigitCode((dte as any).receptor.direccion.departamento) as any,
+            municipio: normalizeTwoDigitCode((dte as any).receptor.direccion.municipio) as any,
+            complemento: trimOrNull((dte as any).receptor.direccion.complemento) as any,
           }
         : null,
-    },
-    cuerpoDocumento: (dte.cuerpoDocumento || []).map((i) => ({
-      ...i,
-      codigo: i.codigo ? i.codigo.trim() : null,
-      descripcion: i.descripcion.trim(),
+    } as any,
+    otrosDocumentos: (dte as any).otrosDocumentos ?? null,
+    ventaTercero: (dte as any).ventaTercero ?? null,
+    cuerpoDocumento: (dte.cuerpoDocumento || []).map((i: any) => ({
+      numItem: i.numItem,
+      tipoItem: i.tipoItem,
+      numeroDocumento: trimOrNull(i.numeroDocumento) as any,
+      codigo: i.codigo ? String(i.codigo).trim() : null,
+      codTributo: trimOrNull(i.codTributo) as any,
+      descripcion: String(i.descripcion || '').trim(),
       cantidad: roundTo(i.cantidad, 8),
+      uniMedida: i.uniMedida,
       precioUni: roundTo(i.precioUni, 8),
       montoDescu: roundTo(i.montoDescu, 8),
       ventaNoSuj: roundTo(i.ventaNoSuj, 8),
@@ -83,53 +100,47 @@ export const normalizeDTE = (dte: DTEJSON): DTEJSON => {
       tributos:
         i.tributos === null
           ? null
-          : (i.tributos ?? []).map((t) => {
-              const codigo = String(t).trim();
-              // Validar que sea un código del Catálogo 015
-              const codigosValidos = ['20', 'D1', 'C8', 'J1', 'J2', 'J3']; // IVA, FOVIAL, etc.
-              return codigosValidos.includes(codigo) ? codigo : '20'; // Default a IVA si es inválido
-            }).filter(Boolean) as any,
-      numeroDocumento: trimOrNull(i.numeroDocumento) as any,
-      codTributo: trimOrNull(i.codTributo) as any,
+          : (i.tributos ?? [])
+              .map((t: any) => String(t).trim())
+              .filter(Boolean)
+              .map((codigo: string) => (codigosValidos015.includes(codigo) ? codigo : '20')) as any,
       psv: roundTo(i.psv ?? 0, 2),
       noGravado: roundTo(i.noGravado ?? 0, 2),
       ivaItem: roundTo(i.ivaItem ?? 0, 2),
     })),
     resumen: {
-      ...dte.resumen,
-      totalNoSuj: roundTo(dte.resumen?.totalNoSuj ?? 0, 2),
-      totalExenta: roundTo(dte.resumen?.totalExenta ?? 0, 2),
-      totalGravada: roundTo(dte.resumen?.totalGravada ?? 0, 2),
-      subTotalVentas: roundTo(dte.resumen?.subTotalVentas ?? 0, 2),
-      descuNoSuj: roundTo(dte.resumen?.descuNoSuj ?? 0, 2),
-      descuExenta: roundTo(dte.resumen?.descuExenta ?? 0, 2),
-      descuGravada: roundTo(dte.resumen?.descuGravada ?? 0, 2),
-      porcentajeDescuento: roundTo(dte.resumen?.porcentajeDescuento ?? 0, 2),
-      totalDescu: roundTo(dte.resumen?.totalDescu ?? 0, 2),
-      totalIva: roundTo(dte.resumen?.totalIva ?? 0, 2),
-      subTotal: roundTo(dte.resumen?.subTotal ?? 0, 2),
-      ivaRete: roundTo((dte.resumen as any)?.ivaRete1 ?? 0, 2), // Usar ivaRete1 si existe, sino 0
-      // reteRenta: 0, // Removido - no incluir campo no permitido
-      montoTotalOperacion: roundTo(dte.resumen?.montoTotalOperacion ?? 0, 2),
-      totalNoGravado: roundTo(dte.resumen?.totalNoGravado ?? 0, 2),
-      totalPagar: roundTo(dte.resumen?.totalPagar ?? 0, 2),
-      saldoFavor: roundTo(dte.resumen?.saldoFavor ?? 0, 2),
+      totalNoSuj: roundTo((dte as any).resumen?.totalNoSuj ?? 0, 2),
+      totalExenta: roundTo((dte as any).resumen?.totalExenta ?? 0, 2),
+      totalGravada: roundTo((dte as any).resumen?.totalGravada ?? 0, 2),
+      subTotalVentas: roundTo((dte as any).resumen?.subTotalVentas ?? 0, 2),
+      descuNoSuj: roundTo((dte as any).resumen?.descuNoSuj ?? 0, 2),
+      descuExenta: roundTo((dte as any).resumen?.descuExenta ?? 0, 2),
+      descuGravada: roundTo((dte as any).resumen?.descuGravada ?? 0, 2),
+      porcentajeDescuento: roundTo((dte as any).resumen?.porcentajeDescuento ?? 0, 2),
+      totalDescu: roundTo((dte as any).resumen?.totalDescu ?? 0, 2),
       tributos:
-        dte.resumen?.tributos === null
+        (dte as any).resumen?.tributos === null
           ? null
-          : (dte.resumen?.tributos ?? []).map((t) => ({
-              ...t,
-              codigo: (() => {
-                const codigo = String(t.codigo).trim();
-                const codigosValidos = ['20', 'D1', 'C8', 'J1', 'J2', 'J3']; // Catálogo 015
-                return codigosValidos.includes(codigo) ? codigo : '20'; // Default a IVA
-              })(),
-              valor: roundTo(t.valor, 2),
+          : ((dte as any).resumen?.tributos ?? []).map((t: any) => ({
+              codigo: codigosValidos015.includes(String(t.codigo).trim()) ? String(t.codigo).trim() : '20',
+              descripcion: String(t.descripcion || '').trim(),
+              valor: roundTo(t.valor ?? 0, 2),
             })),
-      totalLetras: dte.resumen?.totalLetras ? dte.resumen.totalLetras.trim() : '',
-      observaciones: dte.resumen?.observaciones ?? null, // Campo requerido por MH
-    },
-    // Remover extension no permitido para algunos tipos de DTE
-    // apendice: dte.apendice ?? null,
+      subTotal: roundTo((dte as any).resumen?.subTotal ?? 0, 2),
+      ivaRete: roundTo(((dte as any).resumen?.ivaRete ?? (dte as any).resumen?.ivaRete1 ?? 0) as number, 2),
+      montoTotalOperacion: roundTo((dte as any).resumen?.montoTotalOperacion ?? 0, 2),
+      totalNoGravado: roundTo((dte as any).resumen?.totalNoGravado ?? 0, 2),
+      totalPagar: roundTo((dte as any).resumen?.totalPagar ?? 0, 2),
+      totalLetras: (dte as any).resumen?.totalLetras ? String((dte as any).resumen.totalLetras).trim() : '',
+      saldoFavor: roundTo((dte as any).resumen?.saldoFavor ?? 0, 2),
+      condicionOperacion: (dte as any).resumen?.condicionOperacion ?? 1,
+      pagos: (dte as any).resumen?.pagos ?? null,
+      numPagoElectronico: (dte as any).resumen?.numPagoElectronico ?? null,
+      observaciones: (dte as any).resumen?.observaciones ?? null,
+    } as any,
+    // NO incluir extension / apendice aquí para evitar 096
+    apendice: null,
   };
+
+  return normalized;
 };
