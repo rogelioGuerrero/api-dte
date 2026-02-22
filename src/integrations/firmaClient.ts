@@ -3,7 +3,20 @@ import { createLogger } from '../utils/logger';
 
 const logger = createLogger('firmaClient');
 
-const FIRMA_SERVICE_URL = process.env.FIRMA_SERVICE_URL || 'https://api-firma.onrender.com/firma/firmardocumento/';
+const getBaseUrl = (): string => {
+  const envUrl = process.env.FIRMA_SERVICE_URL;
+  if (!envUrl) return 'https://api-firma.onrender.com/firma';
+  
+  if (envUrl.endsWith('/firmardocumento') || envUrl.endsWith('/firmardocumento/')) {
+    return envUrl.replace(/\/firmardocumento\/?$/, '');
+  }
+  
+  return envUrl.replace(/\/$/, '');
+};
+
+const FIRMA_BASE_URL = getBaseUrl();
+const FIRMA_SIGN_URL = `${FIRMA_BASE_URL}/firmardocumento/`;
+const FIRMA_STATUS_URL = `${FIRMA_BASE_URL}/status`;
 
 export interface FirmaRequest {
   nit: string;
@@ -35,7 +48,7 @@ export const firmarDocumento = async (request: FirmaRequest): Promise<string> =>
       dteJson: request.dteJson
     };
     
-    const response = await axios.post<FirmaResponse>(FIRMA_SERVICE_URL, payload, {
+    const response = await axios.post<FirmaResponse>(FIRMA_SIGN_URL, payload, {
       headers,
       timeout: 30000, // 30 segundos timeout
     });
@@ -75,7 +88,7 @@ export const wakeFirmaService = async (options: {
   
   for (let i = 0; i < retries; i++) {
     try {
-      const response = await axios.get(FIRMA_SERVICE_URL.replace('/firmardocumento/', '/status'), {
+      const response = await axios.get(FIRMA_STATUS_URL, {
         timeout: timeoutMs,
       });
       
