@@ -83,18 +83,14 @@ export interface DTEJSON {
     codActividad: string;
     descActividad: string;
     nombreComercial: string | null;
-    tipoEstablecimiento: string;
-    codEstable: string | null;
-    codPuntoVenta: string | null;
     direccion: {
       departamento: string;
       municipio: string;
       complemento: string;
+      distrito: string | null; // Campo requerido por MH
     };
     telefono: string;
     correo: string;
-    codEstableMH: string | null;
-    codPuntoVentaMH: string | null;
   };
   receptor: {
     tipoDocumento: string | null;
@@ -131,14 +127,14 @@ export interface DTEJSON {
       valor: number;
     }> | null;
     subTotal: number;
-    ivaRete1: number;
-    reteRenta: number;
+    ivaRete: number; // Corregido de ivaRete1
     montoTotalOperacion: number;
     totalNoGravado: number;
     totalPagar: number;
     totalLetras: string;
     saldoFavor: number;
     condicionOperacion: number;
+    observaciones: string | null; // Campo requerido por MH
     pagos: Array<{
       codigo: string;
       montoPago: number;
@@ -148,14 +144,14 @@ export interface DTEJSON {
     }> | null;
     numPagoElectronico: string | null;
   };
-  extension: {
-    nombEntrega: string | null;
-    docuEntrega: string | null;
-    nombRecibe: string | null;
-    docuRecibe: string | null;
-    observaciones: string | null;
-    placaVehiculo: string | null;
-  } | null;
+  // extension: { // Removido - no permitido para algunos DTE
+  //   nombEntrega: string | null;
+  //   docuEntrega: string | null;
+  //   nombRecibe: string | null;
+  //   docuRecibe: string | null;
+  //   observaciones: string | null;
+  //   placaVehiculo: string | null;
+  // } | null;
   apendice: null;
 }
 

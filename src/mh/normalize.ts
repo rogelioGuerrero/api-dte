@@ -25,6 +25,7 @@ export const normalizeDTE = (dte: DTEJSON): DTEJSON => {
     identificacion: {
       ...dte.identificacion,
       ambiente: dte.identificacion?.ambiente === '01' ? '01' : '00',
+      version: 1, // Forzar versión 1 para Factura según MH
       tipoMoneda: 'USD',
       tipoContingencia: dte.identificacion?.tipoOperacion === 2 ? dte.identificacion?.tipoContingencia : null,
       motivoContin: dte.identificacion?.tipoContingencia === 5 ? (trimOrNull(dte.identificacion?.motivoContin) as any) : null,
@@ -40,6 +41,12 @@ export const normalizeDTE = (dte: DTEJSON): DTEJSON => {
       // Remover campos no permitidos por MH
       telefono: dte.emisor?.telefono ? dte.emisor.telefono.trim() : '',
       correo: dte.emisor?.correo ? dte.emisor.correo.trim() : '',
+      direccion: {
+        departamento: trimOrNull(dte.emisor?.direccion?.departamento) as any,
+        municipio: trimOrNull(dte.emisor?.direccion?.municipio) as any,
+        complemento: trimOrNull(dte.emisor?.direccion?.complemento) as any,
+        distrito: trimOrNull(dte.emisor?.direccion?.distrito) as any, // Campo requerido por MH
+      },
     },
     receptor: {
       ...dte.receptor,
