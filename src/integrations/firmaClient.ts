@@ -28,14 +28,20 @@ export const firmarDocumento = async (request: FirmaRequest): Promise<string> =>
       'Content-Type': 'application/json',
     };
     
-    // Si se proporciona un token, añadirlo a los headers (según lo que espere api-firma)
+    // Si se proporciona un token, añadirlo como header Authorization
     if (request.apiToken) {
       headers['Authorization'] = `Bearer ${request.apiToken}`;
-      // O si espera un header personalizado:
-      // headers['x-api-key'] = request.apiToken;
     }
     
-    const response = await axios.post<FirmaResponse>(FIRMA_SERVICE_URL, request, {
+    // Crear payload sin apiToken (no existe en FirmarDocumentoFilter)
+    const payload = {
+      nit: request.nit,
+      passwordPri: request.passwordPri,
+      certificadoB64: request.certificadoB64,
+      dteJson: request.dteJson
+    };
+    
+    const response = await axios.post<FirmaResponse>(FIRMA_SERVICE_URL, payload, {
       headers,
       timeout: 30000, // 30 segundos timeout
     });
