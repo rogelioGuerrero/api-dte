@@ -32,6 +32,7 @@ router.post('/credentials', async (req: AuthRequest, res: Response, next: NextFu
       nit: nitLimpio, 
       ambiente, 
       hasCert: !!certificadoB64,
+      hasApiPassword: !!apiPassword,
       certLength: certificadoB64 ? certificadoB64.length : 0,
       certStart: certificadoB64 ? certificadoB64.substring(0, 50) : null
     });
