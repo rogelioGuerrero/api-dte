@@ -1,8 +1,9 @@
 import { DTEState } from "../state";
 import { transmitirDTESandbox } from "../../mh/sandboxClient";
 import { createLogger } from '../../utils/logger';
-import { getMHCredentialsByNIT } from '../../business/businessStorage';
+import { getMHCredentialsByNIT, updateMHTokenByNIT } from '../../business/businessStorage';
 import { randomUUID } from 'crypto';
+import { getCachedMHAuthToken, normalizeBearerToken, shouldRefreshToken } from '../../mh/authClient';
 
 const logger = createLogger('transmitNode');
 
@@ -36,6 +37,33 @@ export const transmitNode = async (state: DTEState): Promise<Partial<DTEState>> 
     
     // Obtener credenciales para extraer el token
     const credentials = await getMHCredentialsByNIT(nitLimpioBusqueda, ambiente);
+
+    if (!credentials) {
+      return {
+        status: 'failed',
+        errorCode: 'TRANSMIT_ERROR_NO_CREDENTIALS',
+        errorMessage: `El NIT ${nitLimpioBusqueda} no tiene credenciales activas para ambiente ${ambiente}`,
+        canRetry: false,
+        progressPercentage: 50
+      };
+    }
+
+    let apiToken = normalizeBearerToken(credentials.api_token);
+
+    if (shouldRefreshToken(credentials.api_token, credentials.updated_at, ambiente)) {
+      if (!credentials.api_password) {
+        return {
+          status: 'failed',
+          errorCode: 'TRANSMIT_ERROR_NO_API_PASSWORD',
+          errorMessage: 'No hay contraseña API configurada para obtener token MH',
+          canRetry: false,
+          progressPercentage: 50
+        };
+      }
+
+      apiToken = await getCachedMHAuthToken(nitLimpioBusqueda, credentials.api_password, ambiente);
+      await updateMHTokenByNIT(nitLimpioBusqueda, ambiente, apiToken);
+    }
     
     // Extraer metadata necesaria para el MH
     const version = state.dte.identificacion?.version || 1;
@@ -46,7 +74,7 @@ export const transmitNode = async (state: DTEState): Promise<Partial<DTEState>> 
     const result = await transmitirDTESandbox(
       state.signature, 
       ambiente, 
-      credentials?.api_token || '', // Pasamos el token si existe, sino string vacío 
+      apiToken,
       version, 
       tipoDte, 
       idEnvio

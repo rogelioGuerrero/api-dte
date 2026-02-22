@@ -27,6 +27,7 @@ export interface MHCredentials {
   nit: string;
   nrc: string;
   api_token?: string;
+  api_password?: string;
   password_pri?: string;
   certificado_b64?: string;
   ambiente: '00' | '01';
@@ -50,6 +51,27 @@ export const createBusiness = async (business: Omit<Business, 'id' | 'created_at
     return data as Business;
   } catch (error: any) {
     logger.error('Error creating business', { error: error.message });
+    throw error;
+  }
+};
+
+export const updateMHTokenByNIT = async (
+  nit: string,
+  ambiente: '00' | '01',
+  apiToken: string
+): Promise<void> => {
+  try {
+    const { error } = await supabase
+      .from('mh_credentials')
+      .update({ api_token: apiToken, updated_at: new Date().toISOString() })
+      .eq('nit', nit)
+      .eq('ambiente', ambiente);
+
+    if (error) throw error;
+
+    logger.info('MH token actualizado', { nit, ambiente });
+  } catch (error: any) {
+    logger.error('Error actualizando token MH', { nit, ambiente, error: error.message });
     throw error;
   }
 };

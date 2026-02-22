@@ -11,7 +11,7 @@ const logger = createLogger('businessController');
 // Guarda o actualiza la contraseña del certificado y configuración en Supabase
 router.post('/credentials', async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const { nit, nrc, ambiente = '00', passwordPri, certificadoB64, apiToken, activo = true } = req.body;
+    const { nit, nrc, ambiente = '00', passwordPri, certificadoB64, apiToken, apiPassword, activo = true } = req.body;
 
     // Usamos el NIT validado por el middleware (o el enviado en el body)
     const targetNit = nit || req.user?.nit;
@@ -44,6 +44,7 @@ router.post('/credentials', async (req: AuthRequest, res: Response, next: NextFu
       password_pri: passwordPri,
       certificado_b64: certificadoB64,
       api_token: apiToken,
+      api_password: apiPassword,
       activo
     });
 
