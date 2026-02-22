@@ -110,6 +110,21 @@ export const transmitirDTESandbox = async (
       
   console.log('🔍 Body completo (primeros 500 chars):', requestBody.substring(0, 500) + '...');
       
+      // Validar estructura del JWS antes de enviar
+      const jwsParts = jws.split('.');
+      if (jwsParts.length !== 3) {
+        console.error('❌ JWS inválido: no tiene 3 partes', jwsParts.length);
+      } else {
+        try {
+          const header = JSON.parse(Buffer.from(jwsParts[0], 'base64').toString());
+          const payload = JSON.parse(Buffer.from(jwsParts[1], 'base64').toString());
+          console.log('✅ JWS header:', header);
+          console.log('✅ JWS payload identificacion:', payload.identificacion?.tipoDte, payload.identificacion?.numeroControl);
+        } catch (e) {
+          console.error('❌ Error parseando JWS:', e.message);
+        }
+      }
+      
   let lastError: any;
 
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
