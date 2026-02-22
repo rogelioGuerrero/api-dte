@@ -28,9 +28,9 @@ export const firmarDocumento = async (request: FirmaRequest): Promise<string> =>
       'Content-Type': 'application/json',
     };
     
-    // Si se proporciona un token, añadirlo como header Authorization
+    // Si se proporciona un token, añadirlo como header apiToken
     if (request.apiToken) {
-      headers['Authorization'] = `Bearer ${request.apiToken}`;
+      headers['apiToken'] = request.apiToken;
     }
     
     // Crear payload sin apiToken (no existe en FirmarDocumentoFilter)
