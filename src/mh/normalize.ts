@@ -64,7 +64,6 @@ export const normalizeDTE = (dte: DTEJSON): DTEJSON => {
         departamento: normalizeTwoDigitCode((dte as any).emisor?.direccion?.departamento) as any,
         municipio: normalizeTwoDigitCode((dte as any).emisor?.direccion?.municipio) as any,
         complemento: trimOrNull((dte as any).emisor?.direccion?.complemento) as any,
-        distrito: trimOrNull((dte as any).emisor?.direccion?.distrito) as any,
       },
       telefono: (dte as any).emisor?.telefono ? String((dte as any).emisor.telefono).trim() : '',
       correo: (dte as any).emisor?.correo ? String((dte as any).emisor.correo).trim() : '',
@@ -104,12 +103,9 @@ export const normalizeDTE = (dte: DTEJSON): DTEJSON => {
       ventaExenta: roundTo(i.ventaExenta, 8),
       ventaGravada: roundTo(i.ventaGravada, 8),
       tributos:
-        i.tributos === null
-          ? null
-          : (i.tributos ?? [])
-              .map((t: any) => String(t).trim())
-              .filter(Boolean)
-              .map((codigo: string) => (codigosValidos015.includes(codigo) ? codigo : '20')) as any,
+        i.ventaGravada > 0
+          ? (i.tributos === null ? null : ['20'])
+          : (i.tributos === null ? null : null),
       psv: roundTo(i.psv ?? 0, 2),
       noGravado: roundTo(i.noGravado ?? 0, 2),
       ivaItem: roundTo(i.ivaItem ?? 0, 2),
@@ -134,7 +130,8 @@ export const normalizeDTE = (dte: DTEJSON): DTEJSON => {
               valor: roundTo(t.valor ?? 0, 2),
             })),
       subTotal: roundTo((dte as any).resumen?.subTotal ?? 0, 2),
-      ivaRete: roundTo(((dte as any).resumen?.ivaRete ?? (dte as any).resumen?.ivaRete1 ?? 0) as number, 2),
+      ivaRete1: roundTo(((dte as any).resumen?.ivaRete1 ?? 0) as number, 2),
+      reteRenta: roundTo(((dte as any).resumen?.reteRenta ?? 0) as number, 2),
       montoTotalOperacion: roundTo((dte as any).resumen?.montoTotalOperacion ?? 0, 2),
       totalNoGravado: roundTo((dte as any).resumen?.totalNoGravado ?? 0, 2),
       totalPagar: roundTo((dte as any).resumen?.totalPagar ?? 0, 2),
@@ -143,9 +140,8 @@ export const normalizeDTE = (dte: DTEJSON): DTEJSON => {
       condicionOperacion: (dte as any).resumen?.condicionOperacion ?? 1,
       pagos: (dte as any).resumen?.pagos ?? null,
       numPagoElectronico: (dte as any).resumen?.numPagoElectronico ?? null,
-      observaciones: (dte as any).resumen?.observaciones ?? null,
     } as any,
-    // NO incluir extension / apendice aquí para evitar 096
+    extension: null,
     apendice: null,
   };
 

@@ -127,7 +127,8 @@ export interface DTEJSON {
       valor: number;
     }> | null;
     subTotal: number;
-    ivaRete: number; // Corregido de ivaRete1
+    ivaRete1: number;
+    reteRenta: number;
     montoTotalOperacion: number;
     totalNoGravado: number;
     totalPagar: number;
@@ -144,14 +145,14 @@ export interface DTEJSON {
     }> | null;
     numPagoElectronico: string | null;
   };
-  // extension: { // Removido - no permitido para algunos DTE
-  //   nombEntrega: string | null;
-  //   docuEntrega: string | null;
-  //   nombRecibe: string | null;
-  //   docuRecibe: string | null;
-  //   observaciones: string | null;
-  //   placaVehiculo: string | null;
-  // } | null;
+  extension: {
+    nombEntrega: string | null;
+    docuEntrega: string | null;
+    nombRecibe: string | null;
+    docuRecibe: string | null;
+    observaciones: string | null;
+    placaVehiculo: string | null;
+  } | null;
   apendice: null;
 }
 
