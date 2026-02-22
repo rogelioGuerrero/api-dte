@@ -3,7 +3,7 @@ import { createLogger } from '../utils/logger';
 
 const logger = createLogger('firmaClient');
 
-const FIRMA_SERVICE_URL = process.env.FIRMA_SERVICE_URL || 'https://api-firma.onrender.com/firmardocumento/';
+const FIRMA_SERVICE_URL = process.env.FIRMA_SERVICE_URL || 'https://api-firma.onrender.com/firma/firmardocumento/';
 
 export interface FirmaRequest {
   nit: string;
@@ -75,7 +75,7 @@ export const wakeFirmaService = async (options: {
   
   for (let i = 0; i < retries; i++) {
     try {
-      const response = await axios.get(FIRMA_SERVICE_URL.replace('/firma', '/health'), {
+      const response = await axios.get(FIRMA_SERVICE_URL.replace('/firmardocumento/', '/status'), {
         timeout: timeoutMs,
       });
       
