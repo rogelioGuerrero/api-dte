@@ -26,17 +26,17 @@ export const validateNode = async (state: DTEState): Promise<Partial<DTEState>> 
     };
   }
 
-  const { dte, errores } = processDTE(state.dte as any);
-  const valErrors: string[] = errores.map((e) => `${e.codigo}: ${e.descripcion}`);
+  // 1) Validar consistencia usando el DTE crudo que envió frontend (sin normalizar)
+  const rawDte: any = state.dte;
+  const valErrors: string[] = [];
 
-  // Recalcular totales básicos siguiendo reglas MH (8 decimales en ítems, 2 en resumen)
   try {
     let sumaGravada = 0;
     let sumaExenta = 0;
     let sumaNoSuj = 0;
     let sumaIvaItems = 0;
 
-    for (const item of dte.cuerpoDocumento || []) {
+    for (const item of rawDte.cuerpoDocumento || []) {
       const totalItem = round8((item.precioUni || 0) * (item.cantidad || 0) - (item.montoDescu || 0));
       const sumaTipos = round8((item.ventaGravada || 0) + (item.ventaExenta || 0) + (item.ventaNoSuj || 0));
 
@@ -50,7 +50,7 @@ export const validateNode = async (state: DTEState): Promise<Partial<DTEState>> 
       sumaIvaItems += item.ivaItem || 0;
     }
 
-    const resumen = (dte as any).resumen || {};
+    const resumen = (rawDte as any).resumen || {};
     const esperadoTotalVentas = round2(sumaGravada + sumaExenta + sumaNoSuj);
     const esperadoSubTotal = round2(esperadoTotalVentas - (resumen.totalDescu || 0));
     const esperadoTotalIva = round2(sumaIvaItems);
@@ -92,15 +92,34 @@ export const validateNode = async (state: DTEState): Promise<Partial<DTEState>> 
       valErrors.push(`RESUMEN_TOTAL_PAGAR_MISMATCH: ${resumenTotalPagar} ≠ esperado ${esperadoTotalPagar}`);
     }
   } catch (err: any) {
-    valErrors.push(`VALIDATION_EXCEPTION: ${err?.message || err}`);
+    valErrors.push(`VALIDATION_EXCEPTION_RAW: ${err?.message || err}`);
   }
 
-  const isValid = valErrors.length === 0;
+  // Si el crudo no cuadra, no seguimos a normalizar/firma
+  if (valErrors.length > 0) {
+    return {
+      dte: state.dte,
+      isValid: false,
+      validationErrors: valErrors,
+      status: 'failed',
+      progressPercentage: 10,
+      currentStep: 'validator',
+      canRetry: false,
+      errorCode: 'VALIDATION_FAILED',
+      errorMessage: 'Errores de validación DTE (crudo)'
+    };
+  }
+
+  // 2) Validar con normalización y reglas existentes (schema + reglas)
+  const { dte, errores } = processDTE(state.dte as any);
+  const valErrorsSchema: string[] = errores.map((e) => `${e.codigo}: ${e.descripcion}`);
+
+  const isValid = valErrorsSchema.length === 0;
 
   return {
     dte,
     isValid,
-    validationErrors: valErrors,
+    validationErrors: valErrorsSchema,
     status: isValid ? 'signing' : 'failed',
     progressPercentage: isValid ? 25 : 10,
     currentStep: 'validator',
