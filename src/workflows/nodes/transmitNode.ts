@@ -5,6 +5,19 @@ import { getMHCredentialsByNIT, updateMHTokenByNIT } from '../../business/busine
 import { randomUUID } from 'crypto';
 import { getCachedMHAuthToken, normalizeBearerToken, shouldRefreshTokenWithExp } from '../../mh/authClient';
 
+const decodeJwsPayload = (jws: string) => {
+  try {
+    const parts = jws.split('.');
+    if (parts.length < 2) return null;
+    const payload = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    const padded = payload.padEnd(payload.length + (4 - (payload.length % 4)) % 4, '=');
+    const json = Buffer.from(padded, 'base64').toString('utf8');
+    return JSON.parse(json);
+  } catch (e) {
+    return null;
+  }
+};
+
 const logger = createLogger('transmitNode');
 
 export const transmitNode = async (state: DTEState): Promise<Partial<DTEState>> => {
@@ -79,6 +92,27 @@ export const transmitNode = async (state: DTEState): Promise<Partial<DTEState>> 
     const idEnvio = Math.floor(Math.random() * 999999) + 1; // MH espera número entero, no UUID
 
     // Transmisión real
+    const decoded = decodeJwsPayload(state.signature);
+    if (decoded) {
+      try {
+        const resumenDbg = decoded.resumen || {};
+        const itemsDbg = (decoded.cuerpoDocumento || []).map((i: any) => ({ numItem: i.numItem, ventaGravada: i.ventaGravada, ivaItem: i.ivaItem }));
+        logger.info('DEBUG JWS PAYLOAD', {
+          resumen: {
+            totalGravada: resumenDbg.totalGravada,
+            totalExenta: resumenDbg.totalExenta,
+            totalNoSuj: resumenDbg.totalNoSuj,
+            totalIva: resumenDbg.totalIva,
+            montoTotalOperacion: resumenDbg.montoTotalOperacion,
+            totalPagar: resumenDbg.totalPagar,
+          },
+          items: itemsDbg,
+        });
+      } catch (e) {
+        logger.warn('No se pudo loggear payload decodificado', { error: (e as any)?.message });
+      }
+    }
+
     const result = await transmitirDTESandbox(
       state.signature, 
       ambiente, 
