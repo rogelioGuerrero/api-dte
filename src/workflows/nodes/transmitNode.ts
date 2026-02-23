@@ -4,6 +4,7 @@ import { createLogger } from '../../utils/logger';
 import { getMHCredentialsByNIT, updateMHTokenByNIT } from '../../business/businessStorage';
 import { randomUUID } from 'crypto';
 import { getCachedMHAuthToken, normalizeBearerToken, shouldRefreshTokenWithExp } from '../../mh/authClient';
+import { saveSignedDteDebug } from '../../database/debugLogger';
 
 const decodeJwsPayload = (jws: string) => {
   try {
@@ -107,6 +108,11 @@ export const transmitNode = async (state: DTEState): Promise<Partial<DTEState>> 
             totalPagar: resumenDbg.totalPagar,
           },
           items: itemsDbg,
+        });
+        await saveSignedDteDebug({
+          codigoGeneracion,
+          signature: state.signature,
+          payload: decoded,
         });
       } catch (e) {
         logger.warn('No se pudo loggear payload decodificado', { error: (e as any)?.message });
