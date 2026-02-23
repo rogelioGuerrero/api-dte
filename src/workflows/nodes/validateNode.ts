@@ -50,7 +50,7 @@ export const validateNode = async (state: DTEState): Promise<Partial<DTEState>> 
       sumaIvaItems += item.ivaItem || 0;
     }
 
-    const resumen = dte.resumen || {};
+    const resumen = (dte as any).resumen || {};
     const esperadoTotalVentas = round2(sumaGravada + sumaExenta + sumaNoSuj);
     const esperadoSubTotal = round2(esperadoTotalVentas - (resumen.totalDescu || 0));
     const esperadoTotalIva = round2(sumaIvaItems);
@@ -62,26 +62,34 @@ export const validateNode = async (state: DTEState): Promise<Partial<DTEState>> 
       + (resumen.saldoFavor || 0)
     );
 
-    if (!near(resumen.totalGravada || 0, sumaGravada)) {
-      valErrors.push(`RESUMEN_TOTAL_GRAVADA_MISMATCH: ${resumen.totalGravada} ≠ suma ítems ${sumaGravada.toFixed(2)}`);
+    const resumenTotalGravada = resumen.totalGravada || 0;
+    const resumenTotalExenta = resumen.totalExenta || 0;
+    const resumenTotalNoSuj = resumen.totalNoSuj || 0;
+    const resumenTotalIva = resumen.totalIva || 0;
+    const resumenSubTotal = resumen.subTotal || resumen.subTotalVentas || 0;
+    const resumenMontoOperacion = resumen.montoTotalOperacion || 0;
+    const resumenTotalPagar = resumen.totalPagar || 0;
+
+    if (!near(resumenTotalGravada, sumaGravada)) {
+      valErrors.push(`RESUMEN_TOTAL_GRAVADA_MISMATCH: ${resumenTotalGravada} ≠ suma ítems ${sumaGravada.toFixed(2)}`);
     }
-    if (!near(resumen.totalExenta || 0, sumaExenta)) {
-      valErrors.push(`RESUMEN_TOTAL_EXENTA_MISMATCH: ${resumen.totalExenta} ≠ suma ítems ${sumaExenta.toFixed(2)}`);
+    if (!near(resumenTotalExenta, sumaExenta)) {
+      valErrors.push(`RESUMEN_TOTAL_EXENTA_MISMATCH: ${resumenTotalExenta} ≠ suma ítems ${sumaExenta.toFixed(2)}`);
     }
-    if (!near(resumen.totalNoSuj || 0, sumaNoSuj)) {
-      valErrors.push(`RESUMEN_TOTAL_NOSUJ_MISMATCH: ${resumen.totalNoSuj} ≠ suma ítems ${sumaNoSuj.toFixed(2)}`);
+    if (!near(resumenTotalNoSuj, sumaNoSuj)) {
+      valErrors.push(`RESUMEN_TOTAL_NOSUJ_MISMATCH: ${resumenTotalNoSuj} ≠ suma ítems ${sumaNoSuj.toFixed(2)}`);
     }
-    if (!near(resumen.totalIva || 0, esperadoTotalIva)) {
-      valErrors.push(`RESUMEN_TOTAL_IVA_MISMATCH: ${resumen.totalIva} ≠ IVA ítems ${esperadoTotalIva}`);
+    if (!near(resumenTotalIva, esperadoTotalIva)) {
+      valErrors.push(`RESUMEN_TOTAL_IVA_MISMATCH: ${resumenTotalIva} ≠ IVA ítems ${esperadoTotalIva}`);
     }
-    if (!near(resumen.subTotal || resumen.subTotalVentas || 0, esperadoSubTotal)) {
-      valErrors.push(`RESUMEN_SUBTOTAL_MISMATCH: ${resumen.subTotal || resumen.subTotalVentas} ≠ esperado ${esperadoSubTotal}`);
+    if (!near(resumenSubTotal, esperadoSubTotal)) {
+      valErrors.push(`RESUMEN_SUBTOTAL_MISMATCH: ${resumenSubTotal} ≠ esperado ${esperadoSubTotal}`);
     }
-    if (!near(resumen.montoTotalOperacion || 0, esperadoMontoOperacion)) {
-      valErrors.push(`RESUMEN_MONTO_OPERACION_MISMATCH: ${resumen.montoTotalOperacion} ≠ esperado ${esperadoMontoOperacion}`);
+    if (!near(resumenMontoOperacion, esperadoMontoOperacion)) {
+      valErrors.push(`RESUMEN_MONTO_OPERACION_MISMATCH: ${resumenMontoOperacion} ≠ esperado ${esperadoMontoOperacion}`);
     }
-    if (!near(resumen.totalPagar || 0, esperadoTotalPagar)) {
-      valErrors.push(`RESUMEN_TOTAL_PAGAR_MISMATCH: ${resumen.totalPagar} ≠ esperado ${esperadoTotalPagar}`);
+    if (!near(resumenTotalPagar, esperadoTotalPagar)) {
+      valErrors.push(`RESUMEN_TOTAL_PAGAR_MISMATCH: ${resumenTotalPagar} ≠ esperado ${esperadoTotalPagar}`);
     }
   } catch (err: any) {
     valErrors.push(`VALIDATION_EXCEPTION: ${err?.message || err}`);
