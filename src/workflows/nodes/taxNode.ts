@@ -42,9 +42,16 @@ export const taxNode = async (state: DTEState): Promise<Partial<DTEState>> => {
     // Pasamos el flowType para distinguir si suma a Ventas o Compras
     const updatedAcc = updateTaxAccumulator(baseAcc, state.dte, state.flowType);
     
-    await saveAccumulator(updatedAcc);
-
-    console.log(`💰 Impacto Fiscal Guardado: ${state.flowType === 'reception' ? 'Crédito' : 'Débito'} actualizado.`);
+    try {
+      await saveAccumulator(updatedAcc);
+      console.log(`💰 Impacto Fiscal Guardado: ${state.flowType === 'reception' ? 'Crédito' : 'Débito'} actualizado.`);
+    } catch (err: any) {
+      if (err?.code === '23503') {
+        console.warn('TaxNode: business_id no existe en businesses; se omite guardar acumulador', { businessKey });
+      } else {
+        throw err;
+      }
+    }
 
     return {
       taxImpact: updatedAcc

@@ -36,6 +36,10 @@ export async function saveDTEResponse(responseData: DTEResponse) {
     const isUuid = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(rawBiz);
     const nitClean = (responseData.nit || rawBiz || '').replace(/[^0-9]/g, '');
     const businessId = isUuid ? rawBiz : toDeterministicUUID(nitClean || rawBiz);
+    const codigoGeneracion = responseData.codigoGeneracion
+      || responseData.dteJson?.identificacion?.codigoGeneracion
+      || responseData.mhResponse?.codigoGeneracion
+      || null;
 
     const { data, error } = await supabase
       .from('dte_responses')
@@ -46,7 +50,7 @@ export async function saveDTEResponse(responseData: DTEResponse) {
         mh_response: responseData.mhResponse,
         ambiente: responseData.ambiente,
         tipo_dte: responseData.tipoDte || responseData.dteJson?.identificacion?.tipoDte || responseData.mhResponse?.tipoDte || null,
-        codigo_generacion: responseData.codigoGeneracion,
+        codigo_generacion: codigoGeneracion,
         sello_recibido: responseData.selloRecibido,
         correo_enviado: responseData.correoEnviado || false,
         correo_error: responseData.correoError
