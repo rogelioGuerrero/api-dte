@@ -53,8 +53,11 @@ export const validateNode = async (state: DTEState): Promise<Partial<DTEState>> 
     const resumen = (rawDte as any).resumen || {};
     const esperadoTotalVentas = round2(sumaGravada + sumaExenta + sumaNoSuj);
     const esperadoSubTotal = round2(esperadoTotalVentas - (resumen.totalDescu || 0));
+    const tipoDte = rawDte.identificacion?.tipoDte || '';
     const esperadoTotalIva = round2(sumaIvaItems);
-    const esperadoMontoOperacion = round2(esperadoSubTotal + esperadoTotalIva + (resumen.totalNoGravado || 0));
+    const esperadoMontoOperacion = tipoDte === '01'
+      ? round2(esperadoSubTotal + (resumen.totalNoGravado || 0))
+      : round2(esperadoSubTotal + esperadoTotalIva + (resumen.totalNoGravado || 0));
     const esperadoTotalPagar = round2(
       esperadoMontoOperacion
       - (resumen.ivaRete1 || 0)

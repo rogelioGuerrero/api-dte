@@ -90,7 +90,7 @@ export const normalizeDTE = (dte: DTEJSON): DTEJSON => {
     ventaTercero: (dte as any).ventaTercero ?? null,
     cuerpoDocumento: (dte.cuerpoDocumento || []).map((i: any) => {
       const ventaGravada = roundTo(i.ventaGravada ?? 0, 8);
-      const ivaCalculado = tipoDte === '01' ? roundTo(i.ivaItem ?? 0, 2) : roundTo(i.ivaItem ?? 0, 2);
+      const ivaCalculado = tipoDte === '01' ? roundTo(ventaGravada * 0.13, 2) : roundTo(i.ivaItem ?? 0, 2);
       return {
         numItem: i.numItem,
         tipoItem: i.tipoItem,
@@ -114,7 +114,7 @@ export const normalizeDTE = (dte: DTEJSON): DTEJSON => {
     resumen: (() => {
       const items = (dte.cuerpoDocumento || []).map((i: any) => {
         const ventaGravada = roundTo(i.ventaGravada ?? 0, 8);
-        const ivaCalculado = tipoDte === '01' ? roundTo(i.ivaItem ?? 0, 2) : roundTo(i.ivaItem ?? 0, 2);
+        const ivaCalculado = tipoDte === '01' ? roundTo(ventaGravada * 0.13, 2) : roundTo(i.ivaItem ?? 0, 2);
         return { ventaGravada, ventaNoSuj: roundTo(i.ventaNoSuj ?? 0, 8), ventaExenta: roundTo(i.ventaExenta ?? 0, 8), ivaItem: ivaCalculado };
       });
       const totalGravada = roundTo(items.reduce((a, b) => a + b.ventaGravada, 0), 2);
