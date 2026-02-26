@@ -36,7 +36,6 @@ export const normalizeDTE = (dte: DTEJSON): DTEJSON => {
       version: versionIdentificacion,
       ambiente: dte.identificacion?.ambiente === '01' ? '01' : '00',
       tipoDte: tipoDte || (dte.identificacion?.tipoDte as any),
-      nit: onlyDigits((dte as any).emisor?.nit) || undefined,
       numeroControl: (dte.identificacion?.numeroControl || '').trim(),
       codigoGeneracion: (dte.identificacion?.codigoGeneracion || '').trim(),
       tipoModelo: dte.identificacion?.tipoModelo ?? 1,
