@@ -19,19 +19,20 @@ export async function emailNode(state: DTEState): Promise<Partial<DTEState>> {
       throw new Error('No hay respuesta de MH para enviar correo');
     }
 
-    if (!state.dte?.identificacion?.nit) {
+    const nitEmisor = state.dte?.identificacion?.nit || state.dte?.emisor?.nit;
+    if (!nitEmisor) {
       throw new Error('No se puede identificar el emisor del DTE');
     }
 
     logger.info('Iniciando envío de correos para DTE', {
       codigoGeneracion: state.dte.codigoGeneracion,
-      nit: state.dte.identificacion.nit
+      nit: nitEmisor
     });
 
     // 1. Guardar respuesta MH en Supabase
     const savedResponse = await saveDTEResponse({
-      businessId: state.dte.identificacion.nit,
-      nit: state.dte.identificacion.nit,
+      businessId: nitEmisor,
+      nit: nitEmisor,
       dteJson: state.dte,
       mhResponse: state.mhResponse,
       ambiente: state.dte.identificacion.ambiente || '00',

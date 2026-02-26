@@ -74,6 +74,7 @@ export interface DTEJSON {
     fecEmi: string;
     horEmi: string;
     tipoMoneda: string;
+    nit?: string;
   };
   documentoRelacionado: null;
   emisor: {
