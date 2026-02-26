@@ -12,7 +12,7 @@ const logger = createLogger('tokenNode');
 export const tokenNode = async (state: DTEState): Promise<Partial<DTEState>> => {
   const ambiente = state.ambiente || '00';
   const nitEmisor = (state.dte?.emisor?.nit || '').toString().replace(/[\s-]/g, '').trim();
-  const nitBusqueda = (state.businessId || nitEmisor).replace(/[\s-]/g, '').trim();
+  const nitBusqueda = nitEmisor || (state.businessId || '').toString().replace(/[^0-9]/g, '').trim();
 
   if (!nitBusqueda) {
     return {
