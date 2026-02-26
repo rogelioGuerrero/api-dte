@@ -47,12 +47,13 @@ export const transmitNode = async (state: DTEState): Promise<Partial<DTEState>> 
   try {
     const ambiente = state.ambiente || '00';
     const nitEmisor = (state.dte.emisor?.nit || '').toString().replace(/[\s-]/g, '').trim();
-    const nitLimpioBusqueda = (state.businessId || nitEmisor).replace(/[\s-]/g, '').trim();
+    const nitLimpioBusqueda = nitEmisor || (state.businessId || '').toString().replace(/[^0-9]/g, '').trim();
     
     // Obtener credenciales para extraer el token
     const credentials = await getMHCredentialsByNIT(nitLimpioBusqueda, ambiente);
 
     if (!credentials) {
+      console.error('❌ TransmitNode: sin credenciales MH', { nitLimpioBusqueda, ambiente });
       return {
         status: 'failed',
         errorCode: 'TRANSMIT_ERROR_NO_CREDENTIALS',
@@ -61,6 +62,8 @@ export const transmitNode = async (state: DTEState): Promise<Partial<DTEState>> 
         progressPercentage: 50
       };
     }
+
+    console.log('🔐 Credenciales MH obtenidas', { businessId: credentials.business_id, nit: credentials.nit, ambiente });
 
     let apiToken = normalizeBearerToken(credentials.api_token);
     let apiTokenExpiresAt = credentials.api_token_expires_at;
