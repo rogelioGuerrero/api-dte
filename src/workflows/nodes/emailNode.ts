@@ -20,6 +20,7 @@ export async function emailNode(state: DTEState): Promise<Partial<DTEState>> {
     }
 
     const nitEmisor = state.dte?.emisor?.nit || state.dte?.identificacion?.nit;
+    const businessId = state.businessId || nitEmisor;
     if (!nitEmisor) {
       throw new Error('No se puede identificar el emisor del DTE');
     }
@@ -31,7 +32,7 @@ export async function emailNode(state: DTEState): Promise<Partial<DTEState>> {
 
     // 1. Guardar respuesta MH en Supabase
     const savedResponse = await saveDTEResponse({
-      businessId: nitEmisor,
+      businessId: businessId,
       nit: nitEmisor,
       dteJson: state.dte,
       mhResponse: state.mhResponse,
