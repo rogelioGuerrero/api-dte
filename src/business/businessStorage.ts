@@ -212,10 +212,13 @@ export const getMHCredentials = async (businessId: string, ambiente: '00' | '01'
 
 export const getMHCredentialsByNIT = async (nit: string, ambiente: '00' | '01'): Promise<MHCredentials | null> => {
   try {
+    const nitClean = (nit || '').replace(/[^0-9]/g, '');
+    const nitRaw = (nit || '').trim();
+
     const { data, error } = await supabase
       .from('mh_credentials')
       .select('*')
-      .eq('nit', nit)
+      .or(`nit.eq.${nitClean},nit.eq.${nitRaw}`)
       .eq('ambiente', ambiente)
       .eq('activo', true)
       .single();
