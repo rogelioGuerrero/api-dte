@@ -4,7 +4,8 @@ export const getPeriodFromDate = (dateStr: string): { month: string; year: strin
   const date = new Date(dateStr);
   const month = (date.getMonth() + 1).toString().padStart(2, '0');
   const year = date.getFullYear().toString();
-  return { month, year, key: `${year}-${month}` };
+  // period_date en BD es DATE; usamos primer día del mes
+  return { month, year, key: `${year}-${month}-01` };
 };
 
 export const createEmptyAccumulator = (periodKey: { key: string }, businessId: string): MonthlyTaxAccumulator => {
