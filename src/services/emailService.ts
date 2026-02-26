@@ -79,92 +79,76 @@ export function generateDTEEmailHTML(dteData: any, mhResponse: any): string {
   const codigoGeneracion = mhResponse.codigoGeneracion || dteData.codigoGeneracion;
   const selloRecibido = mhResponse.selloRecibido || 'Pendiente';
 
-  return `
-    <!DOCTYPE html>
-    <html>
+  const fmt = (val: any) => val ?? '—';
+  const tipoDte = dteData.identificacion?.tipoDte || dteData.tipoDte || '—';
+  const codGen = mhResponse.codigoGeneracion || dteData.codigoGeneracion || '—';
+  const selloRec = selloRecibido || '—';
+  const fechaProc = mhResponse.fechaHoraProcesamiento || new Date().toLocaleString('es-SV');
+  const emisorNombre = emisor.nombre || emisor.nombreComercial || '—';
+  const receptorNombre = receptor.nombre || receptor.nombreComercial || '—';
+
+  const htmlContent = `
+    <!doctype html>
+    <html lang="es">
     <head>
-      <meta charset="utf-8">
-      <title>DTE Enviado Exitosamente</title>
+      <meta charset="UTF-8" />
+      <meta name="viewport" content="width=device-width, initial-scale=1" />
       <style>
-        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: #f4f4f4; }
-        .container { max-width: 600px; margin: 0 auto; background-color: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        .header { text-align: center; border-bottom: 2px solid #007bff; padding-bottom: 20px; margin-bottom: 30px; }
-        .header h1 { color: #007bff; margin: 0; }
-        .info-section { margin-bottom: 25px; }
-        .info-section h3 { color: #333; border-bottom: 1px solid #eee; padding-bottom: 10px; }
-        .info-row { display: flex; justify-content: space-between; margin-bottom: 8px; }
-        .info-label { font-weight: bold; color: #666; }
-        .info-value { color: #333; }
-        .success-box { background-color: #d4edda; border: 1px solid #c3e6cb; color: #155724; padding: 15px; border-radius: 5px; text-align: center; margin: 20px 0; }
-        .footer { text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; color: #666; font-size: 12px; }
+        body { margin:0; padding:24px 0; background:#f5f7fb; font-family: 'Segoe UI', Arial, sans-serif; color:#0f172a; }
+        .card { max-width:640px; margin:0 auto; background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:24px; box-shadow:0 10px 25px rgba(15,23,42,0.06); }
+        h1 { margin:0 0 12px; font-size:22px; letter-spacing:-0.01em; }
+        .badge { display:inline-flex; align-items:center; gap:8px; padding:10px 12px; border-radius:10px; background:#ecfdf3; color:#166534; border:1px solid #bbf7d0; font-weight:600; font-size:14px; }
+        .section { margin-top:20px; }
+        .section h3 { margin:0 0 10px; font-size:15px; letter-spacing:-0.01em; color:#0f172a; }
+        .rows { border:1px solid #e5e7eb; border-radius:10px; padding:12px 14px; background:#f8fafc; }
+        .row { display:flex; justify-content:space-between; padding:6px 0; font-size:14px; border-bottom:1px solid #e5e7eb; }
+        .row:last-child { border-bottom:none; }
+        .label { color:#475569; font-weight:600; }
+        .value { color:#0f172a; text-align:right; max-width:60%; word-break:break-word; }
+        .footer { margin-top:24px; font-size:12px; color:#94a3b8; text-align:center; line-height:1.5; }
       </style>
     </head>
     <body>
-      <div class="container">
-        <div class="header">
-          <h1>📄 DTE Enviado Exitosamente</h1>
-        </div>
-        
-        <div class="success-box">
-          <strong>✅ Su Documento Tributario Electrónico ha sido procesado por el Ministerio de Hacienda</strong>
-        </div>
+      <div class="card">
+        <h1>📄 DTE procesado</h1>
+        <div class="badge">✅ Recibido por el Ministerio de Hacienda</div>
 
-        <div class="info-section">
-          <h3>📋 Información del Documento</h3>
-          <div class="info-row">
-            <span class="info-label">Código de Generación:</span>
-            <span class="info-value">${codigoGeneracion}</span>
-          </div>
-          <div class="info-row">
-            <span class="info-label">Tipo de DTE:</span>
-            <span class="info-value">${dteData.tipoDte || 'N/A'}</span>
-          </div>
-          <div class="info-row">
-            <span class="info-label">Sello Recibido:</span>
-            <span class="info-value">${selloRecibido}</span>
-          </div>
-          <div class="info-row">
-            <span class="info-label">Fecha de Procesamiento:</span>
-            <span class="info-value">${new Date().toLocaleString('es-SV')}</span>
+        <div class="section">
+          <h3>Información del documento</h3>
+          <div class="rows">
+            <div class="row"><span class="label">Código de Generación:</span><span class="value">${codGen}</span></div>
+            <div class="row"><span class="label">Tipo de DTE:</span><span class="value">${fmt(tipoDte)}</span></div>
+            <div class="row"><span class="label">Sello Recibido:</span><span class="value">${fmt(selloRec)}</span></div>
+            <div class="row"><span class="label">Fecha de Procesamiento:</span><span class="value">${fmt(fechaProc)}</span></div>
           </div>
         </div>
 
-        <div class="info-section">
-          <h3>🏢 Emisor</h3>
-          <div class="info-row">
-            <span class="info-label">NIT:</span>
-            <span class="info-value">${emisor.nit || 'N/A'}</span>
-          </div>
-          <div class="info-row">
-            <span class="info-label">Nombre:</span>
-            <span class="info-value">${emisor.nombre || 'N/A'}</span>
+        <div class="section">
+          <h3>Emisor</h3>
+          <div class="rows">
+            <div class="row"><span class="label">NIT:</span><span class="value">${fmt(emisor.nit)}</span></div>
+            <div class="row"><span class="label">Nombre:</span><span class="value">${fmt(emisorNombre)}</span></div>
+            <div class="row"><span class="label">Correo:</span><span class="value">${fmt(emisor.correo)}</span></div>
           </div>
         </div>
 
-        <div class="info-section">
-          <h3>👤 Receptor</h3>
-          <div class="info-row">
-            <span class="info-label">NIT:</span>
-            <span class="info-value">${receptor.nit || 'N/A'}</span>
-          </div>
-          <div class="info-row">
-            <span class="info-label">Nombre:</span>
-            <span class="info-value">${receptor.nombre || receptor.nombreComercial || 'N/A'}</span>
-          </div>
-          <div class="info-row">
-            <span class="info-label">Email:</span>
-            <span class="info-value">${receptor.correo || 'N/A'}</span>
+        <div class="section">
+          <h3>Receptor</h3>
+          <div class="rows">
+            <div class="row"><span class="label">NIT:</span><span class="value">${fmt(receptor.nit)}</span></div>
+            <div class="row"><span class="label">Nombre:</span><span class="value">${fmt(receptorNombre)}</span></div>
+            <div class="row"><span class="label">Correo:</span><span class="value">${fmt(receptor.correo)}</span></div>
           </div>
         </div>
 
         <div class="footer">
-          <p>Este correo fue generado automáticamente por el Sistema de DTE</p>
-          <p>Por favor no responda a este mensaje</p>
+          <p>Correo automático del sistema DTE. No responder.</p>
         </div>
       </div>
     </body>
     </html>
   `;
+  return htmlContent;
 }
 
 /**
@@ -174,12 +158,11 @@ export async function sendDTEEmails(
   dteData: any,
   mhResponse: any,
   pdfBase64?: string
-): Promise<{ emisor: EmailResult; receptor: EmailResult }> {
-  const emisor = dteData.identificacion || {};
+): Promise<{ receptor: EmailResult }> {
   const receptor = dteData.receptor || {};
   
   const htmlContent = generateDTEEmailHTML(dteData, mhResponse);
-  const subject = `DTE ${dteData.tipoDte} - Código: ${mhResponse.codigoGeneracion || dteData.codigoGeneracion}`;
+  const subject = `DTE ${dteData.tipoDte || dteData.identificacion?.tipoDte || ''} - Código: ${mhResponse.codigoGeneracion || dteData.codigoGeneracion}`;
   
   const attachments = pdfBase64 ? [{
     filename: `DTE_${mhResponse.codigoGeneracion || dteData.codigoGeneracion}.pdf`,
@@ -187,31 +170,23 @@ export async function sendDTEEmails(
     contentType: 'application/pdf'
   }] : undefined;
 
-  // Enviar a emisor
-  const emisorResult = await sendEmail({
-    to: emisor.correo || '',
-    subject: `Copia de DTE Enviado - ${subject}`,
-    html: htmlContent,
-    attachments
-  });
-
-  // Enviar a receptor
-  const receptorResult = await sendEmail({
-    to: receptor.correo || '',
-    subject: subject,
-    html: htmlContent,
-    attachments
-  });
+  // Solo receptor
+  let receptorResult: EmailResult = { success: false, error: 'Receptor sin correo' };
+  if (receptor.correo) {
+    receptorResult = await sendEmail({
+      to: receptor.correo,
+      subject: subject,
+      html: htmlContent,
+      attachments
+    });
+  }
 
   logger.info('Correos DTE enviados', {
-    emisorEmail: emisor.correo,
     receptorEmail: receptor.correo,
-    emisorSuccess: emisorResult.success,
     receptorSuccess: receptorResult.success
   });
 
   return {
-    emisor: emisorResult,
     receptor: receptorResult
   };
 }

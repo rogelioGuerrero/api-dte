@@ -48,69 +48,54 @@ export async function emailNode(state: DTEState): Promise<Partial<DTEState>> {
     });
 
     // 2. Enviar correos (si hay emails)
-    const emisorEmail = state.dte.identificacion?.correo || state.dte.emisor?.correo;
     const receptorEmail = state.dte.receptor?.correo;
 
-    if (!emisorEmail && !receptorEmail) {
-      logger.warn('No hay correos para enviar', {
+    if (!receptorEmail) {
+      logger.warn('No hay correo de receptor para enviar', {
         codigoGeneracion: state.dte.codigoGeneracion
       });
 
       return {
         emailSent: false,
-        emailError: 'No hay correos de emisor ni receptor'
+        emailError: 'No hay correo de receptor'
       };
     }
 
-    // 3. Intentar enviar correos
+    // 3. Intentar enviar correos (solo receptor)
     let emailResults = {
-      emisor: { success: false, error: emisorEmail ? null : 'Emisor sin correo' },
       receptor: { success: false, error: receptorEmail ? null : 'Receptor sin correo' },
     } as any;
 
-    // Solo llamamos al servicio si hay al menos un destinatario válido
-    if (emisorEmail || receptorEmail) {
-      try {
-        // Clonar DTE y limpiar correos vacíos para que el servicio no intente enviarlos
-        const sanitizedDte = { ...state.dte } as any;
-        sanitizedDte.identificacion = { ...(state.dte as any).identificacion };
-        sanitizedDte.emisor = { ...(state.dte as any).emisor };
-        sanitizedDte.receptor = { ...(state.dte as any).receptor };
+    try {
+      const sanitizedDte = { ...state.dte } as any;
+      sanitizedDte.identificacion = { ...(state.dte as any).identificacion };
+      sanitizedDte.emisor = { ...(state.dte as any).emisor };
+      sanitizedDte.receptor = { ...(state.dte as any).receptor };
 
-        if (!emisorEmail) {
-          sanitizedDte.identificacion.correo = undefined;
-          if (sanitizedDte.emisor) sanitizedDte.emisor.correo = undefined;
-        }
-        if (!receptorEmail && sanitizedDte.receptor) {
-          sanitizedDte.receptor.correo = undefined;
-        }
-
-        // Verificar si quedó al menos un destinatario tras limpiar
-        const hasAnyRecipient = (sanitizedDte.identificacion?.correo || sanitizedDte.emisor?.correo || sanitizedDte.receptor?.correo);
-
-        if (hasAnyRecipient) {
-          emailResults = await sendDTEEmails(
-            sanitizedDte,
-            state.mhResponse,
-            state.pdfBase64 // PDF generado por frontend (opcional)
-          );
-        }
-      } catch (emailError) {
-        emailResults.emisor.error = emailError instanceof Error ? emailError.message : 'Error desconocido';
-        emailResults.receptor.error = emailResults.receptor.error || emailResults.emisor.error;
+      if (!receptorEmail && sanitizedDte.receptor) {
+        sanitizedDte.receptor.correo = undefined;
       }
+
+      const hasRecipient = sanitizedDte.receptor?.correo;
+
+      if (hasRecipient) {
+        emailResults = await sendDTEEmails(
+          sanitizedDte,
+          state.mhResponse,
+          state.pdfBase64 // PDF generado por frontend (opcional)
+        );
+      }
+    } catch (emailError) {
+      emailResults.receptor.error = emailError instanceof Error ? emailError.message : 'Error desconocido';
     }
 
     logger.info('Correos enviados', {
-      emisorSuccess: emailResults.emisor.success,
       receptorSuccess: emailResults.receptor.success,
       codigoGeneracion: state.dte.codigoGeneracion
     });
 
-    const correoEnviado = !!(emailResults.emisor.success || emailResults.receptor.success);
-    const correoError = (!emailResults.emisor.success || !emailResults.receptor.success)
-      ? `${emailResults.emisor.error || ''} | ${emailResults.receptor.error || ''}`.trim()
-      : null;
+    const correoEnviado = !!emailResults.receptor.success;
+    const correoError = !emailResults.receptor.success ? emailResults.receptor.error || null : null;
 
     await updateDTEResponseEmailStatus({
       id: (savedResponse as any).id,
@@ -121,7 +106,6 @@ export async function emailNode(state: DTEState): Promise<Partial<DTEState>> {
     return {
       emailSent: correoEnviado,
       emailResults: {
-        emisor: emailResults.emisor.success,
         receptor: emailResults.receptor.success
       },
       emailError: correoError || undefined,
