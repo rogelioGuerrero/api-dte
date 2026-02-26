@@ -32,8 +32,12 @@ export const taxNode = async (state: DTEState): Promise<Partial<DTEState>> => {
     const businessKey = isUuid ? rawBusinessId : toDeterministicUUID(nitClean || rawBusinessId);
 
     const period = getPeriodFromDate(state.dte.identificacion.fecEmi);
-    const existingAcc = await getAccumulator(businessKey, period.key, 'ALL');
-    const baseAcc = existingAcc || createEmptyAccumulator(period, businessKey);
+    let existingAcc = await getAccumulator(businessKey, period.key, 'ALL');
+    if (!existingAcc) {
+      // Si no existe business en Supabase, opcionalmente podríamos abortar; por ahora creamos acumulador local
+      existingAcc = createEmptyAccumulator(period, businessKey);
+    }
+    const baseAcc = existingAcc;
     
     // Pasamos el flowType para distinguir si suma a Ventas o Compras
     const updatedAcc = updateTaxAccumulator(baseAcc, state.dte, state.flowType);

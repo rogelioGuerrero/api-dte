@@ -10,7 +10,7 @@ export interface DTEResponse {
   dteJson: any;
   mhResponse: any;
   ambiente: string;
-  tipoDte: string;
+  tipoDte?: string;
   codigoGeneracion: string;
   selloRecibido?: string;
   correoEnviado?: boolean;
@@ -45,7 +45,7 @@ export async function saveDTEResponse(responseData: DTEResponse) {
         dte_json: responseData.dteJson,
         mh_response: responseData.mhResponse,
         ambiente: responseData.ambiente,
-        tipo_dte: responseData.tipoDte,
+        tipo_dte: responseData.tipoDte || responseData.dteJson?.identificacion?.tipoDte || responseData.mhResponse?.tipoDte || null,
         codigo_generacion: responseData.codigoGeneracion,
         sello_recibido: responseData.selloRecibido,
         correo_enviado: responseData.correoEnviado || false,
