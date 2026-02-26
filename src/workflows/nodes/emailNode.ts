@@ -80,8 +80,19 @@ export async function emailNode(state: DTEState): Promise<Partial<DTEState>> {
       });
 
       // 4. Actualizar registro con estado de correo
+      const persistedDteJson = (savedResponse as any).dte_json || (savedResponse as any).dteJson || state.dte;
+      const persistedMhResp = (savedResponse as any).mh_response || (savedResponse as any).mhResponse || state.mhResponse;
+      const persistedBizId = (savedResponse as any).business_id || businessId;
+
       await saveDTEResponse({
-        ...savedResponse,
+        businessId: persistedBizId,
+        nit: (savedResponse as any).nit || nitEmisor,
+        dteJson: persistedDteJson,
+        mhResponse: persistedMhResp,
+        ambiente: (savedResponse as any).ambiente || state.dte.identificacion.ambiente || '00',
+        tipoDte: (savedResponse as any).tipo_dte || state.dte.tipoDte,
+        codigoGeneracion: (savedResponse as any).codigo_generacion || state.dte.codigoGeneracion,
+        selloRecibido: (savedResponse as any).sello_recibido || state.mhResponse.selloRecibido,
         correoEnviado: emailResults.emisor.success || emailResults.receptor.success,
         correoError: (!emailResults.emisor.success || !emailResults.receptor.success) 
           ? `${emailResults.emisor.error || ''} | ${emailResults.receptor.error || ''}` 
@@ -104,9 +115,20 @@ export async function emailNode(state: DTEState): Promise<Partial<DTEState>> {
         codigoGeneracion: state.dte.codigoGeneracion
       });
 
+      const persistedDteJson = (savedResponse as any).dte_json || (savedResponse as any).dteJson || state.dte;
+      const persistedMhResp = (savedResponse as any).mh_response || (savedResponse as any).mhResponse || state.mhResponse;
+      const persistedBizId = (savedResponse as any).business_id || businessId;
+
       // Actualizar registro con error
       await saveDTEResponse({
-        ...savedResponse,
+        businessId: persistedBizId,
+        nit: (savedResponse as any).nit || nitEmisor,
+        dteJson: persistedDteJson,
+        mhResponse: persistedMhResp,
+        ambiente: (savedResponse as any).ambiente || state.dte.identificacion.ambiente || '00',
+        tipoDte: (savedResponse as any).tipo_dte || state.dte.tipoDte,
+        codigoGeneracion: (savedResponse as any).codigo_generacion || state.dte.codigoGeneracion,
+        selloRecibido: (savedResponse as any).sello_recibido || state.mhResponse.selloRecibido,
         correoEnviado: false,
         correoError: emailError
       });
