@@ -90,8 +90,7 @@ export async function updateDTEResponseEmailStatus(payload: DTEResponseEmailStat
       .from('dte_responses')
       .update({
         correo_enviado: payload.correoEnviado,
-        correo_error: payload.correoError ?? null,
-        updated_at: new Date().toISOString()
+        correo_error: payload.correoError ?? null
       })
       .eq('id', payload.id)
       .select()
