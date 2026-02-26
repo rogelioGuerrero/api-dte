@@ -17,6 +17,12 @@ export interface DTEResponse {
   correoError?: string;
 }
 
+export interface DTEResponseEmailStatus {
+  id: string;
+  correoEnviado: boolean;
+  correoError?: string | null;
+}
+
 const toDeterministicUUID = (value: string) => {
   const hash = createHash('sha1').update(value).digest('hex');
   const bytes = hash.slice(0, 32).split('');
@@ -71,6 +77,34 @@ export async function saveDTEResponse(responseData: DTEResponse) {
     return data;
   } catch (error) {
     logger.error('Error en saveDTEResponse', { error, responseData: { ...responseData, dteJson: '[DTE_DATA]', mhResponse: '[MH_RESPONSE]' } });
+    throw error;
+  }
+}
+
+/**
+ * Actualiza solo el estado de correo de una respuesta existente
+ */
+export async function updateDTEResponseEmailStatus(payload: DTEResponseEmailStatus) {
+  try {
+    const { data, error } = await supabase
+      .from('dte_responses')
+      .update({
+        correo_enviado: payload.correoEnviado,
+        correo_error: payload.correoError ?? null,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', payload.id)
+      .select()
+      .single();
+
+    if (error) {
+      logger.error('Error actualizando estado de correo DTE', { error, payload });
+      throw error;
+    }
+
+    return data;
+  } catch (error) {
+    logger.error('Error en updateDTEResponseEmailStatus', { error, payload });
     throw error;
   }
 }

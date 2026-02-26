@@ -1,6 +1,6 @@
 import { DTEState } from '../state';
 import { createLogger } from '../../utils/logger';
-import { saveDTEResponse } from '../../business/dteStorage';
+import { saveDTEResponse, updateDTEResponseEmailStatus } from '../../business/dteStorage';
 import { sendDTEEmails } from '../../services/emailService';
 
 const logger = createLogger('emailNode');
@@ -48,7 +48,7 @@ export async function emailNode(state: DTEState): Promise<Partial<DTEState>> {
     });
 
     // 2. Enviar correos (si hay emails)
-    const emisorEmail = state.dte.identificacion?.correo;
+    const emisorEmail = state.dte.identificacion?.correo || state.dte.emisor?.correo;
     const receptorEmail = state.dte.receptor?.correo;
 
     if (!emisorEmail && !receptorEmail) {
@@ -63,81 +63,50 @@ export async function emailNode(state: DTEState): Promise<Partial<DTEState>> {
     }
 
     // 3. Intentar enviar correos
-    let emailResults;
-    let emailError = null;
+    let emailResults = {
+      emisor: { success: false, error: emisorEmail ? null : 'Emisor sin correo' },
+      receptor: { success: false, error: receptorEmail ? null : 'Receptor sin correo' },
+    } as any;
 
-    try {
-      emailResults = await sendDTEEmails(
-        state.dte,
-        state.mhResponse,
-        state.pdfBase64 // PDF generado por frontend (opcional)
-      );
-
-      logger.info('Correos enviados', {
-        emisorSuccess: emailResults.emisor.success,
-        receptorSuccess: emailResults.receptor.success,
-        codigoGeneracion: state.dte.codigoGeneracion
-      });
-
-      // 4. Actualizar registro con estado de correo
-      const persistedDteJson = (savedResponse as any).dte_json || (savedResponse as any).dteJson || state.dte;
-      const persistedMhResp = (savedResponse as any).mh_response || (savedResponse as any).mhResponse || state.mhResponse;
-      const persistedBizId = (savedResponse as any).business_id || businessId;
-
-      await saveDTEResponse({
-        businessId: persistedBizId,
-        nit: (savedResponse as any).nit || nitEmisor,
-        dteJson: persistedDteJson,
-        mhResponse: persistedMhResp,
-        ambiente: (savedResponse as any).ambiente || state.dte.identificacion.ambiente || '00',
-        tipoDte: (savedResponse as any).tipo_dte || state.dte.tipoDte,
-        codigoGeneracion: (savedResponse as any).codigo_generacion || state.dte.codigoGeneracion,
-        selloRecibido: (savedResponse as any).sello_recibido || state.mhResponse.selloRecibido,
-        correoEnviado: emailResults.emisor.success || emailResults.receptor.success,
-        correoError: (!emailResults.emisor.success || !emailResults.receptor.success) 
-          ? `${emailResults.emisor.error || ''} | ${emailResults.receptor.error || ''}` 
-          : null
-      });
-
-      return {
-        emailSent: true,
-        emailResults: {
-          emisor: emailResults.emisor.success,
-          receptor: emailResults.receptor.success
-        }
-      };
-
-    } catch (emailError) {
-      emailError = emailError instanceof Error ? emailError.message : 'Error desconocido';
-      
-      logger.error('Error enviando correos', {
-        error: emailError,
-        codigoGeneracion: state.dte.codigoGeneracion
-      });
-
-      const persistedDteJson = (savedResponse as any).dte_json || (savedResponse as any).dteJson || state.dte;
-      const persistedMhResp = (savedResponse as any).mh_response || (savedResponse as any).mhResponse || state.mhResponse;
-      const persistedBizId = (savedResponse as any).business_id || businessId;
-
-      // Actualizar registro con error
-      await saveDTEResponse({
-        businessId: persistedBizId,
-        nit: (savedResponse as any).nit || nitEmisor,
-        dteJson: persistedDteJson,
-        mhResponse: persistedMhResp,
-        ambiente: (savedResponse as any).ambiente || state.dte.identificacion.ambiente || '00',
-        tipoDte: (savedResponse as any).tipo_dte || state.dte.tipoDte,
-        codigoGeneracion: (savedResponse as any).codigo_generacion || state.dte.codigoGeneracion,
-        selloRecibido: (savedResponse as any).sello_recibido || state.mhResponse.selloRecibido,
-        correoEnviado: false,
-        correoError: emailError
-      });
-
-      return {
-        emailSent: false,
-        emailError
-      };
+    // Solo llamamos al servicio si hay al menos un destinatario válido
+    if (emisorEmail || receptorEmail) {
+      try {
+        emailResults = await sendDTEEmails(
+          state.dte,
+          state.mhResponse,
+          state.pdfBase64 // PDF generado por frontend (opcional)
+        );
+      } catch (emailError) {
+        emailResults.emisor.error = emailError instanceof Error ? emailError.message : 'Error desconocido';
+        emailResults.receptor.error = emailResults.receptor.error || emailResults.emisor.error;
+      }
     }
+
+    logger.info('Correos enviados', {
+      emisorSuccess: emailResults.emisor.success,
+      receptorSuccess: emailResults.receptor.success,
+      codigoGeneracion: state.dte.codigoGeneracion
+    });
+
+    const correoEnviado = !!(emailResults.emisor.success || emailResults.receptor.success);
+    const correoError = (!emailResults.emisor.success || !emailResults.receptor.success)
+      ? `${emailResults.emisor.error || ''} | ${emailResults.receptor.error || ''}`.trim()
+      : null;
+
+    await updateDTEResponseEmailStatus({
+      id: (savedResponse as any).id,
+      correoEnviado,
+      correoError: correoError || null,
+    });
+
+    return {
+      emailSent: correoEnviado,
+      emailResults: {
+        emisor: emailResults.emisor.success,
+        receptor: emailResults.receptor.success
+      },
+      emailError: correoError || undefined,
+    };
 
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
