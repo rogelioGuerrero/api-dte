@@ -59,5 +59,6 @@ export const tokenNode = async (state: DTEState): Promise<Partial<DTEState>> => 
   return {
     apiToken,
     apiTokenExpiresAt,
+    businessId: credentials.business_id || state.businessId,
   };
 };

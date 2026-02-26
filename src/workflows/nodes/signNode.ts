@@ -92,7 +92,8 @@ export const signNode = async (state: DTEState): Promise<Partial<DTEState>> => {
       status: 'transmitting',
       progressPercentage: 50,
       currentStep: 'signer',
-      estimatedTime: 30 // 30 segundos restantes
+      estimatedTime: 30, // 30 segundos restantes
+      businessId: credentials.business_id || state.businessId,
     };
   } catch (error: any) {
     console.error("❌ Error de firma:", error);
