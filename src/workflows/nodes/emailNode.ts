@@ -71,11 +71,30 @@ export async function emailNode(state: DTEState): Promise<Partial<DTEState>> {
     // Solo llamamos al servicio si hay al menos un destinatario válido
     if (emisorEmail || receptorEmail) {
       try {
-        emailResults = await sendDTEEmails(
-          state.dte,
-          state.mhResponse,
-          state.pdfBase64 // PDF generado por frontend (opcional)
-        );
+        // Clonar DTE y limpiar correos vacíos para que el servicio no intente enviarlos
+        const sanitizedDte = { ...state.dte } as any;
+        sanitizedDte.identificacion = { ...(state.dte as any).identificacion };
+        sanitizedDte.emisor = { ...(state.dte as any).emisor };
+        sanitizedDte.receptor = { ...(state.dte as any).receptor };
+
+        if (!emisorEmail) {
+          sanitizedDte.identificacion.correo = undefined;
+          if (sanitizedDte.emisor) sanitizedDte.emisor.correo = undefined;
+        }
+        if (!receptorEmail && sanitizedDte.receptor) {
+          sanitizedDte.receptor.correo = undefined;
+        }
+
+        // Verificar si quedó al menos un destinatario tras limpiar
+        const hasAnyRecipient = (sanitizedDte.identificacion?.correo || sanitizedDte.emisor?.correo || sanitizedDte.receptor?.correo);
+
+        if (hasAnyRecipient) {
+          emailResults = await sendDTEEmails(
+            sanitizedDte,
+            state.mhResponse,
+            state.pdfBase64 // PDF generado por frontend (opcional)
+          );
+        }
       } catch (emailError) {
         emailResults.emisor.error = emailError instanceof Error ? emailError.message : 'Error desconocido';
         emailResults.receptor.error = emailResults.receptor.error || emailResults.emisor.error;
