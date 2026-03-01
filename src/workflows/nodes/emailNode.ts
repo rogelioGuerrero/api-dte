@@ -48,16 +48,16 @@ export async function emailNode(state: DTEState): Promise<Partial<DTEState>> {
     });
 
     // 2. Enviar correos (si hay emails)
-    const receptorEmail = state.dte.receptor?.correo;
+    const receptorEmail = state.dte.receptor?.correo || state.dte.emisor?.correo || process.env.FALLBACK_DTE_EMAIL;
 
     if (!receptorEmail) {
-      logger.warn('No hay correo de receptor para enviar', {
+      logger.warn('No hay correo de receptor/emisor; se omite envío de email', {
         codigoGeneracion: state.dte.codigoGeneracion
       });
 
       return {
         emailSent: false,
-        emailError: 'No hay correo de receptor'
+        emailError: 'No hay correo de receptor/emisor'
       };
     }
 
@@ -72,19 +72,16 @@ export async function emailNode(state: DTEState): Promise<Partial<DTEState>> {
       sanitizedDte.emisor = { ...(state.dte as any).emisor };
       sanitizedDte.receptor = { ...(state.dte as any).receptor };
 
-      if (!receptorEmail && sanitizedDte.receptor) {
-        sanitizedDte.receptor.correo = undefined;
+      // usar el correo efectivo que se determinó (receptor > emisor > fallback)
+      if (sanitizedDte.receptor) {
+        sanitizedDte.receptor.correo = receptorEmail;
       }
 
-      const hasRecipient = sanitizedDte.receptor?.correo;
-
-      if (hasRecipient) {
-        emailResults = await sendDTEEmails(
-          sanitizedDte,
-          state.mhResponse,
-          state.pdfBase64 // PDF generado por frontend (opcional)
-        );
-      }
+      emailResults = await sendDTEEmails(
+        sanitizedDte,
+        state.mhResponse,
+        state.pdfBase64 // PDF generado por frontend (opcional)
+      );
     } catch (emailError) {
       emailResults.receptor.error = emailError instanceof Error ? emailError.message : 'Error desconocido';
     }

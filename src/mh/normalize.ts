@@ -23,7 +23,6 @@ const roundTo = (value: number, decimals: number): number => {
   return Number(value.toFixed(decimals));
 };
 
-const DEFAULT_RECEPTOR_EMAIL = 'consumidor.final@example.com';
 
 export const normalizeDTE = (dte: DTEJSON): DTEJSON => {
   const codigosValidos015 = ['20', 'D1', 'C8', 'J1', 'J2', 'J3'];
@@ -76,7 +75,7 @@ export const normalizeDTE = (dte: DTEJSON): DTEJSON => {
       nombre: (dte as any).receptor?.nombre ? String((dte as any).receptor.nombre).trim() : '',
       codActividad: trimOrNull((dte as any).receptor?.codActividad) as any,
       descActividad: trimOrNull((dte as any).receptor?.descActividad) as any,
-      correo: (trimOrNull((dte as any).receptor?.correo) || DEFAULT_RECEPTOR_EMAIL) as any,
+      correo: trimOrNull((dte as any).receptor?.correo) as any,
       telefono: trimOrNull((dte as any).receptor?.telefono) as any,
       direccion: (dte as any).receptor?.direccion
         ? {

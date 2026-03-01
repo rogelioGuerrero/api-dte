@@ -57,7 +57,9 @@ export async function saveDTEResponse(responseData: DTEResponse) {
         ambiente: responseData.ambiente,
         tipo_dte: responseData.tipoDte || responseData.dteJson?.identificacion?.tipoDte || responseData.mhResponse?.tipoDte || null,
         codigo_generacion: codigoGeneracion,
-        sello_recibido: responseData.selloRecibido,
+        sello_recibido: responseData.selloRecibido
+          || responseData.mhResponse?.selloRecepcion
+          || responseData.mhResponse?.selloRecibido,
         correo_enviado: responseData.correoEnviado || false,
         correo_error: responseData.correoError
       })
