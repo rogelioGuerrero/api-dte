@@ -22,6 +22,7 @@ export interface Business {
   dir_complemento?: string | null;
   telefono?: string | null;
   correo?: string | null;
+  logo_url?: string | null;
   owner_email?: string;
   created_at?: string;
   updated_at?: string;

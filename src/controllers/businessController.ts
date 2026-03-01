@@ -31,7 +31,8 @@ router.post('/credentials', async (req: AuthRequest, res: Response, next: NextFu
       codPuntoVentaMH,
       direccion,
       telefono,
-      correo
+      correo,
+      logoUrl
     } = req.body;
 
     // Usamos el NIT validado por el middleware (o el enviado en el body)
@@ -73,7 +74,8 @@ router.post('/credentials', async (req: AuthRequest, res: Response, next: NextFu
       dir_municipio: direccionPayload.municipio,
       dir_complemento: direccionPayload.complemento,
       telefono,
-      correo
+      correo,
+      logo_url: logoUrl ?? business.logo_url
     });
 
     logger.info('Guardando credenciales MH', { 
