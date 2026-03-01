@@ -80,7 +80,8 @@ export async function emailNode(state: DTEState): Promise<Partial<DTEState>> {
       emailResults = await sendDTEEmails(
         sanitizedDte,
         state.mhResponse,
-        state.pdfBase64 // PDF generado por frontend (opcional)
+        state.pdfBase64, // PDF generado por frontend (opcional)
+        JSON.stringify(sanitizedDte)
       );
     } catch (emailError) {
       emailResults.receptor.error = emailError instanceof Error ? emailError.message : 'Error desconocido';

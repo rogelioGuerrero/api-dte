@@ -12,6 +12,10 @@ export interface DteProcessResponse {
     xmlUrl?: string;
     jsonUrl?: string;
     fechaHoraRecepcion?: string;
+    mhStatus?: string;
+    mhMessage?: string;
+    emailSent?: boolean;
+    emailError?: string | null;
   };
  
   // Objeto de error estructurado (si success: false o hay observaciones)
@@ -67,7 +71,11 @@ export const createProcessResponse = (result: any): DteProcessResponse => {
         pdfUrl: result.mhResponse.pdf_url,
         xmlUrl: result.mhResponse.xml_url,
         jsonUrl: result.mhResponse.json_url,
-        fechaHoraRecepcion: result.mhResponse.fhProcesamiento
+        fechaHoraRecepcion: result.mhResponse.fhProcesamiento,
+        mhStatus: result.mhResponse.estado,
+        mhMessage: result.mhResponse.mensaje,
+        emailSent: result.emailSent,
+        emailError: result.emailError || null
       }
     };
   }
@@ -85,7 +93,11 @@ export const createProcessResponse = (result: any): DteProcessResponse => {
         pdfUrl: result.mhResponse.pdf_url,
         xmlUrl: result.mhResponse.xml_url,
         jsonUrl: result.mhResponse.json_url,
-        fechaHoraRecepcion: result.mhResponse.fhProcesamiento
+        fechaHoraRecepcion: result.mhResponse.fhProcesamiento,
+        mhStatus: result.mhResponse.estado,
+        mhMessage: result.mhResponse.mensaje,
+        emailSent: result.emailSent,
+        emailError: result.emailError || null
       },
       error: {
         severity: 'warning',

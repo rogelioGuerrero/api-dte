@@ -157,18 +157,31 @@ export function generateDTEEmailHTML(dteData: any, mhResponse: any): string {
 export async function sendDTEEmails(
   dteData: any,
   mhResponse: any,
-  pdfBase64?: string
+  pdfBase64?: string,
+  dteJsonString?: string
 ): Promise<{ receptor: EmailResult }> {
   const receptor = dteData.receptor || {};
   
   const htmlContent = generateDTEEmailHTML(dteData, mhResponse);
   const subject = `DTE ${dteData.tipoDte || dteData.identificacion?.tipoDte || ''} - Código: ${mhResponse.codigoGeneracion || dteData.codigoGeneracion}`;
   
-  const attachments = pdfBase64 ? [{
-    filename: `DTE_${mhResponse.codigoGeneracion || dteData.codigoGeneracion}.pdf`,
-    content: Buffer.from(pdfBase64, 'base64'),
-    contentType: 'application/pdf'
-  }] : undefined;
+  const attachments = [] as any[];
+
+  if (pdfBase64) {
+    attachments.push({
+      filename: `DTE_${mhResponse.codigoGeneracion || dteData.codigoGeneracion}.pdf`,
+      content: Buffer.from(pdfBase64, 'base64'),
+      contentType: 'application/pdf'
+    });
+  }
+
+  if (dteJsonString) {
+    attachments.push({
+      filename: `DTE_${mhResponse.codigoGeneracion || dteData.codigoGeneracion}.json`,
+      content: Buffer.from(dteJsonString, 'utf8'),
+      contentType: 'application/json'
+    });
+  }
 
   // Solo receptor
   let receptorResult: EmailResult = { success: false, error: 'Receptor sin correo' };
