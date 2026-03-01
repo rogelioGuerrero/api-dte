@@ -2,6 +2,7 @@ import { DTEState } from '../state';
 import { createLogger } from '../../utils/logger';
 import { saveDTEResponse, updateDTEResponseEmailStatus } from '../../business/dteStorage';
 import { sendDTEEmails } from '../../services/emailService';
+import { generateDtePdfBase64 } from '../../services/pdfGenerator';
 
 const logger = createLogger('emailNode');
 
@@ -77,10 +78,24 @@ export async function emailNode(state: DTEState): Promise<Partial<DTEState>> {
         sanitizedDte.receptor.correo = receptorEmail;
       }
 
+      // Generar PDF en backend si no viene desde frontend
+      let pdfBase64 = state.pdfBase64;
+      if (!pdfBase64) {
+        try {
+          pdfBase64 = await generateDtePdfBase64({
+            dte: sanitizedDte,
+            mhResponse: state.mhResponse,
+            logoUrl: sanitizedDte.emisor?.logo_url || sanitizedDte.emisor?.logoUrl
+          });
+        } catch (pdfError: any) {
+          logger.warn('No se pudo generar PDF; se enviará solo JSON', { error: pdfError?.message });
+        }
+      }
+
       emailResults = await sendDTEEmails(
         sanitizedDte,
         state.mhResponse,
-        state.pdfBase64, // PDF generado por frontend (opcional)
+        pdfBase64, // PDF generado en backend
         JSON.stringify(sanitizedDte)
       );
     } catch (emailError) {
