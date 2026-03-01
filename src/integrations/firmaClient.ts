@@ -73,6 +73,14 @@ export const firmarDocumento = async (request: FirmaRequest): Promise<string> =>
     // Si Axios lanza un error (ej. HTTP 400, 500)
     if (error.response && error.response.data) {
       const data = error.response.data;
+
+      // Detectar respuestas HTML (p.ej. Cloudflare / Just a moment)
+      if (typeof data === 'string' && data.toLowerCase().includes('<html')) {
+        const msg = 'Servicio de firma bloqueado o protegido (Cloudflare/HTML). No se pudo firmar.';
+        logger.error(msg, { snippet: data.substring(0, 120) });
+        throw new Error(msg);
+      }
+
       if (data.status === 'ERROR' && data.body) {
         const errorMsg = `Código ${data.body.codigo}: ${data.body.mensaje}`;
         logger.error('Error del servicio de firma', { error: errorMsg });
