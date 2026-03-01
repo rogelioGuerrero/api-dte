@@ -49,10 +49,10 @@ export async function emailNode(state: DTEState): Promise<Partial<DTEState>> {
     });
 
     // 2. Enviar correos (si hay emails)
-    const receptorEmail = state.dte.receptor?.correo || state.dte.emisor?.correo || process.env.FALLBACK_DTE_EMAIL;
+    const receptorEmail = state.dte.receptor?.correo || state.dte.emisor?.correo;
 
     if (!receptorEmail) {
-      logger.warn('No hay correo de receptor/emisor; se omite envío de email', {
+      logger.warn('No hay correo de receptor/emisor; se aborta envío de email', {
         codigoGeneracion: state.dte.codigoGeneracion
       });
 

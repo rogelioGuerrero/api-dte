@@ -84,20 +84,24 @@ export async function sendEmail(request: EmailRequest): Promise<EmailResult> {
  */
 export function generateDTEEmailHTML(dteData: any, mhResponse: any): string {
   const receptor = dteData.receptor || {};
-  const emisor = dteData.identificacion || {};
-  const emisorProfile = dteData.emisor || {};
-  const codigoGeneracion = mhResponse.codigoGeneracion || dteData.codigoGeneracion;
-  const selloRecibido = mhResponse.selloRecibido || 'Pendiente';
+  const emisor = dteData.emisor || {};
+  const emisorIdent = dteData.identificacion || {};
+  const codigoGeneracion = mhResponse?.codigoGeneracion || dteData.codigoGeneracion;
+  const selloRecibido =
+    mhResponse?.selloRecibido || mhResponse?.selloRecepcion || dteData?.selloRecibido || 'Pendiente';
 
-  const resolvedLogo = emisorProfile.logo_url || emisorProfile.logoUrl || fallbackLogoDataUrl;
+  const resolvedLogo = emisor.logo_url || emisor.logoUrl || fallbackLogoDataUrl;
 
-  const fmt = (val: any) => val ?? '—';
+  const fmt = (val: any) => (val === undefined || val === null || val === '' ? '—' : val);
   const tipoDte = dteData.identificacion?.tipoDte || dteData.tipoDte || '—';
-  const codGen = mhResponse.codigoGeneracion || dteData.codigoGeneracion || '—';
+  const codGen = mhResponse?.codigoGeneracion || dteData.codigoGeneracion || '—';
   const selloRec = selloRecibido || '—';
-  const fechaProc = mhResponse.fechaHoraProcesamiento || new Date().toLocaleString('es-SV');
-  const emisorNombre = emisor.nombre || emisor.nombreComercial || '—';
-  const receptorNombre = receptor.nombre || receptor.nombreComercial || '—';
+  const fechaProc =
+    mhResponse?.fechaHoraProcesamiento || mhResponse?.fhProcesamiento || new Date().toLocaleString('es-SV');
+  const emisorNombre = emisor.nombre || emisor.nombreComercial || emisorIdent.nombre || '—';
+  const emisorNit = emisor.nit || emisorIdent.nit || '—';
+  const receptorNombre = receptor.nombre || receptor.nombreComercial || 'Consumidor Final';
+  const receptorNit = receptor.nit || receptor.numDocumento || '—';
 
   const htmlContent = `
     <!doctype html>
@@ -141,7 +145,7 @@ export function generateDTEEmailHTML(dteData: any, mhResponse: any): string {
         <div class="section">
           <h3>Emisor</h3>
           <div class="rows">
-            <div class="row"><span class="label">NIT:</span><span class="value">${fmt(emisor.nit)}</span></div>
+            <div class="row"><span class="label">NIT:</span><span class="value">${fmt(emisorNit)}</span></div>
             <div class="row"><span class="label">Nombre:</span><span class="value">${fmt(emisorNombre)}</span></div>
             <div class="row"><span class="label">Correo:</span><span class="value">${fmt(emisor.correo)}</span></div>
           </div>
@@ -150,7 +154,7 @@ export function generateDTEEmailHTML(dteData: any, mhResponse: any): string {
         <div class="section">
           <h3>Receptor</h3>
           <div class="rows">
-            <div class="row"><span class="label">NIT:</span><span class="value">${fmt(receptor.nit)}</span></div>
+            <div class="row"><span class="label">NIT:</span><span class="value">${fmt(receptorNit)}</span></div>
             <div class="row"><span class="label">Nombre:</span><span class="value">${fmt(receptorNombre)}</span></div>
             <div class="row"><span class="label">Correo:</span><span class="value">${fmt(receptor.correo)}</span></div>
           </div>
