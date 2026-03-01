@@ -6,8 +6,22 @@ const logger = createLogger('businessStorage');
 export interface Business {
   id?: string;
   nit: string;
+  nit_clean?: string;
   nrc?: string;
   nombre_comercial: string;
+  nombre?: string;
+  cod_actividad?: string;
+  desc_actividad?: string;
+  tipo_establecimiento?: string;
+  cod_estable?: string | null;
+  cod_punto_venta?: string | null;
+  cod_estable_mh?: string | null;
+  cod_punto_venta_mh?: string | null;
+  dir_departamento?: string | null;
+  dir_municipio?: string | null;
+  dir_complemento?: string | null;
+  telefono?: string | null;
+  correo?: string | null;
   owner_email?: string;
   created_at?: string;
   updated_at?: string;
@@ -56,6 +70,42 @@ export const createBusiness = async (business: Omit<Business, 'id' | 'created_at
   }
 };
 
+export const updateBusinessProfileById = async (
+  businessId: string,
+  payload: Partial<Business>
+): Promise<Business> => {
+  try {
+    const cleanPayload = Object.fromEntries(
+      Object.entries(payload).filter(([, v]) => v !== undefined)
+    );
+
+    if (Object.keys(cleanPayload).length === 0) {
+      const { data, error } = await supabase
+        .from('businesses')
+        .select('*')
+        .eq('id', businessId)
+        .single();
+      if (error) throw error;
+      return data as Business;
+    }
+
+    const { data, error } = await supabase
+      .from('businesses')
+      .update({ ...cleanPayload, updated_at: new Date().toISOString() })
+      .eq('id', businessId)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    logger.info('Business profile updated', { businessId });
+    return data as Business;
+  } catch (error: any) {
+    logger.error('Error updating business profile', { businessId, error: error.message });
+    throw error;
+  }
+};
+
 export const updateMHTokenByNIT = async (
   nit: string,
   ambiente: '00' | '01',
@@ -84,10 +134,11 @@ export const updateMHTokenByNIT = async (
 
 export const getBusinessByNIT = async (nit: string): Promise<Business | null> => {
   try {
+    const nitClean = (nit || '').replace(/[^0-9]/g, '');
     const { data, error } = await supabase
       .from('businesses')
       .select('*')
-      .eq('nit', nit)
+      .eq('nit_clean', nitClean)
       .single();
 
     if (error) {
