@@ -45,6 +45,25 @@ export const transmitNode = async (state: DTEState): Promise<Partial<DTEState>> 
   }
 
   try {
+    // Log del DTE que se enviará a MH (normalizado y firmado)
+    try {
+      const resumen = state.dte.resumen || {};
+      const items = (state.dte.cuerpoDocumento || []).map((i: any) => ({
+        numItem: i.numItem,
+        ventaGravada: i.ventaGravada,
+        ivaItem: i.ivaItem,
+        precioUni: i.precioUni,
+        cantidad: i.cantidad,
+      }));
+      logger.info('DTE listo para transmitir (payload base)', {
+        identificacion: state.dte.identificacion,
+        resumen,
+        items,
+      });
+    } catch (e) {
+      logger.warn('No se pudo loggear DTE listo para transmitir', { error: (e as any)?.message });
+    }
+
     const ambiente = state.ambiente || '00';
     const nitEmisor = (state.dte.emisor?.nit || '').toString().replace(/[\s-]/g, '').trim();
     const nitLimpioBusqueda = nitEmisor || (state.businessId || '').toString().replace(/[^0-9]/g, '').trim();

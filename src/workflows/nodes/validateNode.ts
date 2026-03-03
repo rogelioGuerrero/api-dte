@@ -1,5 +1,8 @@
 import { DTEState } from "../state";
 import { processDTE } from "../../mh/process";
+import { createLogger } from "../../utils/logger";
+
+const logger = createLogger('validateNode');
 
 const round8 = (value: number) => {
   return Math.round(value * 1e8) / 1e8;
@@ -28,6 +31,12 @@ export const validateNode = async (state: DTEState): Promise<Partial<DTEState>> 
 
   // 1) Validar consistencia usando el DTE crudo que envió frontend (sin normalizar)
   const rawDte: any = state.dte;
+  logger.info('DTE crudo recibido', {
+    codigoGeneracion: rawDte?.identificacion?.codigoGeneracion,
+    tipoDte: rawDte?.identificacion?.tipoDte,
+    resumen: rawDte?.resumen,
+    items: rawDte?.cuerpoDocumento,
+  });
   const valErrors: string[] = [];
 
   try {
