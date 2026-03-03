@@ -111,7 +111,7 @@ export const normalizeDTE = (dte: DTEJSON): DTEJSON => {
       };
     }),
     resumen: (() => {
-      const ivaCodigo = tipoDte === '01' ? 'C1' : '20';
+      const ivaCodigo = '20';
       const items = (dte.cuerpoDocumento || []).map((i: any) => {
         const ventaGravada = roundTo(i.ventaGravada ?? 0, 8);
         const ivaCalculado = tipoDte === '01' ? roundTo(ventaGravada * 0.13, 2) : roundTo(i.ivaItem ?? 0, 2);
@@ -141,9 +141,11 @@ export const normalizeDTE = (dte: DTEJSON): DTEJSON => {
         totalDescu: roundTo((dte as any).resumen?.totalDescu ?? 0, 2),
         totalIva,
         tributos:
-          totalIva > 0
-            ? [{ codigo: ivaCodigo, descripcion: 'Impuesto al Valor Agregado 13%', valor: totalIva }]
-            : null,
+          tipoDte === '01'
+            ? null
+            : totalIva > 0
+              ? [{ codigo: ivaCodigo, descripcion: 'Impuesto al Valor Agregado 13%', valor: totalIva }]
+              : null,
         subTotal,
         // MH requiere ivaRete1
         ivaRete1: roundTo(((dte as any).resumen?.ivaRete1 ?? 0) as number, 2),
