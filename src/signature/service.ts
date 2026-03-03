@@ -1,10 +1,10 @@
 import { ExternalApiSignatureProvider } from './externalApiProvider';
-import { SignatureRequest } from './provider';
+import { SignatureProvider, SignatureRequest } from './provider';
 import { createLogger } from '../utils/logger';
 
 const logger = createLogger('SignatureService');
 
-const primary = ExternalApiSignatureProvider;
+const primary: SignatureProvider = ExternalApiSignatureProvider;
 
 export const signWithConfiguredProvider = async (request: SignatureRequest): Promise<{ jws: string; provider: string }> => {
   try {

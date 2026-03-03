@@ -4,11 +4,10 @@ export interface SignatureRequest {
   nit: string;
   passwordPri: string;
   certificadoB64: string;
-  dteJson: Record<string, unknown>;
+  dteJson: Record<string, unknown> | string | DTEJSON;
 }
 
 export interface SignatureProvider {
   name: string;
   sign: (request: SignatureRequest) => Promise<string>;
 }
-
