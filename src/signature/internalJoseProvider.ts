@@ -1,4 +1,4 @@
-import { CompactSign, importPKCS8, JWSHeaderParameters } from 'jose';
+import { CompactSign, importPKCS8, CompactJWSHeaderParameters } from 'jose';
 import forge from 'node-forge';
 import { SignatureProvider, SignatureRequest } from './provider';
 import { createLogger } from '../utils/logger';
@@ -11,6 +11,11 @@ interface ExtractedKeyMaterial {
   privateKeyPem: string;
   certChainBase64: string[];
 }
+
+const wrapPem = (b64: string, header: string, footer: string): string => {
+  const chunked = b64.match(/.{1,64}/g)?.join('\n') || b64;
+  return `${header}\n${chunked}\n${footer}`;
+};
 
 const extractFromPkcs12 = (certificadoB64: string, passwordPri: string): ExtractedKeyMaterial => {
   try {
@@ -25,8 +30,7 @@ const extractFromPkcs12 = (certificadoB64: string, passwordPri: string): Extract
       for (const safeBag of safeContent.safeBags) {
         if (safeBag.type === forge.pki.oids.pkcs8ShroudedKeyBag || safeBag.type === forge.pki.oids.keyBag) {
           const forgeKey = safeBag.key as forge.pki.PrivateKey;
-          const privateKeyInfo = forge.pki.wrapRsaPrivateKey(forgeKey);
-          privateKeyPem = forge.pki.privateKeyInfoToPem(privateKeyInfo);
+          privateKeyPem = forge.pki.privateKeyToPem(forgeKey);
         }
         if (safeBag.cert) {
           const derBytes = forge.asn1.toDer(forge.pki.certificateToAsn1(safeBag.cert)).getBytes();
@@ -45,9 +49,26 @@ const extractFromPkcs12 = (certificadoB64: string, passwordPri: string): Extract
 
     return { privateKeyPem, certChainBase64 };
   } catch (error: any) {
-    logger.error('Error extrayendo clave de PKCS12', { error: error.message });
-    throw new Error('Certificado inválido o contraseña incorrecta');
+    throw new Error(`PKCS12 inválido o password incorrecta: ${error.message}`);
   }
+};
+
+const extractFromPkcs8OrPem = (certificadoB64: string): ExtractedKeyMaterial => {
+  const decoded = Buffer.from(certificadoB64, 'base64').toString('utf8');
+
+  // Si ya viene en PEM
+  if (decoded.includes('BEGIN PRIVATE KEY')) {
+    return { privateKeyPem: decoded, certChainBase64: [] };
+  }
+
+  // Si el contenido parece XML del MH, no lo soportamos aquí
+  if (decoded.trim().startsWith('<')) {
+    throw new Error('Certificado en formato XML no soportado para firma interna');
+  }
+
+  // Asumir base64 de PKCS8
+  const privateKeyPem = wrapPem(decoded.trim(), '-----BEGIN PRIVATE KEY-----', '-----END PRIVATE KEY-----');
+  return { privateKeyPem, certChainBase64: [] };
 };
 
 const normalizePayload = (dteJson: SignatureRequest['dteJson']): string => {
@@ -62,11 +83,18 @@ const normalizePayload = (dteJson: SignatureRequest['dteJson']): string => {
 export const NodeJoseSignatureProvider: SignatureProvider = {
   name: 'internal',
   async sign({ certificadoB64, passwordPri, dteJson }: SignatureRequest): Promise<string> {
-    const { privateKeyPem, certChainBase64 } = extractFromPkcs12(certificadoB64, passwordPri);
+    let keyMaterial: ExtractedKeyMaterial;
+    try {
+      keyMaterial = extractFromPkcs12(certificadoB64, passwordPri);
+    } catch (pkcs12Error: any) {
+      logger.warn('PKCS12 no usable, intentando PKCS8/PEM', { error: pkcs12Error.message });
+      keyMaterial = extractFromPkcs8OrPem(certificadoB64);
+    }
+    const { privateKeyPem, certChainBase64 } = keyMaterial;
     const payload = normalizePayload(dteJson);
 
     const privateKey = await importPKCS8(privateKeyPem, 'RS256');
-    const header: JWSHeaderParameters = {
+    const header: CompactJWSHeaderParameters = {
       alg: 'RS256',
       x5c: certChainBase64.length > 0 ? certChainBase64 : undefined,
     };
