@@ -53,6 +53,23 @@ const extractFromPkcs12 = (certificadoB64: string, passwordPri: string): Extract
   }
 };
 
+const extractFromMhXml = (decodedXml: string): ExtractedKeyMaterial => {
+  const pkMatch = decodedXml.match(/<privateKey>[\s\S]*?<encoded>([^<]+)<\/encoded>[\s\S]*?<\/privateKey>/i);
+  if (!pkMatch) {
+    throw new Error('XML sin privateKey');
+  }
+  const privateKeyPem = wrapPem(pkMatch[1].trim(), '-----BEGIN PRIVATE KEY-----', '-----END PRIVATE KEY-----');
+
+  // Intentar extraer cert público para x5c (opcional)
+  const certs: string[] = [];
+  const pubMatch = decodedXml.match(/<publicKey>[\s\S]*?<encoded>([^<]+)<\/encoded>[\s\S]*?<\/publicKey>/i);
+  if (pubMatch) {
+    certs.push(pubMatch[1].trim());
+  }
+
+  return { privateKeyPem, certChainBase64: certs };
+};
+
 const extractFromPkcs8OrPem = (certificadoB64: string): ExtractedKeyMaterial => {
   const decoded = Buffer.from(certificadoB64, 'base64').toString('utf8');
 
@@ -61,9 +78,9 @@ const extractFromPkcs8OrPem = (certificadoB64: string): ExtractedKeyMaterial => 
     return { privateKeyPem: decoded, certChainBase64: [] };
   }
 
-  // Si el contenido parece XML del MH, no lo soportamos aquí
+  // Si el contenido parece XML del MH, extraer la clave privada
   if (decoded.trim().startsWith('<')) {
-    throw new Error('Certificado en formato XML no soportado para firma interna');
+    return extractFromMhXml(decoded);
   }
 
   // Asumir base64 de PKCS8
