@@ -1,7 +1,7 @@
 const { execSync } = require('child_process');
 const path = require('path');
 
-const cachePath = process.env.PLAYWRIGHT_BROWSERS_PATH || '/opt/render/project/.cache/ms-playwright';
+const cachePath = process.env.PLAYWRIGHT_BROWSERS_PATH || '/opt/render/.cache/ms-playwright';
 const revision = process.env.PLAYWRIGHT_CHROMIUM_REVISION || '1208';
 
 const chromiumExec = path.join(cachePath, `chromium-${revision}`, 'chrome-linux', 'chrome');
