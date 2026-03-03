@@ -5,10 +5,10 @@ import { createLogger } from '../utils/logger';
 
 const logger = createLogger('SignatureService');
 
-const mode: SignatureMode = (process.env.SIGNATURE_PROVIDER as SignatureMode) || 'dual';
-const primary: SignatureProvider = mode === 'external' ? ExternalApiSignatureProvider : NodeJoseSignatureProvider;
+const mode: SignatureMode = (process.env.SIGNATURE_PROVIDER as SignatureMode) || 'external';
+const primary: SignatureProvider = mode === 'internal' ? NodeJoseSignatureProvider : ExternalApiSignatureProvider;
 const secondary: SignatureProvider | null = mode === 'dual'
-  ? (primary.name === 'internal' ? ExternalApiSignatureProvider : NodeJoseSignatureProvider)
+  ? (primary.name === 'external' ? NodeJoseSignatureProvider : ExternalApiSignatureProvider)
   : null;
 
 export const signWithConfiguredProvider = async (request: SignatureRequest): Promise<{ jws: string; provider: string }> => {
