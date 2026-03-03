@@ -124,7 +124,7 @@ export const normalizeDTE = (dte: DTEJSON): DTEJSON => {
       const subTotal = subTotalVentas;
       const totalNoGravado = roundTo((dte as any).resumen?.totalNoGravado ?? 0, 2);
       const montoTotalOperacion = tipoDte === '01'
-        ? roundTo(subTotal + totalNoGravado, 2)
+        ? roundTo(subTotal + totalIva + totalNoGravado, 2)
         : roundTo(subTotal + totalIva + totalNoGravado, 2);
       const totalPagar = montoTotalOperacion;
 
@@ -140,11 +140,9 @@ export const normalizeDTE = (dte: DTEJSON): DTEJSON => {
         totalDescu: roundTo((dte as any).resumen?.totalDescu ?? 0, 2),
         totalIva,
         tributos:
-          tipoDte === '01'
-            ? null
-            : (totalIva > 0
-                ? [{ codigo: '20', descripcion: 'Impuesto al Valor Agregado 13%', valor: totalIva }]
-                : null),
+          totalIva > 0
+            ? [{ codigo: '20', descripcion: 'Impuesto al Valor Agregado 13%', valor: totalIva }]
+            : null,
         subTotal,
         // MH requiere ivaRete1
         ivaRete1: roundTo(((dte as any).resumen?.ivaRete1 ?? 0) as number, 2),

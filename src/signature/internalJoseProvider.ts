@@ -54,7 +54,7 @@ const extractFromPkcs12 = (certificadoB64: string, passwordPri: string): Extract
 };
 
 const extractFromMhXml = (decodedXml: string): ExtractedKeyMaterial => {
-  const pkMatch = decodedXml.match(/<privateKey>[\s\S]*?<encoded>([^<]+)<\/encoded>[\s\S]*?<\/privateKey>/i);
+  const pkMatch = decodedXml.match(/<privateKey>[\s\S]*?<(?:encoded|encodied)>([^<]+)<\/(?:encoded|encodied)>[\s\S]*?<\/privateKey>/i);
   if (!pkMatch) {
     throw new Error('XML sin privateKey');
   }
@@ -62,7 +62,7 @@ const extractFromMhXml = (decodedXml: string): ExtractedKeyMaterial => {
 
   // Intentar extraer cert público para x5c (opcional)
   const certs: string[] = [];
-  const pubMatch = decodedXml.match(/<publicKey>[\s\S]*?<encoded>([^<]+)<\/encoded>[\s\S]*?<\/publicKey>/i);
+  const pubMatch = decodedXml.match(/<publicKey>[\s\S]*?<(?:encoded|encodied)>([^<]+)<\/(?:encoded|encodied)>[\s\S]*?<\/publicKey>/i);
   if (pubMatch) {
     certs.push(pubMatch[1].trim());
   }
