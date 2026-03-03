@@ -88,8 +88,18 @@ export const normalizeDTE = (dte: DTEJSON): DTEJSON => {
     otrosDocumentos: (dte as any).otrosDocumentos ?? null,
     ventaTercero: (dte as any).ventaTercero ?? null,
     cuerpoDocumento: (dte.cuerpoDocumento || []).map((i: any) => {
-      const ventaGravada = roundTo(i.ventaGravada ?? 0, 8);
-      const ivaCalculado = tipoDte === '01' ? roundTo(ventaGravada * 0.13, 2) : roundTo(i.ivaItem ?? 0, 2);
+      const cantidad = roundTo(i.cantidad, 8);
+      const precioUni = roundTo(i.precioUni, 8);
+      const ventaGravadaInput = roundTo(i.ventaGravada ?? 0, 8);
+      const grossFromFields = ventaGravadaInput > 0 ? ventaGravadaInput : roundTo(cantidad * precioUni, 8);
+      const isTipo01Gross = tipoDte === '01' && (i.ivaItem ?? 0) === 0 && ((dte as any).resumen?.totalIva ?? 0) === 0;
+      const ventaGravada = isTipo01Gross ? roundTo(grossFromFields / 1.13, 2) : ventaGravadaInput;
+      const ivaCalculado = isTipo01Gross
+        ? roundTo(grossFromFields - ventaGravada, 2)
+        : tipoDte === '01'
+          ? roundTo(ventaGravada * 0.13, 2)
+          : roundTo(i.ivaItem ?? 0, 2);
+
       return {
         numItem: i.numItem,
         tipoItem: i.tipoItem,
@@ -97,9 +107,9 @@ export const normalizeDTE = (dte: DTEJSON): DTEJSON => {
         codigo: i.codigo ? String(i.codigo).trim() : null,
         codTributo: trimOrNull(i.codTributo) as any,
         descripcion: String(i.descripcion || '').trim(),
-        cantidad: roundTo(i.cantidad, 8),
+        cantidad,
         uniMedida: i.uniMedida,
-        precioUni: roundTo(i.precioUni, 8),
+        precioUni,
         montoDescu: roundTo(i.montoDescu, 8),
         ventaNoSuj: roundTo(i.ventaNoSuj, 8),
         ventaExenta: roundTo(i.ventaExenta, 8),
@@ -124,9 +134,8 @@ export const normalizeDTE = (dte: DTEJSON): DTEJSON => {
       const subTotalVentas = roundTo(totalNoSuj + totalExenta + totalGravada, 2);
       const subTotal = subTotalVentas;
       const totalNoGravado = roundTo((dte as any).resumen?.totalNoGravado ?? 0, 2);
-      const montoTotalOperacion = tipoDte === '01'
-        ? roundTo(subTotal + totalIva + totalNoGravado, 2)
-        : roundTo(subTotal + totalIva + totalNoGravado, 2);
+      const totalDescu = roundTo((dte as any).resumen?.totalDescu ?? 0, 2);
+      const montoTotalOperacion = roundTo(subTotal - totalDescu + totalNoGravado + totalIva, 2);
       const totalPagar = montoTotalOperacion;
 
       return {
@@ -138,7 +147,7 @@ export const normalizeDTE = (dte: DTEJSON): DTEJSON => {
         descuExenta: roundTo((dte as any).resumen?.descuExenta ?? 0, 2),
         descuGravada: roundTo((dte as any).resumen?.descuGravada ?? 0, 2),
         porcentajeDescuento: roundTo((dte as any).resumen?.porcentajeDescuento ?? 0, 2),
-        totalDescu: roundTo((dte as any).resumen?.totalDescu ?? 0, 2),
+        totalDescu,
         totalIva,
         tributos:
           tipoDte === '01'
@@ -151,7 +160,7 @@ export const normalizeDTE = (dte: DTEJSON): DTEJSON => {
         ivaRete1: roundTo(((dte as any).resumen?.ivaRete1 ?? 0) as number, 2),
         reteRenta: roundTo(((dte as any).resumen?.reteRenta ?? 0) as number, 2),
         montoTotalOperacion,
-        totalNoGravado: roundTo((dte as any).resumen?.totalNoGravado ?? 0, 2),
+        totalNoGravado,
         totalPagar,
         totalLetras: (dte as any).resumen?.totalLetras ? String((dte as any).resumen.totalLetras).trim() : '',
         saldoFavor: roundTo((dte as any).resumen?.saldoFavor ?? 0, 2),
