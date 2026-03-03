@@ -112,9 +112,10 @@ export const wakeFirmaService = async (options: {
   baseDelayMs?: number;
   timeoutMs?: number;
 } = {}): Promise<void> => {
-  const { retries = 3, baseDelayMs = 2000, timeoutMs = 60000 } = options;
+  // Render puede estar dormido; enviamos pings más seguidos para despertarlo
+  const { retries = 5, baseDelayMs = 10000, timeoutMs = 15000 } = options;
   
-  logger.info('Verificando servicio de firma...');
+  logger.info('Verificando servicio de firma (chequeo de ping)…');
   
   for (let i = 0; i < retries; i++) {
     try {
@@ -127,13 +128,14 @@ export const wakeFirmaService = async (options: {
         return;
       }
     } catch (error) {
-      logger.warn(`Intento ${i + 1}/${retries}: Servicio de firma no responde`);
+      logger.warn(`Intento ${i + 1}/${retries}: Servicio de firma (ping) no responde`);
       
       if (i < retries - 1) {
-        await new Promise(resolve => setTimeout(resolve, baseDelayMs * (i + 1)));
+        // Esperamos un lapso fijo (pulsos cada ~10s) para intentar despertarlo
+        await new Promise(resolve => setTimeout(resolve, baseDelayMs));
       }
     }
   }
   
-  logger.warn('No se pudo verificar el servicio de firma, continuando...');
+  logger.warn('No se pudo verificar el servicio de firma (ping). Continuamos y enviaremos a firmar igual.');
 };
