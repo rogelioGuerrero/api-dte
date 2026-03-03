@@ -1,7 +1,8 @@
 import { DTEState } from "../state";
 import { getMHCredentialsByNIT } from '../../business/businessStorage';
-import { firmarDocumento, limpiarDteParaFirma, wakeFirmaService } from "../../integrations/firmaClient";
+import { limpiarDteParaFirma } from "../../integrations/firmaClient";
 import { processDTE } from "../../mh/process";
+import { signWithConfiguredProvider } from "../../signature/service";
 
 export const signNode = async (state: DTEState): Promise<Partial<DTEState>> => {
   console.log("✍️ Nodo Firmador: Solicitando firma electrónica...");
@@ -17,9 +18,6 @@ export const signNode = async (state: DTEState): Promise<Partial<DTEState>> => {
   }
 
   try {
-    // Asegurar que el servicio de firma esté despierto
-    await wakeFirmaService({ retries: 3, baseDelayMs: 2000, timeoutMs: 60000 });
-
     const processed = processDTE(state.dte);
     const dteLimpio = limpiarDteParaFirma(processed.dte as unknown as Record<string, unknown>);
     const nitEmisor = (state.dte.emisor?.nit || '').toString().replace(/[\s-]/g, '').trim();
@@ -77,18 +75,17 @@ export const signNode = async (state: DTEState): Promise<Partial<DTEState>> => {
       };
     }
 
-    // Ejecutar firma real
-    const jwsFirmado = await firmarDocumento({
+    const { jws, provider } = await signWithConfiguredProvider({
       nit: nitEmisor,
       passwordPri: finalPasswordPri,
       certificadoB64: credentials.certificado_b64,
       dteJson: dteLimpio
     });
 
-    console.log("✅ Firma exitosa");
+    console.log(`✅ Firma exitosa (${provider})`);
     return {
       isSigned: true,
-      signature: jwsFirmado,
+      signature: jws,
       status: 'transmitting',
       progressPercentage: 50,
       currentStep: 'signer',
