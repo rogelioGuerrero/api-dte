@@ -60,14 +60,7 @@ const extractFromMhXml = (decodedXml: string): ExtractedKeyMaterial => {
   }
   const privateKeyPem = wrapPem(pkMatch[1].trim(), '-----BEGIN PRIVATE KEY-----', '-----END PRIVATE KEY-----');
 
-  // Intentar extraer cert público para x5c (opcional)
-  const certs: string[] = [];
-  const pubMatch = decodedXml.match(/<publicKey>[\s\S]*?<(?:encoded|encodied)>([^<]+)<\/(?:encoded|encodied)>[\s\S]*?<\/publicKey>/i);
-  if (pubMatch) {
-    certs.push(pubMatch[1].trim());
-  }
-
-  return { privateKeyPem, certChainBase64: certs };
+  return { privateKeyPem, certChainBase64: [] };
 };
 
 const extractFromPkcs8OrPem = (certificadoB64: string): ExtractedKeyMaterial => {
@@ -101,19 +94,33 @@ export const NodeJoseSignatureProvider: SignatureProvider = {
   name: 'internal',
   async sign({ certificadoB64, passwordPri, dteJson }: SignatureRequest): Promise<string> {
     let keyMaterial: ExtractedKeyMaterial;
+    
+    // Check format first to avoid false positive warnings
+    const decodedString = Buffer.from(certificadoB64, 'base64').toString('utf8');
+    const isXml = decodedString.trim().startsWith('<');
+    const isPem = decodedString.includes('BEGIN PRIVATE KEY');
+
     try {
-      keyMaterial = extractFromPkcs12(certificadoB64, passwordPri);
-    } catch (pkcs12Error: any) {
-      logger.warn('PKCS12 no usable, intentando PKCS8/PEM', { error: pkcs12Error.message });
-      keyMaterial = extractFromPkcs8OrPem(certificadoB64);
+      if (isXml || isPem) {
+        keyMaterial = extractFromPkcs8OrPem(certificadoB64);
+      } else {
+        keyMaterial = extractFromPkcs12(certificadoB64, passwordPri);
+      }
+    } catch (error: any) {
+      if (!isXml && !isPem) {
+        logger.warn('PKCS12 falló, intentando como PEM/XML', { error: error.message });
+        keyMaterial = extractFromPkcs8OrPem(certificadoB64);
+      } else {
+        throw error;
+      }
     }
     const { privateKeyPem, certChainBase64 } = keyMaterial;
+
     const payload = normalizePayload(dteJson);
 
     const privateKey = await importPKCS8(privateKeyPem, 'RS256');
     const header: CompactJWSHeaderParameters = {
-      alg: 'RS256',
-      x5c: certChainBase64.length > 0 ? certChainBase64 : undefined,
+      alg: 'RS256'
     };
 
     const jws = await new CompactSign(textEncoder.encode(payload))
