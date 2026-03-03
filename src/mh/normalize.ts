@@ -111,6 +111,7 @@ export const normalizeDTE = (dte: DTEJSON): DTEJSON => {
       };
     }),
     resumen: (() => {
+      const ivaCodigo = tipoDte === '01' ? 'C1' : '20';
       const items = (dte.cuerpoDocumento || []).map((i: any) => {
         const ventaGravada = roundTo(i.ventaGravada ?? 0, 8);
         const ivaCalculado = tipoDte === '01' ? roundTo(ventaGravada * 0.13, 2) : roundTo(i.ivaItem ?? 0, 2);
@@ -141,7 +142,7 @@ export const normalizeDTE = (dte: DTEJSON): DTEJSON => {
         totalIva,
         tributos:
           totalIva > 0
-            ? [{ codigo: 'C1', descripcion: 'Impuesto al Valor Agregado 13%', valor: totalIva }]
+            ? [{ codigo: ivaCodigo, descripcion: 'Impuesto al Valor Agregado 13%', valor: totalIva }]
             : null,
         subTotal,
         // MH requiere ivaRete1
