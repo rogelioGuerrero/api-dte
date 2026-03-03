@@ -141,7 +141,7 @@ export const normalizeDTE = (dte: DTEJSON): DTEJSON => {
         totalIva,
         tributos:
           totalIva > 0
-            ? [{ codigo: '20', descripcion: 'Impuesto al Valor Agregado 13%', valor: totalIva }]
+            ? [{ codigo: 'C1', descripcion: 'Impuesto al Valor Agregado 13%', valor: totalIva }]
             : null,
         subTotal,
         // MH requiere ivaRete1
