@@ -17,7 +17,7 @@ const exists = () => {
 
 const install = () => {
   console.log(`Installing Playwright chromium (cache: ${cachePath}, rev: ${revision})...`);
-  execSync(`npx playwright install --with-deps chromium`, {
+  execSync(`npx playwright install chromium`, {
     stdio: 'inherit',
     shell: true,
     env: {
