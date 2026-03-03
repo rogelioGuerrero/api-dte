@@ -140,7 +140,7 @@ export const normalizeDTE = (dte: DTEJSON): DTEJSON => {
         totalDescu: roundTo((dte as any).resumen?.totalDescu ?? 0, 2),
         totalIva,
         tributos:
-          tipoDte !== '01' && totalIva > 0
+          totalIva > 0
             ? [{ codigo: '20', descripcion: 'Impuesto al Valor Agregado 13%', valor: totalIva }]
             : null,
         subTotal,
