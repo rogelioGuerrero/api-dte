@@ -30,6 +30,44 @@ export const normalizeDTE = (dte: DTEJSON): DTEJSON => {
   const versionIdentificacion = dte.identificacion?.version
     ?? (tipoDte === '03' ? 3 : tipoDte === '11' ? 1 : 1);
 
+  const normalizedItems = (dte.cuerpoDocumento || []).map((i: any) => {
+    const cantidad = roundTo(i.cantidad, 8);
+    const precioUni = roundTo(i.precioUni, 8);
+    const ventaGravadaInput = roundTo(i.ventaGravada ?? 0, 8);
+    const gross = roundTo(cantidad * precioUni, 8);
+
+    // Para CCF (tipo 01): si no viene IVA, asumimos precio con IVA incluido y lo separamos
+    let ventaGravada = ventaGravadaInput > 0 ? roundTo(ventaGravadaInput, 2) : roundTo(gross, 2);
+    let ivaCalculado = roundTo(i.ivaItem ?? 0, 2);
+
+    if (tipoDte === '01' && ivaCalculado === 0 && gross > 0) {
+      const base = roundTo(gross / 1.13, 2);
+      const iva = roundTo(gross - base, 2);
+      ventaGravada = base;
+      ivaCalculado = iva;
+    }
+
+    return {
+      numItem: i.numItem,
+      tipoItem: i.tipoItem,
+      numeroDocumento: trimOrNull(i.numeroDocumento) as any,
+      codigo: i.codigo ? String(i.codigo).trim() : null,
+      codTributo: trimOrNull(i.codTributo) as any,
+      descripcion: String(i.descripcion || '').trim(),
+      cantidad,
+      uniMedida: i.uniMedida,
+      precioUni,
+      montoDescu: roundTo(i.montoDescu, 8),
+      ventaNoSuj: roundTo(i.ventaNoSuj, 8),
+      ventaExenta: roundTo(i.ventaExenta, 8),
+      ventaGravada,
+      tributos: tipoDte === '01' ? null : (ventaGravada > 0 ? ['20'] : null),
+      psv: roundTo(i.psv ?? 0, 2),
+      noGravado: roundTo(i.noGravado ?? 0, 2),
+      ivaItem: ivaCalculado,
+    };
+  });
+
   const normalized: DTEJSON = {
     identificacion: {
       version: versionIdentificacion,
@@ -87,50 +125,10 @@ export const normalizeDTE = (dte: DTEJSON): DTEJSON => {
     } as any,
     otrosDocumentos: (dte as any).otrosDocumentos ?? null,
     ventaTercero: (dte as any).ventaTercero ?? null,
-    cuerpoDocumento: (dte.cuerpoDocumento || []).map((i: any) => {
-      const cantidad = roundTo(i.cantidad, 8);
-      const precioUni = roundTo(i.precioUni, 8);
-      const ventaGravadaInput = roundTo(i.ventaGravada ?? 0, 8);
-      const gross = roundTo(cantidad * precioUni, 8);
-
-      // Para CCF (tipo 01): si no viene IVA, asumimos precio con IVA incluido y lo separamos
-      let ventaGravada = ventaGravadaInput > 0 ? roundTo(ventaGravadaInput, 2) : roundTo(gross, 2);
-      let ivaCalculado = roundTo(i.ivaItem ?? 0, 2);
-
-      if (tipoDte === '01' && ivaCalculado === 0 && gross > 0) {
-        const base = roundTo(gross / 1.13, 2);
-        const iva = roundTo(gross - base, 2);
-        ventaGravada = base;
-        ivaCalculado = iva;
-      }
-
-      return {
-        numItem: i.numItem,
-        tipoItem: i.tipoItem,
-        numeroDocumento: trimOrNull(i.numeroDocumento) as any,
-        codigo: i.codigo ? String(i.codigo).trim() : null,
-        codTributo: trimOrNull(i.codTributo) as any,
-        descripcion: String(i.descripcion || '').trim(),
-        cantidad,
-        uniMedida: i.uniMedida,
-        precioUni,
-        montoDescu: roundTo(i.montoDescu, 8),
-        ventaNoSuj: roundTo(i.ventaNoSuj, 8),
-        ventaExenta: roundTo(i.ventaExenta, 8),
-        ventaGravada,
-        tributos: tipoDte === '01' ? null : (ventaGravada > 0 ? ['20'] : null),
-        psv: roundTo(i.psv ?? 0, 2),
-        noGravado: roundTo(i.noGravado ?? 0, 2),
-        ivaItem: ivaCalculado,
-      };
-    }),
+    cuerpoDocumento: normalizedItems,
     resumen: (() => {
       const ivaCodigo = '20';
-      const items = (dte.cuerpoDocumento || []).map((i: any) => {
-        const ventaGravada = roundTo(i.ventaGravada ?? 0, 8);
-        const ivaCalculado = tipoDte === '01' ? roundTo(i.ivaItem ?? 0, 2) : roundTo(i.ivaItem ?? 0, 2);
-        return { ventaGravada, ventaNoSuj: roundTo(i.ventaNoSuj ?? 0, 8), ventaExenta: roundTo(i.ventaExenta ?? 0, 8), ivaItem: ivaCalculado };
-      });
+      const items = normalizedItems;
       const totalGravada = roundTo(items.reduce((a, b) => a + b.ventaGravada, 0), 2);
       const totalNoSuj = roundTo(items.reduce((a, b) => a + b.ventaNoSuj, 0), 2);
       const totalExenta = roundTo(items.reduce((a, b) => a + b.ventaExenta, 0), 2);
