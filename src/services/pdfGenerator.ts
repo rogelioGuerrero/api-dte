@@ -47,43 +47,6 @@ export interface GeneratePdfOptions {
 }
 
 export const generateDtePdfBase64 = async ({ dte, mhResponse, logoUrl }: GeneratePdfOptions): Promise<string> => {
-  const engine = (process.env.PDF_ENGINE || 'native').toLowerCase();
-  if (engine === 'playwright') {
-    try {
-      const { chromium } = await import('playwright');
-      const browser = await chromium.launch({ headless: true });
-      try {
-        const page = await browser.newPage({ viewport: { width: 800, height: 1120 } });
-        const tipoDocNombre = getTipoDocumentoNombre(dte.identificacion.tipoDte, tiposDocumento);
-        const qrData =
-          mhResponse?.enlaceConsulta ||
-          `https://consultadte.mh.gob.sv/consulta/${dte.identificacion.codigoGeneracion}?ambiente=${dte.identificacion.ambiente}&fechaEmi=${dte.identificacion.fecEmi}`;
-
-        const resolvedLogo = logoUrl || fallbackLogoDataUrl;
-        const sello = mhResponse?.selloRecepcion || mhResponse?.selloRecibido || '';
-        const fmt = (val: any) => (val === undefined || val === null || val === '' ? '—' : val);
-
-        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(qrData)}`;
-
-        const html = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8" /><title>DTE</title></head><body>
-          <h1 style="font-family: Arial; font-size: 14px;">${tipoDocNombre}</h1>
-          <p style="font-family: Arial; font-size: 11px;">${fmt(dte.identificacion.numeroControl)}</p>
-          <img src="${resolvedLogo}" style="width:120px;height:40px;object-fit:contain" />
-          <img src="${qrUrl}" style="width:110px;height:110px;" />
-          ${sello ? `<p style=\"font-family: Arial; font-size: 10px;\">Sello: ${sello}</p>` : ''}
-        </body></html>`;
-
-        await page.setContent(html, { waitUntil: 'networkidle' });
-        const pdfBuffer = await page.pdf({ format: 'A4', printBackground: true });
-        return pdfBuffer.toString('base64');
-      } finally {
-        await browser.close();
-      }
-    } catch (error: any) {
-      logger.warn('PDF_ENGINE=playwright falló; se usará engine nativo', { error: error?.message });
-    }
-  }
-
   const tipoDocNombre = getTipoDocumentoNombre(dte.identificacion.tipoDte, tiposDocumento);
   const qrData =
     mhResponse?.enlaceConsulta ||
