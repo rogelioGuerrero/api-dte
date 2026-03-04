@@ -36,19 +36,16 @@ export const normalizeDTE = (dte: DTEJSON): DTEJSON => {
     const ventaGravadaInput = roundTo(i.ventaGravada ?? 0, 8);
     const gross = roundTo(cantidad * precioUni, 8);
 
-    // Para CCF (tipo 01): si no viene IVA, asumimos precio con IVA incluido y lo separamos
     let ventaGravada = ventaGravadaInput > 0 ? roundTo(ventaGravadaInput, 2) : roundTo(gross, 2);
     let ivaCalculado = roundTo(i.ivaItem ?? 0, 2);
 
-    if (tipoDte === '01' && ivaCalculado === 0 && gross > 0) {
-      // Usamos redondeo estilo MH: base = round(gross/1.13,2) y IVA = diferencia para que base+IVA = precio
-      const baseRaw = gross / 1.13;
-      const base = Math.round(baseRaw * 100) / 100;
-      const iva = roundTo(gross - base, 2);
-      ventaGravada = base;
-      ivaCalculado = iva;
-      // Precio unitario debe ir sin IVA para que MH no vea desalineación con ventaGravada
-      precioUni = base;
+    if (tipoDte === '01' && gross > 0) {
+      // Para factura consumidor final: montos llevan IVA incluido.
+      // ventaGravada debe ser el total con IVA; recalculamos IVA informativo.
+      ventaGravada = roundTo(gross, 2);
+      const base = Math.round((gross / 1.13) * 100) / 100;
+      ivaCalculado = roundTo(gross - base, 2);
+      precioUni = roundTo(gross / cantidad, 8); // precio unitario con IVA
     }
 
     return {
