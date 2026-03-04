@@ -91,10 +91,18 @@ export const normalizeDTE = (dte: DTEJSON): DTEJSON => {
       const cantidad = roundTo(i.cantidad, 8);
       const precioUni = roundTo(i.precioUni, 8);
       const ventaGravadaInput = roundTo(i.ventaGravada ?? 0, 8);
-      const ventaGravada = ventaGravadaInput > 0 ? roundTo(ventaGravadaInput, 2) : roundTo(cantidad * precioUni, 2);
-      const ivaCalculado = tipoDte === '01'
-        ? roundTo(i.ivaItem ?? 0, 2)
-        : roundTo(i.ivaItem ?? 0, 2);
+      const gross = roundTo(cantidad * precioUni, 8);
+
+      // Para CCF (tipo 01): si no viene IVA, asumimos precio con IVA incluido y lo separamos
+      let ventaGravada = ventaGravadaInput > 0 ? roundTo(ventaGravadaInput, 2) : roundTo(gross, 2);
+      let ivaCalculado = roundTo(i.ivaItem ?? 0, 2);
+
+      if (tipoDte === '01' && ivaCalculado === 0 && gross > 0) {
+        const base = roundTo(gross / 1.13, 2);
+        const iva = roundTo(gross - base, 2);
+        ventaGravada = base;
+        ivaCalculado = iva;
+      }
 
       return {
         numItem: i.numItem,
