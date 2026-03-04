@@ -24,6 +24,11 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 const logger = createLogger('server');
 
+// Default path for Render to find Playwright browsers if env is not set
+if (!process.env.PLAYWRIGHT_BROWSERS_PATH) {
+  process.env.PLAYWRIGHT_BROWSERS_PATH = '/opt/render/.cache/ms-playwright';
+}
+
 const logPlaywrightInfo = () => {
   const browsersPath = process.env.PLAYWRIGHT_BROWSERS_PATH;
   logger.info('Playwright path info', { PLAYWRIGHT_BROWSERS_PATH: browsersPath || '(unset)' });
