@@ -145,7 +145,7 @@ export const generateDtePdfBase64 = async ({ dte, mhResponse, logoUrl }: Generat
   const tipoDocNombre = getTipoDocumentoNombre(dte.identificacion.tipoDte, tiposDocumento);
   const qrData =
     mhResponse?.enlaceConsulta ||
-    `https://consultadte.mh.gob.sv/consulta/${dte.identificacion.codigoGeneracion}?ambiente=${dte.identificacion.ambiente}&fechaEmi=${dte.identificacion.fecEmi}`;
+    `https://webapp.dtes.mh.gob.sv/consultaPublica?ambiente=${dte.identificacion.ambiente}&codGen=${dte.identificacion.codigoGeneracion}&fechaEmis=${dte.identificacion.fecEmi}`;
   const qrBuffer = await generarQRBuffer(qrData);
   const sello = mhResponse?.selloRecepcion || mhResponse?.selloRecibido || '';
   const fechaProc = mhResponse?.fechaHoraProcesamiento || mhResponse?.fhProcesamiento || '';
@@ -174,8 +174,8 @@ export const generateDtePdfBase64 = async ({ dte, mhResponse, logoUrl }: Generat
   const leftX = marginL;
 
   // Logo area
-  const logoBoxW = 120;
-  const logoBoxH = 40;
+  const logoBoxW = 90;
+  const logoBoxH = 36;
   const logoX = leftX;
   const logoY = headerY;
 
@@ -339,21 +339,24 @@ export const generateDtePdfBase64 = async ({ dte, mhResponse, logoUrl }: Generat
   doc.y = y + 14;
 
   // Totals (right aligned), IVA hidden for tipo 01
-  const totalsW = 220;
+  const totalsW = 200;
   const totalsX = pageW - marginR - totalsW;
   let ty = doc.y;
   doc.font('Helvetica-Bold').fontSize(10).fillColor('#0F172A').text('TOTALES', totalsX, ty, { width: totalsW, align: 'right' });
-  ty += 14;
-  doc.font('Helvetica').fontSize(9).fillColor('#0F172A');
-  doc.fillColor('#475569').text('Subtotal ventas', totalsX, ty, { width: totalsW - 80, align: 'right', continued: true });
-  doc.fillColor('#0F172A').text(` ${money(dte.resumen?.subTotalVentas)}`, { width: 80, align: 'right' });
   ty += 12;
-  doc.fillColor('#475569').text('Subtotal', totalsX, ty, { width: totalsW - 80, align: 'right', continued: true });
-  doc.fillColor('#0F172A').text(` ${money(dte.resumen?.subTotal)}`, { width: 80, align: 'right' });
-  ty += 14;
 
-  doc.font('Helvetica-Bold').fontSize(14).fillColor('#0F172A').text('TOTAL', totalsX, ty, { width: totalsW - 80, align: 'right', continued: true });
-  doc.font('Helvetica-Bold').fontSize(14).fillColor('#0F172A').text(` ${money(dte.resumen?.totalPagar)}`, { width: 80, align: 'right' });
+  const drawTotalRow = (label: string, value: string) => {
+    const labelW = totalsW - 70;
+    doc.font('Helvetica').fontSize(9).fillColor('#475569').text(label, totalsX, ty, { width: labelW, align: 'right' });
+    doc.font('Helvetica').fontSize(9).fillColor('#0F172A').text(value, totalsX + labelW, ty, { width: 70, align: 'right' });
+    ty += 12;
+  };
+
+  drawTotalRow('Subtotal ventas', money(dte.resumen?.subTotalVentas));
+  drawTotalRow('Subtotal', money(dte.resumen?.subTotal));
+  ty += 4;
+  doc.font('Helvetica-Bold').fontSize(12).fillColor('#0F172A').text('TOTAL', totalsX, ty, { width: totalsW - 70, align: 'right' });
+  doc.font('Helvetica-Bold').fontSize(12).fillColor('#0F172A').text(money(dte.resumen?.totalPagar), totalsX + (totalsW - 70), ty, { width: 70, align: 'right' });
 
   // Total letras
   const letras = (dte.resumen?.totalLetras || '').trim();
