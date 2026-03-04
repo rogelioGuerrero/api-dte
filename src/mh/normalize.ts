@@ -41,7 +41,9 @@ export const normalizeDTE = (dte: DTEJSON): DTEJSON => {
     let ivaCalculado = roundTo(i.ivaItem ?? 0, 2);
 
     if (tipoDte === '01' && ivaCalculado === 0 && gross > 0) {
-      const base = roundTo(gross / 1.13, 2);
+      // Usamos redondeo estilo MH: base = round(gross/1.13,2) y IVA = diferencia para que base+IVA = precio
+      const baseRaw = gross / 1.13;
+      const base = Math.round(baseRaw * 100) / 100;
       const iva = roundTo(gross - base, 2);
       ventaGravada = base;
       ivaCalculado = iva;
