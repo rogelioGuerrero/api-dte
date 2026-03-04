@@ -32,7 +32,7 @@ export const normalizeDTE = (dte: DTEJSON): DTEJSON => {
 
   const normalizedItems = (dte.cuerpoDocumento || []).map((i: any) => {
     const cantidad = roundTo(i.cantidad, 8);
-    const precioUni = roundTo(i.precioUni, 8);
+    let precioUni = roundTo(i.precioUni, 8);
     const ventaGravadaInput = roundTo(i.ventaGravada ?? 0, 8);
     const gross = roundTo(cantidad * precioUni, 8);
 
@@ -47,6 +47,8 @@ export const normalizeDTE = (dte: DTEJSON): DTEJSON => {
       const iva = roundTo(gross - base, 2);
       ventaGravada = base;
       ivaCalculado = iva;
+      // Precio unitario debe ir sin IVA para que MH no vea desalineación con ventaGravada
+      precioUni = base;
     }
 
     return {
