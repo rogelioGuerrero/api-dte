@@ -137,16 +137,13 @@ export const normalizeDTE = (dte: DTEJSON): DTEJSON => {
       const totalNoSuj = roundTo(items.reduce((a, b) => a + b.ventaNoSuj, 0), 2);
       const totalExenta = roundTo(items.reduce((a, b) => a + b.ventaExenta, 0), 2);
       const totalIva = roundTo(items.reduce((a, b) => a + b.ivaItem, 0), 2);
-      // En tipo 01 (Factura consumidor final) MH trata el subtotal de ventas como monto con IVA incluido.
-      // Si aquí enviamos base (sin IVA) pero montoTotalOperacion incluye IVA, MH marca CALCULO INCORRECTO.
-      const subTotalVentas = tipoDte === '01'
-        ? roundTo(totalNoSuj + totalExenta + totalGravada + totalIva, 2)
-        : roundTo(totalNoSuj + totalExenta + totalGravada, 2);
+      // En tipo 01 (Factura consumidor final) el subtotal de ventas debe ser solo la base (sin IVA).
+      const subTotalVentas = roundTo(totalNoSuj + totalExenta + totalGravada, 2);
       const subTotal = subTotalVentas;
       const totalNoGravado = roundTo((dte as any).resumen?.totalNoGravado ?? 0, 2);
       const totalDescu = roundTo((dte as any).resumen?.totalDescu ?? 0, 2);
       const montoTotalOperacion = tipoDte === '01'
-        ? roundTo(subTotal - totalDescu + totalNoGravado, 2)
+        ? roundTo(subTotal - totalDescu + totalNoGravado + totalIva, 2)
         : roundTo(subTotal - totalDescu + totalNoGravado + totalIva, 2);
       const totalPagar = montoTotalOperacion;
 
