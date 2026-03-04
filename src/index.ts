@@ -3,6 +3,8 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
+import fs from 'fs';
+import path from 'path';
 import { createLogger } from './utils/logger';
 import { errorHandler } from './middleware/errorHandler';
 import { authMiddleware } from './middleware/auth';
@@ -21,6 +23,38 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3001;
 const logger = createLogger('server');
+
+const logPlaywrightInfo = () => {
+  const browsersPath = process.env.PLAYWRIGHT_BROWSERS_PATH;
+  logger.info('Playwright path info', { PLAYWRIGHT_BROWSERS_PATH: browsersPath || '(unset)' });
+
+  if (!browsersPath) {
+    logger.warn('PLAYWRIGHT_BROWSERS_PATH no está definido');
+    return;
+  }
+
+  try {
+    if (!fs.existsSync(browsersPath)) {
+      logger.warn('Directorio de navegadores de Playwright no existe', { browsersPath });
+      return;
+    }
+
+    const entries = fs.readdirSync(browsersPath);
+    logger.info('Contenido de PLAYWRIGHT_BROWSERS_PATH', { entries });
+
+    const chromiumFolder = entries.find((e) => e.startsWith('chromium'));
+    if (!chromiumFolder) {
+      logger.warn('No se encontró carpeta chromium en PLAYWRIGHT_BROWSERS_PATH');
+      return;
+    }
+
+    const candidate = path.join(browsersPath, chromiumFolder, 'chrome-headless-shell-linux64', 'chrome-headless-shell');
+    const exists = fs.existsSync(candidate);
+    logger.info('Binario chromium_headless_shell', { candidate, exists });
+  } catch (error) {
+    logger.warn('Error al inspeccionar PLAYWRIGHT_BROWSERS_PATH', { error: (error as any)?.message });
+  }
+};
 
 // Middleware
 app.use(helmet());
@@ -60,6 +94,7 @@ app.listen(PORT, () => {
   logger.info(`🚀 DTE Backend server running on port ${PORT}`);
   logger.info(`📱 Environment: ${process.env.NODE_ENV || 'development'}`);
   logger.info(`📍 Health check: http://localhost:${PORT}/health`);
+  logPlaywrightInfo();
 });
 
 export default app;
