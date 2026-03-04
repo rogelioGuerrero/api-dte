@@ -4,7 +4,7 @@ services:
     name: dte-backend
     env: node
     plan: free
-    buildCommand: "PLAYWRIGHT_BROWSERS_PATH=/opt/render/.cache/ms-playwright npm install --include=dev && PLAYWRIGHT_BROWSERS_PATH=/opt/render/.cache/ms-playwright npx playwright install chromium --with-deps --force && npm run build"
+    buildCommand: "npm install --include=dev && npm run build"
     startCommand: "npm start"
     envVars:
       - key: NODE_ENV

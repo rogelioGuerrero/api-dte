@@ -1,4 +1,6 @@
-import { chromium } from 'playwright';
+import PDFDocument from 'pdfkit';
+import QRCode from 'qrcode';
+import { PassThrough } from 'stream';
 import { createLogger } from '../utils/logger';
 
 const logger = createLogger('pdfGenerator');
@@ -12,11 +14,17 @@ const fallbackLogoDataUrl =
     </svg>`
   ).toString('base64');
 
-const generarQRDataUrl = async (texto: string): Promise<string> => {
+const generarQRBuffer = async (texto: string): Promise<Buffer | null> => {
   try {
-    return `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(texto)}`;
-  } catch {
-    return '';
+    return await QRCode.toBuffer(texto, {
+      type: 'png',
+      errorCorrectionLevel: 'M',
+      margin: 1,
+      width: 140,
+    });
+  } catch (error) {
+    logger.warn('No se pudo generar QR', { error: (error as any)?.message });
+    return null;
   }
 };
 
@@ -39,193 +47,153 @@ export interface GeneratePdfOptions {
 }
 
 export const generateDtePdfBase64 = async ({ dte, mhResponse, logoUrl }: GeneratePdfOptions): Promise<string> => {
-  const tipoDocNombre = getTipoDocumentoNombre(dte.identificacion.tipoDte, tiposDocumento);
-  const qrData = mhResponse?.enlaceConsulta ||
-    `https://consultadte.mh.gob.sv/consulta/${dte.identificacion.codigoGeneracion}?ambiente=${dte.identificacion.ambiente}&fechaEmi=${dte.identificacion.fecEmi}`;
-  const qrUrl = await generarQRDataUrl(qrData);
+  const engine = (process.env.PDF_ENGINE || 'native').toLowerCase();
+  if (engine === 'playwright') {
+    try {
+      const { chromium } = await import('playwright');
+      const browser = await chromium.launch({ headless: true });
+      try {
+        const page = await browser.newPage({ viewport: { width: 800, height: 1120 } });
+        const tipoDocNombre = getTipoDocumentoNombre(dte.identificacion.tipoDte, tiposDocumento);
+        const qrData =
+          mhResponse?.enlaceConsulta ||
+          `https://consultadte.mh.gob.sv/consulta/${dte.identificacion.codigoGeneracion}?ambiente=${dte.identificacion.ambiente}&fechaEmi=${dte.identificacion.fecEmi}`;
 
+        const resolvedLogo = logoUrl || fallbackLogoDataUrl;
+        const sello = mhResponse?.selloRecepcion || mhResponse?.selloRecibido || '';
+        const fmt = (val: any) => (val === undefined || val === null || val === '' ? '—' : val);
+
+        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(qrData)}`;
+
+        const html = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8" /><title>DTE</title></head><body>
+          <h1 style="font-family: Arial; font-size: 14px;">${tipoDocNombre}</h1>
+          <p style="font-family: Arial; font-size: 11px;">${fmt(dte.identificacion.numeroControl)}</p>
+          <img src="${resolvedLogo}" style="width:120px;height:40px;object-fit:contain" />
+          <img src="${qrUrl}" style="width:110px;height:110px;" />
+          ${sello ? `<p style=\"font-family: Arial; font-size: 10px;\">Sello: ${sello}</p>` : ''}
+        </body></html>`;
+
+        await page.setContent(html, { waitUntil: 'networkidle' });
+        const pdfBuffer = await page.pdf({ format: 'A4', printBackground: true });
+        return pdfBuffer.toString('base64');
+      } finally {
+        await browser.close();
+      }
+    } catch (error: any) {
+      logger.warn('PDF_ENGINE=playwright falló; se usará engine nativo', { error: error?.message });
+    }
+  }
+
+  const tipoDocNombre = getTipoDocumentoNombre(dte.identificacion.tipoDte, tiposDocumento);
+  const qrData =
+    mhResponse?.enlaceConsulta ||
+    `https://consultadte.mh.gob.sv/consulta/${dte.identificacion.codigoGeneracion}?ambiente=${dte.identificacion.ambiente}&fechaEmi=${dte.identificacion.fecEmi}`;
+  const qrBuffer = await generarQRBuffer(qrData);
   const sello = mhResponse?.selloRecepcion || mhResponse?.selloRecibido || '';
   const fechaProc = mhResponse?.fechaHoraProcesamiento || mhResponse?.fhProcesamiento || '';
-  const resolvedLogo = logoUrl || fallbackLogoDataUrl;
 
-  const fmt = (val: any) => (val === undefined || val === null || val === '' ? '—' : val);
+  const safe = (val: any) => (val === undefined || val === null || val === '' ? '—' : String(val));
+  const money = (val: any) => Number(val || 0).toFixed(2);
 
-  const html = `
-<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>DTE - ${dte.identificacion.numeroControl}</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: Arial, Helvetica, sans-serif; font-size: 11px; line-height: 1.4; color: #000; background: #fff; padding: 20px; }
-    .container { max-width: 800px; margin: 0 auto; border: 1px solid #000; padding: 15px; }
-    .header { display:flex; justify-content:space-between; align-items:center; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #ccc; }
-    .header .version { text-align: right; font-size: 10px; color: #666; }
-    .header h1 { font-size: 14px; font-weight: bold; margin: 5px 0; text-align:center; flex:1; }
-    .header h2 { font-size: 12px; font-weight: bold; margin: 3px 0; text-align:center; flex:1; }
-    .logo { width: 120px; height: 40px; object-fit: contain; margin-right:12px; }
-    .info-row { display: flex; justify-content: space-between; margin-bottom: 15px; }
-    .info-section { flex: 1; padding: 10px; border: 1px solid #ccc; margin: 0 5px; }
-    .info-section:first-child { margin-left: 0; } .info-section:last-child { margin-right: 0; }
-    .info-section h3 { font-size: 11px; font-weight: bold; margin-bottom: 8px; padding-bottom: 5px; border-bottom: 1px solid #eee; text-align: center; }
-    .info-section .field { display: flex; margin-bottom: 4px; }
-    .info-section .field .label { font-weight: bold; min-width: 120px; color: #333; }
-    .info-section .field .value { flex: 1; }
-    .qr-section { display: flex; align-items: flex-start; gap: 15px; margin-bottom: 15px; }
-    .qr-code { width: 100px; height: 100px; }
-    .qr-info .field { display: flex; margin-bottom: 3px; }
-    .qr-info .field .label { font-weight: bold; min-width: 180px; }
-    .modelo-info { text-align: right; }
-    .modelo-info .field { display: flex; justify-content: flex-end; margin-bottom: 3px; }
-    .modelo-info .label { font-weight: bold; margin-right: 10px; }
-    table { width: 100%; border-collapse: collapse; margin: 15px 0; }
-    table th, table td { border: 1px solid #ccc; padding: 6px 8px; text-align: left; font-size: 10px; }
-    table th { background: #f5f5f5; font-weight: bold; text-align: center; }
-    table td.number { text-align: right; font-family: 'Courier New', monospace; }
-    table td.center { text-align: center; }
-    .totals { margin-top: 15px; }
-    .totals table { width: 50%; margin-left: auto; }
-    .totals table td { padding: 4px 8px; }
-    .totals table td:first-child { text-align: right; font-weight: bold; }
-    .totals table td:last-child { text-align: right; font-family: 'Courier New', monospace; }
-    .totals table tr.total-final { background: #f0f0f0; font-weight: bold; }
-    .totals table tr.total-final td { font-size: 12px; }
-    .footer { margin-top: 20px; padding-top: 10px; border-top: 1px solid #ccc; font-size: 9px; color: #666; text-align: center; }
-    .sello-section { background: #e8f5e9; border: 1px solid #4caf50; padding: 10px; margin: 15px 0; border-radius: 4px; }
-    .sello-section h4 { color: #2e7d32; margin-bottom: 5px; }
-    .sello-section code { font-family: 'Courier New', monospace; font-size: 10px; word-break: break-all; }
-    @media print { body { padding: 0; } .container { border: none; } }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <div class="header">
-      <img class="logo" src="${resolvedLogo}" alt="Logo" />
-      <div style="flex:1;">
-        <div class="version">Ver.${dte.identificacion.version}</div>
-        <h1>DOCUMENTO TRIBUTARIO ELECTRÓNICO</h1>
-        <h2>${tipoDocNombre}</h2>
-      </div>
-    </div>
+  const doc = new PDFDocument({ size: 'A4', margin: 36 });
+  const stream = new PassThrough();
+  const chunks: Buffer[] = [];
+  stream.on('data', (c) => chunks.push(c));
+  doc.pipe(stream);
 
-    <div class="qr-section">
-      <img src="${qrUrl}" alt="QR Code" class="qr-code" />
-      <div class="qr-info">
-        <div class="field"><span class="label">Código de Generación:</span><span class="value">${dte.identificacion.codigoGeneracion}</span></div>
-        <div class="field"><span class="label">Número de Control:</span><span class="value">${dte.identificacion.numeroControl}</span></div>
-        ${sello ? `<div class="field"><span class="label">Sello de Recepción:</span><span class="value" style="font-size: 9px;">${sello}</span></div>` : ''}
-      </div>
-      <div class="modelo-info">
-        <div class="field"><span class="label">Modelo de Facturación:</span><span class="value">Previo</span></div>
-        <div class="field"><span class="label">Tipo de Transmisión:</span><span class="value">Normal</span></div>
-        <div class="field"><span class="label">Fecha y Hora de Generación:</span><span class="value">${dte.identificacion.fecEmi} ${dte.identificacion.horEmi}</span></div>
-      </div>
-    </div>
+  doc.font('Helvetica-Bold').fontSize(12).text('DOCUMENTO TRIBUTARIO ELECTRÓNICO', { align: 'center' });
+  doc.moveDown(0.2);
+  doc.font('Helvetica-Bold').fontSize(11).text(tipoDocNombre, { align: 'center' });
+  doc.moveDown(0.7);
 
-    <div class="info-row">
-      <div class="info-section">
-        <h3>EMISOR</h3>
-        <div class="field"><span class="label">Nombre o razón social:</span><span class="value">${fmt(dte.emisor.nombre)}</span></div>
-        <div class="field"><span class="label">NIT:</span><span class="value">${fmt(dte.emisor.nit)}</span></div>
-        <div class="field"><span class="label">NRC:</span><span class="value">${fmt(dte.emisor.nrc)}</span></div>
-        <div class="field"><span class="label">Actividad económica:</span><span class="value">${fmt(dte.emisor.descActividad)}</span></div>
-        <div class="field"><span class="label">Dirección:</span><span class="value">${fmt(dte.emisor.direccion?.complemento)}</span></div>
-        <div class="field"><span class="label">Número de teléfono:</span><span class="value">${fmt(dte.emisor.telefono)}</span></div>
-        <div class="field"><span class="label">Correo electrónico:</span><span class="value">${fmt(dte.emisor.correo)}</span></div>
-        ${dte.emisor.nombreComercial ? `<div class="field"><span class="label">Nombre Comercial:</span><span class="value">${fmt(dte.emisor.nombreComercial)}</span></div>` : ''}
-        <div class="field"><span class="label">Tipo de establecimiento:</span><span class="value">${dte.emisor.tipoEstablecimiento === '01' ? 'Casa Matriz' : 'Sucursal'}</span></div>
-      </div>
-
-      <div class="info-section">
-        <h3>RECEPTOR</h3>
-        <div class="field"><span class="label">Nombre o razón social:</span><span class="value">${fmt(dte.receptor.nombre)}</span></div>
-        <div class="field"><span class="label">NIT:</span><span class="value">${fmt(dte.receptor.numDocumento)}</span></div>
-        ${dte.receptor.nrc ? `<div class="field"><span class="label">NRC:</span><span class="value">${fmt(dte.receptor.nrc)}</span></div>` : ''}
-        <div class="field"><span class="label">Actividad económica:</span><span class="value">${fmt(dte.receptor.descActividad)}</span></div>
-        <div class="field"><span class="label">Dirección:</span><span class="value">${fmt(dte.receptor.direccion?.complemento)}</span></div>
-        <div class="field"><span class="label">Número de teléfono:</span><span class="value">${fmt(dte.receptor.telefono)}</span></div>
-        <div class="field"><span class="label">Correo electrónico:</span><span class="value">${fmt(dte.receptor.correo)}</span></div>
-      </div>
-    </div>
-
-    <table>
-      <thead>
-        <tr>
-          <th style="width: 30px;">N°</th>
-          <th style="width: 50px;">Cantidad</th>
-          <th style="width: 50px;">Unidad</th>
-          <th>Descripción</th>
-          <th style="width: 70px;">Precio Unitario</th>
-          <th style="width: 60px;">Descuento por ítem</th>
-          <th style="width: 70px;">Otros montos no afectos</th>
-          <th style="width: 60px;">Ventas No Sujetas</th>
-          <th style="width: 60px;">Ventas Exentas</th>
-          <th style="width: 70px;">Ventas Gravadas</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${dte.cuerpoDocumento.map((item: any) => `
-        <tr>
-          <td class="center">${fmt(item.numItem)}</td>
-          <td class="number">${Number(item.cantidad || 0).toFixed(2)}</td>
-          <td class="center">${item.uniMedida === 99 ? 'Unidad' : item.uniMedida}</td>
-          <td>${fmt(item.descripcion)}</td>
-          <td class="number">${Number(item.precioUni || 0).toFixed(2)}</td>
-          <td class="number">${Number(item.montoDescu || 0).toFixed(2)}</td>
-          <td class="number">0.00</td>
-          <td class="number">${Number(item.ventaNoSuj || 0).toFixed(2)}</td>
-          <td class="number">${Number(item.ventaExenta || 0).toFixed(2)}</td>
-          <td class="number">${Number(item.ventaGravada || 0).toFixed(2)}</td>
-        </tr>
-        `).join('')}
-      </tbody>
-    </table>
-
-    <div class="totals">
-      <table>
-        <tr><td>Suma de Ventas:</td><td>${Number(dte.resumen.subTotalVentas || 0).toFixed(2)}</td></tr>
-        <tr><td>Suma Total de Operaciones:</td><td>${Number(dte.resumen.subTotalVentas || 0).toFixed(2)}</td></tr>
-        <tr><td>Monto global Desc., Rebajas y otros a ventas no sujetas:</td><td>${Number(dte.resumen.descuNoSuj || 0).toFixed(2)}</td></tr>
-        <tr><td>Monto global Desc., Rebajas y otros a ventas Exentas:</td><td>${Number(dte.resumen.descuExenta || 0).toFixed(2)}</td></tr>
-        <tr><td>Monto global Desc., Rebajas y otros a ventas gravadas:</td><td>${Number(dte.resumen.descuGravada || 0).toFixed(2)}</td></tr>
-        ${dte.identificacion.tipoDte !== '01' ? `<tr><td>Impuesto al Valor Agregado 13%:</td><td>${Number(dte.resumen.tributos?.[0]?.valor || 0).toFixed(2)}</td></tr>` : ''}
-        <tr><td>Sub-Total:</td><td>${Number(dte.resumen.subTotal || 0).toFixed(2)}</td></tr>
-        <tr><td>IVA Percibido:</td><td>0.00</td></tr>
-        <tr><td>IVA Retenido:</td><td>${Number(dte.resumen.ivaRete1 || 0).toFixed(2)}</td></tr>
-        <tr class="total-final"><td>Monto Total de la Operación:</td><td>${Number(dte.resumen.totalPagar || 0).toFixed(2)}</td></tr>
-      </table>
-    </div>
-
-    ${sello ? `
-    <div class="sello-section">
-      <h4>✓ Documento Validado por el Ministerio de Hacienda</h4>
-      <p><strong>Sello de Recepción:</strong></p>
-      <code>${sello}</code>
-      <p style="margin-top: 5px;"><strong>Fecha de Procesamiento:</strong> ${fmt(fechaProc)}</p>
-    </div>
-    ` : ''}
-
-    <div class="footer">
-      <p>Este documento es una representación impresa de un Documento Tributario Electrónico (DTE)</p>
-      <p>Puede verificar su autenticidad en: https://consultadte.mh.gob.sv</p>
-    </div>
-  </div>
-</body>
-</html>
-  `;
-
-  const browser = await chromium.launch({ headless: true });
-  try {
-    const page = await browser.newPage({ viewport: { width: 800, height: 1120 } });
-    await page.setContent(html, { waitUntil: 'networkidle' });
-    const pdfBuffer = await page.pdf({ format: 'A4', printBackground: true });
-    return pdfBuffer.toString('base64');
-  } catch (error) {
-    logger.error('Error generando PDF', { error });
-    throw error;
-  } finally {
-    await browser.close();
+  const topY = doc.y;
+  if (qrBuffer) {
+    doc.image(qrBuffer, doc.page.width - doc.page.margins.right - 110, topY, { width: 110 });
   }
+  doc.font('Helvetica').fontSize(9);
+  doc.text(`Código de Generación: ${safe(dte.identificacion.codigoGeneracion)}`);
+  doc.text(`Número de Control: ${safe(dte.identificacion.numeroControl)}`);
+  doc.text(`Fecha/Hora: ${safe(dte.identificacion.fecEmi)} ${safe(dte.identificacion.horEmi)}`);
+  if (sello) doc.text(`Sello: ${sello}`);
+  if (fechaProc) doc.text(`Procesado: ${fechaProc}`);
+  doc.moveDown(0.8);
+
+  doc.font('Helvetica-Bold').fontSize(10).text('EMISOR');
+  doc.font('Helvetica').fontSize(9);
+  doc.text(`Nombre: ${safe(dte.emisor?.nombre)}`);
+  doc.text(`NIT: ${safe(dte.emisor?.nit)}`);
+  doc.text(`NRC: ${safe(dte.emisor?.nrc)}`);
+  doc.text(`Dirección: ${safe(dte.emisor?.direccion?.complemento)}`);
+  doc.moveDown(0.5);
+
+  doc.font('Helvetica-Bold').fontSize(10).text('RECEPTOR');
+  doc.font('Helvetica').fontSize(9);
+  doc.text(`Nombre: ${safe(dte.receptor?.nombre)}`);
+  doc.text(`Documento: ${safe(dte.receptor?.numDocumento)}`);
+  doc.text(`Dirección: ${safe(dte.receptor?.direccion?.complemento)}`);
+  doc.moveDown(0.8);
+
+  const startX = doc.page.margins.left;
+  const tableWidth = doc.page.width - doc.page.margins.left - doc.page.margins.right;
+  const cols = [
+    { key: 'numItem', w: 28, label: 'N°' },
+    { key: 'cantidad', w: 50, label: 'Cant.' },
+    { key: 'descripcion', w: tableWidth - (28 + 50 + 70 + 70 + 70), label: 'Descripción' },
+    { key: 'precioUni', w: 70, label: 'P.U.' },
+    { key: 'montoDescu', w: 70, label: 'Desc.' },
+    { key: 'ventaGravada', w: 70, label: 'Total' },
+  ];
+
+  const drawRow = (y: number, row: Record<string, any>, header = false) => {
+    let x = startX;
+    const h = 16;
+    doc.lineWidth(0.5);
+    doc.rect(x, y, tableWidth, h).stroke();
+    for (const c of cols) {
+      doc.rect(x, y, c.w, h).stroke();
+      doc
+        .font(header ? 'Helvetica-Bold' : 'Helvetica')
+        .fontSize(8)
+        .text(safe(row[c.key]), x + 2, y + 4, { width: c.w - 4, align: c.key === 'descripcion' ? 'left' : 'right' });
+      x += c.w;
+    }
+    return y + h;
+  };
+
+  let y = doc.y;
+  y = drawRow(y, cols.reduce((a, c) => ({ ...a, [c.key]: c.label }), {}), true);
+
+  const items = Array.isArray(dte.cuerpoDocumento) ? dte.cuerpoDocumento : [];
+  for (const it of items) {
+    if (y > doc.page.height - doc.page.margins.bottom - 80) {
+      doc.addPage();
+      y = doc.y;
+      y = drawRow(y, cols.reduce((a, c) => ({ ...a, [c.key]: c.label }), {}), true);
+    }
+
+    y = drawRow(y, {
+      numItem: it.numItem,
+      cantidad: money(it.cantidad),
+      descripcion: safe(it.descripcion),
+      precioUni: money(it.precioUni),
+      montoDescu: money(it.montoDescu),
+      ventaGravada: money(it.ventaGravada),
+    });
+  }
+
+  doc.moveDown(1.0);
+  doc.font('Helvetica-Bold').fontSize(10).text('TOTALES', { align: 'right' });
+  doc.font('Helvetica').fontSize(9);
+  doc.text(`SubTotal Ventas: ${money(dte.resumen?.subTotalVentas)}`, { align: 'right' });
+  doc.text(`SubTotal: ${money(dte.resumen?.subTotal)}`, { align: 'right' });
+  doc.font('Helvetica-Bold').fontSize(11).text(`Total a Pagar: ${money(dte.resumen?.totalPagar)}`, { align: 'right' });
+
+  doc.end();
+
+  await new Promise<void>((resolve, reject) => {
+    stream.on('finish', resolve);
+    stream.on('error', reject);
+  });
+
+  return Buffer.concat(chunks).toString('base64');
 };
