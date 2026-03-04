@@ -40,8 +40,11 @@ const logPlaywrightInfo = () => {
 
   try {
     if (!fs.existsSync(browsersPath)) {
-      logger.warn('Directorio de navegadores de Playwright no existe', { browsersPath });
-      return;
+      const fallback = '/opt/render/project/.cache/ms-playwright';
+      const fallbackExists = fs.existsSync(fallback);
+      logger.warn('Directorio de navegadores de Playwright no existe', { browsersPath, fallback, fallbackExists });
+      if (!fallbackExists) return;
+      logger.info('Usando fallback PLAYWRIGHT_BROWSERS_PATH', { fallback });
     }
 
     const entries = fs.readdirSync(browsersPath);
