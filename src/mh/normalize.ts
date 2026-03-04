@@ -41,9 +41,10 @@ export const normalizeDTE = (dte: DTEJSON): DTEJSON => {
 
     if (tipoDte === '01' && gross > 0) {
       // Para factura consumidor final: montos llevan IVA incluido.
-      // MH espera montos informados con IVA; IVA en resumen suele ser 0 o informativo.
+      // MH espera montos con IVA; IVA se envía informativo, no se suma al total.
       ventaGravada = roundTo(gross, 2);
-      ivaCalculado = 0; // no enviar IVA por ítem
+      const base = Math.round((gross / 1.13) * 100) / 100;
+      ivaCalculado = roundTo(gross - base, 2);
       precioUni = roundTo(gross / cantidad, 8); // precio unitario con IVA
     }
 
@@ -132,8 +133,8 @@ export const normalizeDTE = (dte: DTEJSON): DTEJSON => {
       const totalGravada = roundTo(items.reduce((a, b) => a + b.ventaGravada, 0), 2);
       const totalNoSuj = roundTo(items.reduce((a, b) => a + b.ventaNoSuj, 0), 2);
       const totalExenta = roundTo(items.reduce((a, b) => a + b.ventaExenta, 0), 2);
-      const totalIva = tipoDte === '01' ? 0 : roundTo(items.reduce((a, b) => a + b.ivaItem, 0), 2);
-      // En tipo 01 (Factura consumidor final) MH espera montos con IVA incluido; no sumar IVA aparte.
+      const totalIva = roundTo(items.reduce((a, b) => a + b.ivaItem, 0), 2);
+      // En tipo 01 (Factura consumidor final) montos con IVA incluido; totalIva es informativo.
       const subTotalVentas = roundTo(totalNoSuj + totalExenta + totalGravada, 2);
       const subTotal = subTotalVentas;
       const totalNoGravado = roundTo((dte as any).resumen?.totalNoGravado ?? 0, 2);
