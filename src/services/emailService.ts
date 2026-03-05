@@ -202,6 +202,11 @@ export async function sendDTEEmails(
       content: Buffer.from(pdfBase64, 'base64'),
       contentType: 'application/pdf'
     });
+  } else {
+    logger.warn('PDF no adjuntado: pdfBase64 vacío o indefinido', {
+      codigoGeneracion: mhResponse.codigoGeneracion || dteData.codigoGeneracion,
+      pdfLength: pdfBase64?.length
+    });
   }
 
   if (dteJsonString) {
@@ -215,6 +220,11 @@ export async function sendDTEEmails(
   // Solo receptor
   let receptorResult: EmailResult = { success: false, error: 'Receptor sin correo' };
   if (receptor.correo) {
+    logger.info('Enviando correo DTE', {
+      to: receptor.correo,
+      codigoGeneracion: mhResponse.codigoGeneracion || dteData.codigoGeneracion,
+      adjuntos: attachments.map(a => ({ filename: a.filename, contentType: a.contentType, size: a.content?.length }))
+    });
     receptorResult = await sendEmail({
       to: receptor.correo,
       subject: subject,
