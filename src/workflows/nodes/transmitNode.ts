@@ -3,7 +3,7 @@ import { transmitirDTESandbox } from "../../mh/sandboxClient";
 import { createLogger } from '../../utils/logger';
 import { getMHCredentialsByNIT, updateMHTokenByNIT } from '../../business/businessStorage';
 import { randomUUID } from 'crypto';
-import { getCachedMHAuthToken, normalizeBearerToken, shouldRefreshTokenWithExp } from '../../mh/authClient';
+import { getCachedMHAuthToken, normalizeBearerToken, requestMHAuthToken, shouldRefreshTokenWithExp } from '../../mh/authClient';
 import { saveSignedDteDebug } from '../../database/debugLogger';
 
 const decodeJwsPayload = (jws: string) => {
@@ -85,7 +85,6 @@ export const transmitNode = async (state: DTEState): Promise<Partial<DTEState>> 
     console.log('🔐 Credenciales MH obtenidas', { businessId: credentials.business_id, nit: credentials.nit, ambiente });
 
     let apiToken = normalizeBearerToken(credentials.api_token);
-    let apiTokenExpiresAt = credentials.api_token_expires_at;
 
     if (shouldRefreshTokenWithExp(credentials.api_token, credentials.api_token_expires_at, ambiente)) {
       console.log(`🔄 Token necesita refresh para NIT ${nitLimpioBusqueda}`);
@@ -101,11 +100,10 @@ export const transmitNode = async (state: DTEState): Promise<Partial<DTEState>> 
         };
       }
 
-      const { token, expMs } = await getCachedMHAuthToken(nitLimpioBusqueda, credentials.api_password, ambiente);
+      const { token } = await getCachedMHAuthToken(nitLimpioBusqueda, credentials.api_password, ambiente);
       apiToken = token;
-      apiTokenExpiresAt = expMs ? new Date(expMs).toISOString() : undefined;
       console.log(`💾 Guardando token actualizado en BD...`);
-      await updateMHTokenByNIT(nitLimpioBusqueda, ambiente, apiToken, apiTokenExpiresAt);
+      await updateMHTokenByNIT(nitLimpioBusqueda, ambiente, apiToken, undefined);
     }
     
     // Extraer metadata necesaria para el MH
@@ -141,15 +139,31 @@ export const transmitNode = async (state: DTEState): Promise<Partial<DTEState>> 
       }
     }
 
-    const result = await transmitirDTESandbox(
-      state.signature, 
-      ambiente, 
-      apiToken,
-      version, 
-      tipoDte, 
+    const sendWithToken = async (token: string) => transmitirDTESandbox(
+      state.signature,
+      ambiente,
+      token,
+      version,
+      tipoDte,
       idEnvio,
       codigoGeneracion
     );
+
+    let result = await sendWithToken(apiToken);
+
+    // Si MH responde 401, forzar refresh de token y reintentar una sola vez
+    const has401 = Array.isArray(result.errores) && result.errores.some((e: any) => (e.codigo || '').startsWith('HTTP-401'));
+    if (has401 && credentials.api_password) {
+      try {
+        console.log('🔄 401 de MH: forzando refresh de token y reintentando...');
+        const newToken = await requestMHAuthToken(nitLimpioBusqueda, credentials.api_password, ambiente);
+        apiToken = normalizeBearerToken(newToken);
+        await updateMHTokenByNIT(nitLimpioBusqueda, ambiente, apiToken, undefined);
+        result = await sendWithToken(apiToken);
+      } catch (err: any) {
+        console.error('❌ Falló refresh forzado de token MH tras 401', { error: err?.message });
+      }
+    }
     
     if (result.success) {
       console.log("✅ MH: Recibido exitosamente.", result.selloRecepcion);
