@@ -35,9 +35,13 @@ export const firmarDocumento = async (request: FirmaRequest): Promise<string> =>
   try {
     logger.info('Enviando solicitud de firma', { nit: request.nit });
     
-    // Headers base
+    // Headers base (parecer navegador evita bloqueos tontos en proxies)
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      'Accept-Language': 'es-ES,es;q=0.9',
+      'User-Agent': 'Mozilla/5.0',
+      'Connection': 'close',
     };
     
     // Payload sin apiToken (el API no requiere autenticación)
@@ -49,26 +53,59 @@ export const firmarDocumento = async (request: FirmaRequest): Promise<string> =>
       dteJson: typeof request.dteJson === 'string' ? request.dteJson : JSON.stringify(request.dteJson)
     };
     
-    const response = await axios.post(FIRMA_SIGN_URL, payload, {
-      headers,
-      timeout: 30000, // 30 segundos timeout
-    });
+    const maxAttempts = 2;
+    let lastError: any;
 
-    const data = response.data;
-    
-    // Éxito: { success: true, jws: "..." }
-    if (data.success && data.jws) {
-      logger.info('Documento firmado exitosamente');
-      return data.jws;
-    } 
-    // Error: { status: "ERROR", body: { codigo: "...", mensaje: "..." } }
-    else if (data.status === 'ERROR' && data.body) {
-      throw new Error(`Código ${data.body.codigo}: ${data.body.mensaje}`);
-    } 
-    // Fallback
-    else {
-      throw new Error(data.error || JSON.stringify(data));
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        const response = await axios.post(FIRMA_SIGN_URL, payload, {
+          headers,
+          timeout: 30000, // 30 segundos timeout
+          validateStatus: () => true, // manejamos manualmente
+        });
+
+        const data = response.data;
+        const status = response.status;
+
+        // Cortes inmediatos por HTML o 403 para no seguir golpeando
+        if (typeof data === 'string' && data.toLowerCase().includes('<html')) {
+          const msg = 'Servicio de firma bloqueado o protegido (Cloudflare/HTML). No se pudo firmar.';
+          logger.error(msg, { snippet: data.substring(0, 120), status });
+          throw new Error(msg);
+        }
+        if (status === 403) {
+          const msg = 'Servicio de firma respondió 403. No reintento para evitar bloqueo.';
+          logger.error(msg);
+          throw new Error(msg);
+        }
+
+        // Éxito: { success: true, jws: "..." }
+        if (data.success && data.jws) {
+          logger.info('Documento firmado exitosamente');
+          return data.jws;
+        } 
+        // Error: { status: "ERROR", body: { codigo: "...", mensaje: "..." } }
+        else if (data.status === 'ERROR' && data.body) {
+          throw new Error(`Código ${data.body.codigo}: ${data.body.mensaje}`);
+        } 
+        // Fallback
+        else {
+          throw new Error(data.error || JSON.stringify(data));
+        }
+      } catch (err: any) {
+        lastError = err;
+        const isLast = attempt === maxAttempts;
+        if (!isLast) {
+          // Backoff simple para no martillar el servicio
+          const delay = 500 * attempt; // 500ms, 1000ms
+          logger.warn(`Reintento firma (${attempt}/${maxAttempts - 1}) en ${delay}ms`, { error: err.message });
+          await new Promise(resolve => setTimeout(resolve, delay));
+          continue;
+        }
+        throw err;
+      }
     }
+    throw lastError;
   } catch (error: any) {
     // Si Axios lanza un error (ej. HTTP 400, 500)
     if (error.response && error.response.data) {
