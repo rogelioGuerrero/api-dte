@@ -42,7 +42,9 @@ const channels: any = {
     estimatedTime: { reducer: (x: any, y: any) => y ?? x },
     businessId: { reducer: (x: any, y: any) => y ?? x },
     deviceId: { reducer: (x: any, y: any) => y ?? x },
-    codigoGeneracion: { reducer: (x: any, y: any) => y ?? x }
+    codigoGeneracion: { reducer: (x: any, y: any) => y ?? x },
+    pdfBase64: { reducer: (x: any, y: any) => y ?? x },
+    sanitizedDte: { reducer: (x: any, y: any) => y ?? x }
 };
 
 const workflow = new StateGraph<DTEState>({ channels })
