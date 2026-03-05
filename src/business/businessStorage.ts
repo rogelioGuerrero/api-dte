@@ -80,6 +80,11 @@ export const updateBusinessProfileById = async (
       Object.entries(payload).filter(([, v]) => v !== undefined)
     );
 
+    // Evitar escribir columnas generadas/no actualizables
+    if ('nit_clean' in cleanPayload) {
+      delete (cleanPayload as any).nit_clean;
+    }
+
     if (Object.keys(cleanPayload).length === 0) {
       const { data, error } = await supabase
         .from('businesses')
