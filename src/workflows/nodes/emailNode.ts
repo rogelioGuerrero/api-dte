@@ -1,8 +1,7 @@
 import { DTEState } from '../state';
 import { createLogger } from '../../utils/logger';
-import { saveDTEResponse, updateDTEResponseEmailStatus } from '../../business/dteStorage';
+import { updateDTEResponseEmailStatus } from '../../business/dteStorage';
 import { sendDTEEmails } from '../../services/emailService';
-import { generateDtePdfBase64 } from '../../services/pdfGenerator';
 
 const logger = createLogger('emailNode');
 
@@ -21,7 +20,6 @@ export async function emailNode(state: DTEState): Promise<Partial<DTEState>> {
     }
 
     const nitEmisor = state.dte?.emisor?.nit || state.dte?.identificacion?.nit;
-    const businessId = state.businessId || nitEmisor;
     if (!nitEmisor) {
       throw new Error('No se puede identificar el emisor del DTE');
     }
@@ -31,25 +29,8 @@ export async function emailNode(state: DTEState): Promise<Partial<DTEState>> {
       nit: nitEmisor
     });
 
-    // 1. Guardar respuesta MH en Supabase
-    const savedResponse = await saveDTEResponse({
-      businessId: businessId,
-      nit: nitEmisor,
-      dteJson: state.dte,
-      mhResponse: state.mhResponse,
-      ambiente: state.dte.identificacion.ambiente || '00',
-      tipoDte: state.dte.tipoDte,
-      codigoGeneracion: state.dte.codigoGeneracion,
-      selloRecibido: state.mhResponse.selloRecibido
-    });
-
-    logger.info('Respuesta MH guardada en Supabase', { 
-      responseId: savedResponse.id,
-      codigoGeneracion: state.dte.codigoGeneracion 
-    });
-
-    // 2. Enviar correos (si hay emails)
-    const receptorEmail = state.dte.receptor?.correo || state.dte.emisor?.correo;
+    // Enviar correos (si hay emails)
+    const receptorEmail = state.receptorEmail || state.dte.receptor?.correo || state.dte.emisor?.correo;
 
     if (!receptorEmail) {
       logger.warn('No hay correo de receptor/emisor; se aborta envío de email', {
@@ -68,29 +49,16 @@ export async function emailNode(state: DTEState): Promise<Partial<DTEState>> {
     } as any;
 
     try {
-      const sanitizedDte = { ...state.dte } as any;
-      sanitizedDte.identificacion = { ...(state.dte as any).identificacion };
-      sanitizedDte.emisor = { ...(state.dte as any).emisor };
-      sanitizedDte.receptor = { ...(state.dte as any).receptor };
+      const sanitizedDte = (state as any).sanitizedDte || (() => {
+        const copy = { ...state.dte } as any;
+        copy.identificacion = { ...(state.dte as any).identificacion };
+        copy.emisor = { ...(state.dte as any).emisor };
+        copy.receptor = state.dte.receptor ? { ...(state.dte as any).receptor } : undefined;
+        if (copy.receptor) copy.receptor.correo = receptorEmail;
+        return copy;
+      })();
 
-      // usar el correo efectivo que se determinó (receptor > emisor > fallback)
-      if (sanitizedDte.receptor) {
-        sanitizedDte.receptor.correo = receptorEmail;
-      }
-
-      // Generar PDF en backend si no viene desde frontend
-      let pdfBase64 = state.pdfBase64;
-      if (!pdfBase64) {
-        try {
-          pdfBase64 = await generateDtePdfBase64({
-            dte: sanitizedDte,
-            mhResponse: state.mhResponse,
-            logoUrl: sanitizedDte.emisor?.logo_url || sanitizedDte.emisor?.logoUrl
-          });
-        } catch (pdfError: any) {
-          logger.warn('No se pudo generar PDF; se enviará solo JSON', { error: pdfError?.message });
-        }
-      }
+      const pdfBase64 = state.pdfBase64;
 
       emailResults = await sendDTEEmails(
         sanitizedDte,
@@ -110,11 +78,13 @@ export async function emailNode(state: DTEState): Promise<Partial<DTEState>> {
     const correoEnviado = !!emailResults.receptor.success;
     const correoError = !emailResults.receptor.success ? emailResults.receptor.error || null : null;
 
-    await updateDTEResponseEmailStatus({
-      id: (savedResponse as any).id,
-      correoEnviado,
-      correoError: correoError || null,
-    });
+    if (state.responseId) {
+      await updateDTEResponseEmailStatus({
+        id: state.responseId,
+        correoEnviado,
+        correoError: correoError || null,
+      });
+    }
 
     return {
       emailSent: correoEnviado,

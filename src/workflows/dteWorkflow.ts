@@ -6,7 +6,9 @@ import { validateNode } from "./nodes/validateNode";
 import { signNode } from "./nodes/signNode";
 import { transmitNode } from "./nodes/transmitNode";
 import { tokenNode } from "./nodes/tokenNode";
-import { emailNode } from "./nodes/emailNode";
+import { emailNode } from './nodes/emailNode';
+import { persistResponseNode } from './nodes/persistResponseNode';
+import { prepareDocumentsNode } from './nodes/prepareDocumentsNode';
 import { contingencyNode } from "./nodes/contingencyNode";
 import { receptionNode } from "./nodes/receptionNode";
 import { taxNode } from "./nodes/taxNode";
@@ -48,6 +50,8 @@ const workflow = new StateGraph<DTEState>({ channels })
   .addNode("signer", signNode)
   .addNode("token_manager", tokenNode)
   .addNode("transmitter", transmitNode)
+  .addNode("persist_response", persistResponseNode)
+  .addNode("prepare_documents", prepareDocumentsNode)
   .addNode("email_sender", emailNode)
   .addNode("contingency", contingencyNode)
   .addNode("reception_processor", receptionNode)
@@ -70,11 +74,13 @@ const workflow = new StateGraph<DTEState>({ channels })
     return "transmitter";
   })
   .addConditionalEdges("transmitter", (state: any) => {
-      if (state.status === 'completed') return "email_sender";
+      if (state.status === 'completed') return "persist_response";
       if (state.status === 'contingency') return "contingency";
       if (state.status === 'transmitting') return "transmitter"; 
       return END;
   })
+  .addEdge("persist_response", "prepare_documents")
+  .addEdge("prepare_documents", "email_sender")
   .addEdge("email_sender", "tax_keeper")
   .addEdge("contingency", "tax_keeper")
   
