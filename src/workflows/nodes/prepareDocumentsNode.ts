@@ -26,12 +26,16 @@ export async function prepareDocumentsNode(state: DTEState): Promise<Partial<DTE
     })();
 
     let pdfBase64 = state.pdfBase64;
-    if (!pdfBase64 && receptorEmail) {
+    if (!pdfBase64) {
       try {
         pdfBase64 = await generateDtePdfBase64({
           dte: sanitizedDte,
           mhResponse: state.mhResponse,
           logoUrl: sanitizedDte.emisor?.logo_url || sanitizedDte.emisor?.logoUrl,
+        });
+        logger.info('PDF generado en prepareDocumentsNode', {
+          codigoGeneracion: sanitizedDte.identificacion?.codigoGeneracion || state.dte?.codigoGeneracion,
+          length: pdfBase64?.length,
         });
       } catch (pdfError: any) {
         logger.warn('No se pudo generar PDF; se continuará sin PDF', { error: pdfError?.message });
