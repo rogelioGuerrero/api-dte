@@ -4,19 +4,27 @@ import { supabase } from '../database/supabase';
 
 const logger = createLogger('pushService');
 
-// Configurar VAPID keys
+// Configurar VAPID keys (graceful en dev si faltan o son inválidas)
 const publicVapidKey = process.env.VAPID_PUBLIC_KEY;
 const privateVapidKey = process.env.VAPID_PRIVATE_KEY;
 
-if (!publicVapidKey || !privateVapidKey) {
-  throw new Error('VAPID_PUBLIC_KEY y VAPID_PRIVATE_KEY son requeridos');
-}
+let pushEnabled = true;
 
-webpush.setVapidDetails(
-  'mailto:soporte@rogelioguerrero.com',
-  publicVapidKey,
-  privateVapidKey
-);
+if (!publicVapidKey || !privateVapidKey) {
+  pushEnabled = false;
+  logger.warn('Push deshabilitado: faltan VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY');
+} else {
+  try {
+    webpush.setVapidDetails(
+      'mailto:soporte@rogelioguerrero.com',
+      publicVapidKey,
+      privateVapidKey
+    );
+  } catch (err: any) {
+    pushEnabled = false;
+    logger.warn('Push deshabilitado: VAPID keys inválidas', { error: err?.message });
+  }
+}
 
 export interface PushSubscription {
   endpoint: string;
@@ -46,6 +54,10 @@ export const sendPushNotification = async (
   message: PushMessage
 ): Promise<boolean> => {
   try {
+    if (!pushEnabled) {
+      logger.warn('Push deshabilitado: no se envía notificación');
+      return false;
+    }
     const payload = JSON.stringify({
       title: message.title,
       body: message.body,
@@ -77,6 +89,10 @@ export const broadcastMessage = async (
   adminId: string
 ): Promise<{ sent: number; failed: number; total: number }> => {
   try {
+    if (!pushEnabled) {
+      logger.warn('Push deshabilitado: broadcast omitido');
+      return { sent: 0, failed: 0, total: 0 };
+    }
     let subscriptions: any[] = [];
     
     // Obtener suscripciones según el target

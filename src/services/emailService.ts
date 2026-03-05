@@ -5,14 +5,16 @@ const logger = createLogger('emailService');
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-const fallbackLogoDataUrl =
-  'data:image/svg+xml;base64,' +
-  Buffer.from(
-    `<svg xmlns="http://www.w3.org/2000/svg" width="120" height="40" viewBox="0 0 120 40" fill="none">
-      <rect width="120" height="40" rx="8" fill="#0F172A"/>
-      <path fill="#fff" d="M18 28V12h6.7c2.9 0 5 1.8 5 4.7 0 2.9-2.1 4.7-5 4.7h-3.6V28H18Zm3.4-8.4h3.1c1.1 0 1.9-.7 1.9-1.9 0-1.2-.8-1.9-1.9-1.9h-3.1v3.8Zm19.3 8.6c-3.9 0-6.7-2.6-6.7-6.4 0-3.8 2.8-6.4 6.7-6.4 3.9 0 6.7 2.6 6.7 6.4 0 3.8-2.8 6.4-6.7 6.4Zm0-3c2 0 3.3-1.5 3.3-3.4 0-1.9-1.3-3.4-3.3-3.4-2 0-3.3 1.5-3.3 3.4 0 1.9 1.3 3.4 3.3 3.4Zm11.8 2.8V16.1h3.3v1.6c.8-1.2 2-1.9 3.7-1.9 2.7 0 4.7 2 4.7 5.4V28h-3.3v-6.1c0-1.8-1-3-2.5-3-1.5 0-2.6 1.2-2.6 3V28h-3.3Zm18.8 0V12h3.3v6.2c.8-1.2 2-1.9 3.7-1.9 2.7 0 4.7 2 4.7 5.4V28h-3.3v-6.1c0-1.8-1-3-2.5-3-1.5 0-2.6 1.2-2.6 3V28h-3.3Z"/>
-    </svg>`
-  ).toString('base64');
+const buildInitialsLogo = (text?: string) => {
+  const clean = (text || 'DTE').trim();
+  const parts = clean.split(/\s+/).filter(Boolean);
+  const initials = (parts[0]?.[0] || 'D').toUpperCase() + (parts[1]?.[0] || 'T').toUpperCase();
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="140" height="44" viewBox="0 0 140 44" fill="none">
+    <rect width="140" height="44" rx="10" fill="#0F172A"/>
+    <text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" font-family="'Segoe UI', Arial, sans-serif" font-size="18" font-weight="700" fill="white">${initials}</text>
+  </svg>`;
+  return 'data:image/svg+xml;base64,' + Buffer.from(svg).toString('base64');
+};
 
 export interface EmailRequest {
   to: string | string[];
@@ -90,10 +92,18 @@ export function generateDTEEmailHTML(dteData: any, mhResponse: any): string {
   const selloRecibido =
     mhResponse?.selloRecibido || mhResponse?.selloRecepcion || dteData?.selloRecibido || 'Pendiente';
 
-  const resolvedLogo = emisor.logo_url || emisor.logoUrl || fallbackLogoDataUrl;
+  const resolvedLogo = emisor.logo_url || emisor.logoUrl || buildInitialsLogo(emisor.nombre || emisor.nombreComercial || emisorIdent.nombre);
 
   const fmt = (val: any) => (val === undefined || val === null || val === '' ? '—' : val);
   const tipoDte = dteData.identificacion?.tipoDte || dteData.tipoDte || '—';
+  const tipoDteMap: Record<string, string> = {
+    '01': 'Factura de Consumidor Final',
+    '03': 'Comprobante de Crédito Fiscal',
+    '11': 'Factura de Exportación',
+    '14': 'Factura Sujetos Excluidos',
+    '05': 'Factura de Pequeño Contribuyente',
+  };
+  const tipoDteDesc = tipoDteMap[tipoDte] || tipoDte;
   const codGen = mhResponse?.codigoGeneracion || dteData.codigoGeneracion || '—';
   const selloRec = selloRecibido || '—';
   const fechaProc =
@@ -128,7 +138,7 @@ export function generateDTEEmailHTML(dteData: any, mhResponse: any): string {
       <div class="card">
         <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
           <img src="${resolvedLogo}" alt="Logo" style="width:110px; height:36px; object-fit:contain; background:#0f172a; border-radius:8px; padding:6px;" />
-          <h1 style="margin:0;">📄 DTE procesado</h1>
+          <h1 style="margin:0;">📄 Documento Tributario Electrónico</h1>
         </div>
         <div class="badge">✅ Recibido por el Ministerio de Hacienda</div>
 
@@ -136,7 +146,7 @@ export function generateDTEEmailHTML(dteData: any, mhResponse: any): string {
           <h3>Información del documento</h3>
           <div class="rows">
             <div class="row"><span class="label">Código de Generación:</span><span class="value">${codGen}</span></div>
-            <div class="row"><span class="label">Tipo de DTE:</span><span class="value">${fmt(tipoDte)}</span></div>
+            <div class="row"><span class="label">Tipo de DTE:</span><span class="value">${fmt(tipoDteDesc)}</span></div>
             <div class="row"><span class="label">Sello Recibido:</span><span class="value">${fmt(selloRec)}</span></div>
             <div class="row"><span class="label">Fecha de Procesamiento:</span><span class="value">${fmt(fechaProc)}</span></div>
           </div>

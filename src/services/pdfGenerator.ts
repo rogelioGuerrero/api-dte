@@ -32,14 +32,14 @@ const generarQRBuffer = async (texto: string): Promise<Buffer | null> => {
 const getTipoDocumentoNombre = (codigo: string, tiposDocumento: any[]): string => {
   const tipo = tiposDocumento.find((t) => t.codigo === codigo);
   if (!tipo) return 'DOCUMENTO TRIBUTARIO ELECTRÓNICO';
-  return tipo.descripcion.replace(/\s*\(.*?\)\s*/g, ' ').trim().toUpperCase();
+  return tipo.descripcion.replace(/\s*\(.*?\)\s*/g, ' ').trim();
 };
 
 const tiposDocumento = [
-  { codigo: '01', descripcion: 'Factura' },
+  { codigo: '01', descripcion: 'Factura de Consumidor Final' },
   { codigo: '03', descripcion: 'Comprobante de Crédito Fiscal' },
   { codigo: '11', descripcion: 'Factura de Exportación' }
-];
+]; 
 
 const safe = (val: any) => (val === undefined || val === null || val === '' ? '—' : String(val));
 const money = (val: any) => Number(val || 0).toFixed(2);
@@ -163,7 +163,7 @@ export const generateDtePdfBase64 = async ({ dte, mhResponse, logoUrl }: Generat
 
   // Header: left block + QR right
   const headerY = doc.y;
-  const qrSize = 110;
+  const qrSize = 75;
   const qrX = pageW - marginR - qrSize;
   const qrY = headerY;
   if (qrBuffer) {
@@ -174,8 +174,8 @@ export const generateDtePdfBase64 = async ({ dte, mhResponse, logoUrl }: Generat
   const leftX = marginL;
 
   // Logo area
-  const logoBoxW = 90;
-  const logoBoxH = 36;
+  const logoBoxW = 75;
+  const logoBoxH = 75;
   const logoX = leftX;
   const logoY = headerY;
 
@@ -188,7 +188,7 @@ export const generateDtePdfBase64 = async ({ dte, mhResponse, logoUrl }: Generat
 
   if (logoBuffer) {
     try {
-      doc.image(logoBuffer, logoX, logoY, { fit: [logoBoxW, logoBoxH], align: 'left', valign: 'top' });
+      doc.image(logoBuffer, logoX, logoY, { fit: [logoBoxW, logoBoxH] });
     } catch {
       drawGenericLogo(doc, logoX, logoY, logoBoxW, logoBoxH);
     }
@@ -198,16 +198,15 @@ export const generateDtePdfBase64 = async ({ dte, mhResponse, logoUrl }: Generat
 
   const titleX = logoX + logoBoxW + 12;
   const titleY = logoY + 2;
-  doc.font('Helvetica-Bold').fontSize(12).fillColor('#0F172A').text('DOCUMENTO TRIBUTARIO ELECTRÓNICO', titleX, titleY, { width: leftW - (logoBoxW + 12) });
-  doc.font('Helvetica-Bold').fontSize(18).fillColor('#0F172A').text(tipoDocNombre, titleX, titleY + 16, { width: leftW - (logoBoxW + 12) });
+  doc.font('Helvetica-Bold').fontSize(12).fillColor('#0F172A').text('Documento Tributario Electrónico', titleX, titleY, { width: leftW - (logoBoxW + 14), align: 'center' });
+  doc.font('Helvetica-Bold').fontSize(12).fillColor('#0F172A').text(tipoDocNombre, titleX, titleY + 16, { width: leftW - (logoBoxW + 12), align: 'center' });
 
   // Key lines under title (5 lines on left)
   let ky = titleY + 40;
   drawKeyValue(doc, titleX, ky, 'N° Control:', safe(dte.identificacion.numeroControl));
   ky += 12;
   drawKeyValue(doc, titleX, ky, 'Código generación:', safe(dte.identificacion.codigoGeneracion));
-  ky += 12;
-  drawKeyValue(doc, titleX, ky, 'Fecha/Hora emisión:', `${safe(dte.identificacion.fecEmi)} ${safe(dte.identificacion.horEmi)}`);
+  
   ky += 12;
   drawKeyValue(
     doc,
@@ -342,7 +341,7 @@ export const generateDtePdfBase64 = async ({ dte, mhResponse, logoUrl }: Generat
   const totalsW = 200;
   const totalsX = pageW - marginR - totalsW;
   let ty = doc.y;
-  doc.font('Helvetica-Bold').fontSize(10).fillColor('#0F172A').text('TOTALES', totalsX, ty, { width: totalsW, align: 'right' });
+  
   ty += 12;
 
   const drawTotalRow = (label: string, value: string) => {
