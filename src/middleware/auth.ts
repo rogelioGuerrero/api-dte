@@ -48,7 +48,7 @@ export const authMiddleware = async (
     const businessIdRaw =
       (req.body && (req.body.businessId || req.body.business_id || req.body.nit)) ||
       (req.query && (req.query.businessId as string)) ||
-      (req.params && req.params.businessId) ||
+      (req.params && (req.params.businessId || (req.params as any).id)) ||
       (req.headers['x-business-id'] as string);
 
     if (!businessIdRaw) {

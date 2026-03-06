@@ -2,7 +2,17 @@ import { Router, Response, NextFunction } from 'express';
 import { createLogger } from '../utils/logger';
 import { createError } from '../middleware/errorHandler';
 import { AuthRequest } from '../middleware/auth';
-import { saveMHCredentials, getBusinessByNIT, updateBusinessProfileById } from '../business/businessStorage';
+import {
+  saveMHCredentials,
+  getBusinessByNIT,
+  updateBusinessProfileById,
+  createBusiness,
+  getBusinessById,
+  getBusinessesByUser,
+  createBusinessUser,
+  getBusinessUsers,
+} from '../business/businessStorage';
+import { supabase } from '../database/supabase';
 
 const router = Router();
 const logger = createLogger('businessController');
@@ -35,8 +45,7 @@ router.post('/credentials', async (req: AuthRequest, res: Response, next: NextFu
       logoUrl
     } = req.body;
 
-    // Usamos el NIT validado por el middleware (o el enviado en el body)
-    const targetNit = nit || req.user?.nit;
+    const targetNit = nit;
 
     if (!targetNit) {
       throw createError('El NIT es requerido para guardar credenciales', 400);
@@ -128,6 +137,191 @@ router.post('/credentials', async (req: AuthRequest, res: Response, next: NextFu
           correo: correo ?? business.correo
         }
       }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /api/businesses - crear emisor y asociar como owner
+router.post('/businesses', async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    if (!req.user?.id) throw createError('No autenticado', 401);
+
+    const {
+      nit,
+      nrc,
+      nombre,
+      nombre_comercial,
+      correo,
+      telefono,
+      dir_departamento,
+      dir_municipio,
+      dir_complemento,
+      cod_actividad,
+      desc_actividad,
+      logo_url,
+    } = req.body;
+
+    if (!nit || !nombre_comercial) {
+      throw createError('nit y nombre_comercial son requeridos', 400);
+    }
+
+    const business = await createBusiness({
+      nit,
+      nrc,
+      nombre,
+      nombre_comercial,
+      correo,
+      telefono,
+      dir_departamento,
+      dir_municipio,
+      dir_complemento,
+      cod_actividad,
+      desc_actividad,
+      logo_url,
+      owner_email: req.user.email,
+    });
+
+    await createBusinessUser({ business_id: business.id!, user_id: req.user.id, role: 'owner' });
+
+    res.json({ success: true, business });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// PUT /api/businesses/:id - actualizar emisor
+router.put('/businesses/:id', async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    if (!req.user?.id) throw createError('No autenticado', 401);
+    const businessId = req.params.id;
+    const business = await getBusinessById(businessId);
+    if (!business) throw createError('Business no encontrado', 404);
+
+    const updated = await updateBusinessProfileById(businessId, req.body || {});
+    res.json({ success: true, business: updated });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GET /api/businesses/me - lista emisores del usuario
+router.get('/businesses/me', async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    if (!req.user?.id) throw createError('No autenticado', 401);
+    const businesses = await getBusinessesByUser(req.user.id);
+    res.json({ success: true, businesses });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GET /api/businesses/:id/users - equipo del emisor
+router.get('/businesses/:id/users', async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    if (!req.user?.id) throw createError('No autenticado', 401);
+    const businessId = req.params.id;
+    const users = await getBusinessUsers(businessId);
+    res.json({ success: true, users });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /api/business_users - asociar user a emisor
+router.post('/business_users', async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const { businessId, userId, role } = req.body;
+    if (!businessId || !userId || !role) throw createError('businessId, userId y role son requeridos', 400);
+    const bu = await createBusinessUser({ business_id: businessId, user_id: userId, role });
+    res.json({ success: true, businessUser: bu });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /api/business_users/invite - envía invitación Supabase y responde pending
+router.post('/business_users/invite', async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const { businessId, email, role = 'operator' } = req.body;
+    if (!businessId || !email) throw createError('businessId y email son requeridos', 400);
+
+    const { data, error } = await supabase.auth.admin.inviteUserByEmail(email, {
+      redirectTo: process.env.SUPABASE_INVITE_REDIRECT || undefined,
+    });
+    if (error) throw error;
+
+    res.json({ success: true, invite: { email: data.user?.email, role, status: 'pending' } });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /api/business_users/confirm - asocia al usuario autenticado al emisor
+router.post('/business_users/confirm', async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    if (!req.user?.id) throw createError('No autenticado', 401);
+    const { businessId, role = 'operator' } = req.body;
+    if (!businessId) throw createError('businessId es requerido', 400);
+
+    const bu = await createBusinessUser({ business_id: businessId, user_id: req.user.id, role });
+    res.json({ success: true, businessUser: bu });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// PUT /api/mh_credentials/:businessId - guardar credenciales MH
+router.put('/mh_credentials/:businessId', async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const businessId = req.params.businessId;
+    const business = await getBusinessById(businessId);
+    if (!business) throw createError('Business no encontrado', 404);
+
+    const {
+      ambiente = '00',
+      certificado_b64,
+      certificate_b64,
+      certificadoB64,
+      password_pri,
+      passwordPri,
+      api_password,
+      apiPassword,
+      api_token,
+      apiToken,
+      cod_estable,
+      cod_punto_venta,
+      cod_estable_mh,
+      cod_punto_venta_mh,
+      codEstable,
+      codPuntoVenta,
+      codEstableMH,
+      codPuntoVentaMH,
+      activo = true,
+    } = req.body;
+
+    const saved = await saveMHCredentials({
+      business_id: business.id!,
+      nit: business.nit,
+      nrc: business.nrc || '',
+      ambiente,
+      certificado_b64: certificado_b64 || certificate_b64 || certificadoB64,
+      password_pri: password_pri || passwordPri,
+      api_password: api_password || apiPassword,
+      api_token: api_token || apiToken,
+      activo,
+    });
+
+    res.json({
+      success: true,
+      mhCredentials: {
+        nit: saved.nit,
+        ambiente: saved.ambiente,
+        activo: saved.activo,
+        hasPassword: !!saved.password_pri,
+        hasCert: !!saved.certificado_b64,
+      },
     });
   } catch (error) {
     next(error);
