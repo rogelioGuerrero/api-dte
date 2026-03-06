@@ -32,6 +32,21 @@ const resolveBusinessIdToUuid = async (businessIdOrNit: string): Promise<string>
   return data.id;
 };
 
+const resolveBusinessUuidToNit = async (businessUuid: string): Promise<string> => {
+  const raw = (businessUuid || '').trim();
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(raw);
+  if (!isUuid) return raw;
+
+  const { data, error } = await supabase
+    .from('businesses')
+    .select('nit, nit_clean')
+    .eq('id', raw)
+    .single();
+
+  if (error || !data) return raw;
+  return (data as any).nit_clean || (data as any).nit || raw;
+};
+
 // POST /api/business/credentials
 // Guarda o actualiza la contraseña del certificado y configuración en Supabase
 router.post('/credentials', async (req: AuthRequest, res: Response, next: NextFunction) => {
@@ -283,7 +298,8 @@ router.post('/business_users/claim', async (req: AuthRequest, res: Response, nex
 
     const resolvedBusinessUuid = await resolveBusinessIdToUuid(resolvedBusinessId);
     const bu = await createBusinessUser({ business_id: resolvedBusinessUuid, user_id: req.user.id, role });
-    res.json({ success: true, businessUser: bu });
+    const businessNit = await resolveBusinessUuidToNit(bu.business_id);
+    res.json({ business_id: businessNit, role: bu.role });
   } catch (error) {
     next(error);
   }
@@ -299,7 +315,8 @@ router.post('/business_users/join', async (req: AuthRequest, res: Response, next
 
     const resolvedBusinessUuid = await resolveBusinessIdToUuid(resolvedBusinessId);
     const bu = await createBusinessUser({ business_id: resolvedBusinessUuid, user_id: req.user.id, role });
-    res.json({ success: true, businessUser: bu });
+    const businessNit = await resolveBusinessUuidToNit(bu.business_id);
+    res.json({ business_id: businessNit, role: bu.role });
   } catch (error) {
     next(error);
   }
