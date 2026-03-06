@@ -11,8 +11,7 @@ export interface AuthRequest extends Omit<Request, 'headers' | 'params' | 'query
   query: Request['query'];
   body: Request['body'];
   user?: {
-    id: string; // Opcional o usar el mismo NIT
-    nit: string;
+    id: string;
     email?: string;
     role?: 'owner' | 'admin' | 'operator';
   };
@@ -24,63 +23,74 @@ export const authMiddleware = async (
   next: NextFunction
 ) => {
   try {
-    // 1. Extraer el NIT (businessId o nit) del body o los headers
-    const nit = req.body.businessId || req.body.nit || req.headers['x-business-id'] || req.query.businessId;
+    const authHeader = req.headers.authorization || '';
+    const token = authHeader.startsWith('Bearer ')
+      ? authHeader.replace('Bearer ', '').trim()
+      : null;
 
-    if (!nit) {
-      throw createError('Se requiere el NIT del emisor (businessId o nit) para procesar la solicitud', 401);
+    if (!token) {
+      throw createError('Token de autorización requerido', 401);
     }
 
-    // 2. Buscar información del usuario
-    // Si 'nit' tiene formato de UUID, buscamos directo. Si no, asumimos que es el NIT literal.
-    // Para simplificar y evitar errores de Postgres (UUID syntax), buscamos primero el negocio por NIT
-    let businessIdToSearch = nit;
-    
-    // Validar si parece un UUID (36 caracteres con guiones)
-    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(nit as string);
-    
+    const { data: userResponse, error: userError } = await supabase.auth.getUser(token);
+    if (userError || !userResponse?.user) {
+      throw createError('Token inválido o usuario no encontrado', 401);
+    }
+
+    const supaUser = userResponse.user;
+    req.user = {
+      id: supaUser.id,
+      email: supaUser.email || undefined,
+      role: 'operator', // se ajusta abajo si hay businessId
+    };
+
+    // BusinessId opcional: body, query, params, header
+    const businessIdRaw =
+      (req.body && (req.body.businessId || req.body.business_id || req.body.nit)) ||
+      (req.query && (req.query.businessId as string)) ||
+      (req.params && req.params.businessId) ||
+      (req.headers['x-business-id'] as string);
+
+    if (!businessIdRaw) {
+      // Endpoint sin contexto de negocio (e.g., crear emisor o invitar)
+      return next();
+    }
+
+    // Si no es UUID, intentar resolver por NIT
+    let businessIdToSearch = businessIdRaw as string;
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(businessIdToSearch);
+
     if (!isUuid) {
-      // Es un NIT, busquemos el id del negocio primero
       const { data: businessData } = await supabase
         .from('businesses')
         .select('id')
-        .eq('nit', nit)
+        .eq('nit', businessIdToSearch)
         .single();
-        
-      if (businessData) {
+
+      if (businessData?.id) {
         businessIdToSearch = businessData.id;
       }
     }
 
-    let userData = null;
-    let userError = null;
-
-    // Solo buscamos en business_users si tenemos un UUID válido para evitar error 22P02 de Postgres
-    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(businessIdToSearch as string)) {
-      const result = await supabase
-        .from('business_users')
-        .select('id, role')
-        .eq('business_id', businessIdToSearch)
-        .limit(1)
-        .maybeSingle();
-      userData = result.data;
-      userError = result.error;
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(businessIdToSearch)) {
+      throw createError('businessId inválido', 400);
     }
 
-    if (userError && userError.code !== 'PGRST116') {
-      logger.error('Error detallado de Supabase al verificar usuario:', { userError });
-      // No lanzamos 500 aquí para no bloquear si falla esta consulta secundaria, 
-      // dejamos que haga fallback a operator.
+    const { data: membership, error: membershipError } = await supabase
+      .from('business_users')
+      .select('role')
+      .eq('business_id', businessIdToSearch)
+      .eq('user_id', supaUser.id)
+      .single();
+
+    if (membershipError) {
+      if (membershipError.code === 'PGRST116') {
+        throw createError('No autorizado para este emisor', 403);
+      }
+      throw membershipError;
     }
 
-    // 3. Establecer el usuario en el request
-    req.user = {
-      id: userData?.id || nit as string, // Usar ID de business_users o NIT como fallback
-      nit: nit as string,
-      role: userData?.role || 'operator' // Default a operator si no se encuentra
-    };
-
-    logger.debug('Solicitud autenticada', { nit: req.user.nit, role: req.user.role });
+    req.user.role = (membership as any)?.role || 'operator';
     next();
   } catch (error) {
     next(error);

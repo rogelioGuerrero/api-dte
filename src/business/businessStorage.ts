@@ -71,6 +71,47 @@ export const createBusiness = async (business: Omit<Business, 'id' | 'created_at
   }
 };
 
+export const getBusinessById = async (businessId: string): Promise<Business | null> => {
+  try {
+    const { data, error } = await supabase
+      .from('businesses')
+      .select('*')
+      .eq('id', businessId)
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') return null;
+      throw error;
+    }
+
+    return data as Business;
+  } catch (error: any) {
+    logger.error('Error fetching business by id', { businessId, error: error.message });
+    throw error;
+  }
+};
+
+export const getBusinessesByUser = async (userId: string): Promise<Array<{ business_id: string; nombre: string | null; nombre_comercial: string; role: BusinessUser['role'] }>> => {
+  try {
+    const { data, error } = await supabase
+      .from('business_users')
+      .select('business_id, role, businesses(nombre, nombre_comercial)')
+      .eq('user_id', userId);
+
+    if (error) throw error;
+
+    return (data || []).map((row: any) => ({
+      business_id: row.business_id,
+      role: row.role,
+      nombre: row.businesses?.nombre ?? null,
+      nombre_comercial: row.businesses?.nombre_comercial ?? row.businesses?.nombre ?? null,
+    }));
+  } catch (error: any) {
+    logger.error('Error fetching businesses by user', { userId, error: error.message });
+    throw error;
+  }
+};
+
 export const updateBusinessProfileById = async (
   businessId: string,
   payload: Partial<Business>
@@ -201,6 +242,42 @@ export const addUserToBusiness = async (businessUser: Omit<BusinessUser, 'id' | 
     return data as BusinessUser;
   } catch (error: any) {
     logger.error('Error adding user to business', { error: error.message });
+    throw error;
+  }
+};
+
+export const createBusinessUser = async (payload: BusinessUser): Promise<BusinessUser> => {
+  try {
+    const { data, error } = await supabase
+      .from('business_users')
+      .upsert(payload, { onConflict: 'business_id,user_id' })
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data as BusinessUser;
+  } catch (error: any) {
+    logger.error('Error creating business user', { payload, error: error.message });
+    throw error;
+  }
+};
+
+export const getBusinessUsers = async (businessId: string): Promise<Array<{ email: string | null; role: string; user_id: string }>> => {
+  try {
+    const { data, error } = await supabase
+      .from('business_users')
+      .select('user_id, role, auth.users(email)')
+      .eq('business_id', businessId);
+
+    if (error) throw error;
+
+    return (data || []).map((row: any) => ({
+      user_id: row.user_id,
+      role: row.role,
+      email: row.users?.email ?? null,
+    }));
+  } catch (error: any) {
+    logger.error('Error fetching business users', { businessId, error: error.message });
     throw error;
   }
 };
