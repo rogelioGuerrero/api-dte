@@ -8,7 +8,7 @@ import {
   updateBusinessProfileById,
   createBusiness,
   getBusinessById,
-  getBusinessesByUser,
+  getBusinessesByUserAsNit,
   createBusinessUser,
   getBusinessUsers,
 } from '../business/businessStorage';
@@ -16,6 +16,21 @@ import { supabase } from '../database/supabase';
 
 const router = Router();
 const logger = createLogger('businessController');
+
+const resolveBusinessIdToUuid = async (businessIdOrNit: string): Promise<string> => {
+  const raw = (businessIdOrNit || '').trim();
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(raw);
+  if (isUuid) return raw;
+
+  const { data, error } = await supabase
+    .from('businesses')
+    .select('id')
+    .or(`nit.eq.${raw},nit_clean.eq.${raw.replace(/[^0-9]/g, '')}`)
+    .single();
+
+  if (error || !data?.id) throw createError('Business no encontrado', 404);
+  return data.id;
+};
 
 // POST /api/business/credentials
 // Guarda o actualiza la contraseña del certificado y configuración en Supabase
@@ -150,6 +165,7 @@ router.post('/businesses', async (req: AuthRequest, res: Response, next: NextFun
 
     const {
       nit,
+      business_id,
       nrc,
       nombre,
       nombre_comercial,
@@ -163,15 +179,18 @@ router.post('/businesses', async (req: AuthRequest, res: Response, next: NextFun
       logo_url,
     } = req.body;
 
-    if (!nit || !nombre_comercial) {
-      throw createError('nit y nombre_comercial son requeridos', 400);
+    const resolvedNit = (nit || business_id || '').toString();
+    const resolvedNombre = (nombre || nombre_comercial || '').toString();
+
+    if (!resolvedNit || !resolvedNombre) {
+      throw createError('business_id (nit) y nombre son requeridos', 400);
     }
 
     const business = await createBusiness({
-      nit,
+      nit: resolvedNit,
       nrc,
-      nombre,
-      nombre_comercial,
+      nombre: resolvedNombre,
+      nombre_comercial: resolvedNombre,
       correo,
       telefono,
       dir_departamento,
@@ -185,7 +204,7 @@ router.post('/businesses', async (req: AuthRequest, res: Response, next: NextFun
 
     await createBusinessUser({ business_id: business.id!, user_id: req.user.id, role: 'owner' });
 
-    res.json({ success: true, business });
+    res.json({ business_id: business.nit_clean || business.nit, role: 'owner' });
   } catch (error) {
     next(error);
   }
@@ -210,8 +229,21 @@ router.put('/businesses/:id', async (req: AuthRequest, res: Response, next: Next
 router.get('/businesses/me', async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     if (!req.user?.id) throw createError('No autenticado', 401);
-    const businesses = await getBusinessesByUser(req.user.id);
-    res.json({ success: true, businesses });
+    const businesses = await getBusinessesByUserAsNit(req.user.id);
+    res.json(businesses);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GET /api/businesses/:id - datos del negocio (requiere membership via authMiddleware)
+router.get('/businesses/:id', async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    if (!req.user?.id) throw createError('No autenticado', 401);
+    const businessId = req.params.id;
+    const business = await getBusinessById(businessId);
+    if (!business) throw createError('Business no encontrado', 404);
+    res.json({ success: true, business });
   } catch (error) {
     next(error);
   }
@@ -235,6 +267,38 @@ router.post('/business_users', async (req: AuthRequest, res: Response, next: Nex
     const { businessId, userId, role } = req.body;
     if (!businessId || !userId || !role) throw createError('businessId, userId y role son requeridos', 400);
     const bu = await createBusinessUser({ business_id: businessId, user_id: userId, role });
+    res.json({ success: true, businessUser: bu });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /api/business_users/claim - alias de confirm/join
+router.post('/business_users/claim', async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    if (!req.user?.id) throw createError('No autenticado', 401);
+    const { business_id, businessId, role = 'operator' } = req.body;
+    const resolvedBusinessId = (businessId || business_id || '').toString();
+    if (!resolvedBusinessId) throw createError('business_id es requerido', 400);
+
+    const resolvedBusinessUuid = await resolveBusinessIdToUuid(resolvedBusinessId);
+    const bu = await createBusinessUser({ business_id: resolvedBusinessUuid, user_id: req.user.id, role });
+    res.json({ success: true, businessUser: bu });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /api/business_users/join - alias de confirm/claim
+router.post('/business_users/join', async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    if (!req.user?.id) throw createError('No autenticado', 401);
+    const { business_id, businessId, role = 'operator' } = req.body;
+    const resolvedBusinessId = (businessId || business_id || '').toString();
+    if (!resolvedBusinessId) throw createError('business_id es requerido', 400);
+
+    const resolvedBusinessUuid = await resolveBusinessIdToUuid(resolvedBusinessId);
+    const bu = await createBusinessUser({ business_id: resolvedBusinessUuid, user_id: req.user.id, role });
     res.json({ success: true, businessUser: bu });
   } catch (error) {
     next(error);
@@ -270,7 +334,8 @@ router.post('/business_users/confirm', async (req: AuthRequest, res: Response, n
     const { businessId, role = 'operator' } = req.body;
     if (!businessId) throw createError('businessId es requerido', 400);
 
-    const bu = await createBusinessUser({ business_id: businessId, user_id: req.user.id, role });
+    const resolvedBusinessUuid = await resolveBusinessIdToUuid(businessId);
+    const bu = await createBusinessUser({ business_id: resolvedBusinessUuid, user_id: req.user.id, role });
     res.json({ success: true, businessUser: bu });
   } catch (error) {
     next(error);

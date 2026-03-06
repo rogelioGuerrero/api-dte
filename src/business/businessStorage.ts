@@ -71,6 +71,32 @@ export const createBusiness = async (business: Omit<Business, 'id' | 'created_at
   }
 };
 
+export const getBusinessesByUserAsNit = async (
+  userId: string
+): Promise<Array<{ business_id: string; nombre: string; role: BusinessUser['role'] }>> => {
+  try {
+    const { data, error } = await supabase
+      .from('business_users')
+      .select('role, businesses(nit, nit_clean, nombre, nombre_comercial)')
+      .eq('user_id', userId);
+
+    if (error) throw error;
+
+    return (data || []).map((row: any) => {
+      const business = row.businesses || {};
+      const nit = (business.nit_clean || business.nit || '').toString();
+      return {
+        business_id: nit,
+        nombre: (business.nombre_comercial || business.nombre || '').toString(),
+        role: row.role,
+      };
+    });
+  } catch (error: any) {
+    logger.error('Error fetching businesses by user as nit', { userId, error: error.message });
+    throw error;
+  }
+};
+
 export const getBusinessById = async (businessId: string): Promise<Business | null> => {
   try {
     const { data, error } = await supabase
