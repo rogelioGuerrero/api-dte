@@ -247,8 +247,13 @@ router.post('/business_users/invite', async (req: AuthRequest, res: Response, ne
     const { businessId, email, role = 'operator' } = req.body;
     if (!businessId || !email) throw createError('businessId y email son requeridos', 400);
 
+    const redirectTo =
+      process.env.SUPABASE_INVITE_REDIRECT ||
+      process.env.FRONTEND_URL ||
+      'https://dte-test-staging.netlify.app/';
+
     const { data, error } = await supabase.auth.admin.inviteUserByEmail(email, {
-      redirectTo: process.env.SUPABASE_INVITE_REDIRECT || undefined,
+      redirectTo,
     });
     if (error) throw error;
 
