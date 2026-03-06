@@ -322,6 +322,78 @@ router.post('/business_users/join', async (req: AuthRequest, res: Response, next
   }
 });
 
+router.post('/business_users/lookup_email', async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    if (!req.user?.id) throw createError('No autenticado', 401);
+
+    const { business_id, businessId, email } = req.body;
+    const resolvedBusinessId = (businessId || business_id || '').toString();
+    if (!resolvedBusinessId) throw createError('business_id es requerido', 400);
+    if (!email) throw createError('email es requerido', 400);
+
+    const role = req.user.role || 'operator';
+    if (role !== 'owner' && role !== 'admin') {
+      throw createError('No autorizado', 403);
+    }
+
+    const resolvedBusinessUuid = await resolveBusinessIdToUuid(resolvedBusinessId);
+
+    const normalizedEmail = (email || '').toString().trim().toLowerCase();
+
+    let foundUserId: string | null = null;
+    let page = 1;
+    const perPage = 200;
+
+    while (!foundUserId) {
+      const { data: listData, error: listError } = await supabase.auth.admin.listUsers({
+        page,
+        perPage,
+      });
+      if (listError) throw listError;
+
+      const users = listData?.users || [];
+      const match = users.find((u: any) => (u.email || '').toString().toLowerCase() === normalizedEmail);
+      if (match?.id) {
+        foundUserId = match.id;
+        break;
+      }
+
+      if (users.length < perPage) break;
+      page += 1;
+      if (page > 50) break;
+    }
+
+    if (!foundUserId) {
+      return res.json({ exists: false, is_member: false, businesses_count: 0 });
+    }
+
+    const { data: membership, error: membershipError } = await supabase
+      .from('business_users')
+      .select('role')
+      .eq('business_id', resolvedBusinessUuid)
+      .eq('user_id', foundUserId)
+      .maybeSingle();
+
+    if (membershipError) throw membershipError;
+
+    const { count: businessesCount, error: countError } = await supabase
+      .from('business_users')
+      .select('business_id', { count: 'exact', head: true })
+      .eq('user_id', foundUserId);
+
+    if (countError) throw countError;
+
+    res.json({
+      exists: true,
+      is_member: !!membership,
+      role: (membership as any)?.role || null,
+      businesses_count: businessesCount || 0,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // POST /api/business_users/invite - envía invitación Supabase y responde pending
 router.post('/business_users/invite', async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
