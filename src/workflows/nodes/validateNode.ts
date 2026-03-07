@@ -127,17 +127,27 @@ export const validateNode = async (state: DTEState): Promise<Partial<DTEState>> 
   const valErrorsSchema: string[] = errores.map((e) => `${e.codigo}: ${e.descripcion}`);
 
   const isValid = valErrorsSchema.length === 0;
+  if (isValid) {
+    return {
+      dte,
+      isValid: true,
+      validationErrors: [],
+      status: 'signing',
+      progressPercentage: 25,
+      currentStep: 'validator',
+      estimatedTime: 45,
+    };
+  }
 
   return {
     dte,
-    isValid,
+    isValid: false,
     validationErrors: valErrorsSchema,
-    status: isValid ? 'signing' : 'failed',
-    progressPercentage: isValid ? 25 : 10,
+    status: 'failed',
+    progressPercentage: 10,
     currentStep: 'validator',
-    estimatedTime: isValid ? 45 : undefined,
-    canRetry: !isValid ? false : undefined,
-    errorCode: !isValid ? 'VALIDATION_FAILED' : undefined,
-    errorMessage: !isValid ? 'Errores de validación DTE' : undefined,
+    canRetry: false,
+    errorCode: 'VALIDATION_FAILED',
+    errorMessage: 'Errores de validación DTE',
   };
 };
