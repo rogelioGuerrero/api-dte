@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { createLogger } from '../utils/logger';
 import { sendEmail, generateDTEEmailHTML } from '../services/emailService';
 import { generateDtePdfBase64 } from '../services/pdfGenerator';
+import { invokeDiagGraph } from '../workflows/diagWorkflow';
 
 const router = Router();
 const logger = createLogger('testController');
@@ -145,6 +146,25 @@ router.get('/pdf-preview', async (_req: Request, res: Response) => {
   } catch (error) {
     logger.error('Error en pdf-preview', { error });
     res.status(500).json({ error: 'Error generando preview de PDF' });
+  }
+});
+
+router.post('/diag-graph', async (req: Request, res: Response) => {
+  try {
+    const { dte } = req.body;
+
+    if (!dte) {
+      return res.status(400).json({ ok: false, error: 'dte es requerido' });
+    }
+
+    const result = await invokeDiagGraph(dte);
+    return res.json({ ok: true, result });
+  } catch (error) {
+    logger.error('Error en diag-graph', { error });
+    return res.status(500).json({
+      ok: false,
+      error: error instanceof Error ? error.message : 'diag-graph failed'
+    });
   }
 });
 
