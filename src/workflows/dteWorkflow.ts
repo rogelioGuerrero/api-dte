@@ -1,4 +1,4 @@
-import { StateGraph, END } from "@langchain/langgraph";
+import { StateGraph, END, Annotation } from "@langchain/langgraph";
 import { DTEState } from "./state";
 
 // Importar Nodos
@@ -13,41 +13,40 @@ import { contingencyNode } from "./nodes/contingencyNode";
 import { receptionNode } from "./nodes/receptionNode";
 import { taxNode } from "./nodes/taxNode";
 
-// --- GRAPH DEFINITION ---
-// Casting channels to any to avoid strict type inference issues with LangGraph reducers
-const channels: any = {
-    dte: { reducer: (x: any, y: any) => y ?? x },
-    isValid: { reducer: (x: any, y: any) => y ?? x },
-    validationErrors: { reducer: (x: any, y: any) => y ?? x },
-    isSigned: { reducer: (x: any, y: any) => y ?? x },
-    signature: { reducer: (x: any, y: any) => y ?? x },
-    isTransmitted: { reducer: (x: any, y: any) => y ?? x },
-    mhResponse: { reducer: (x: any, y: any) => y ?? x },
-    apiToken: { reducer: (x: any, y: any) => y ?? x },
-    apiTokenExpiresAt: { reducer: (x: any, y: any) => y ?? x },
-    isOffline: { reducer: (x: any, y: any) => y ?? x },
-    contingencyReason: { reducer: (x: any, y: any) => y ?? x },
-    taxImpact: { reducer: (x: any, y: any) => y ?? x },
-    status: { reducer: (x: any, y: any) => y ?? x },
-    retryCount: { reducer: (x: any, y: any) => y ?? x },
-    rawInput: { reducer: (x: any, y: any) => y ?? x },
-    passwordPri: { reducer: (x: any, y: any) => y ?? x },
-    ambiente: { reducer: (x: any, y: any) => y ?? x },
-    flowType: { reducer: (x: any, y: any) => y ?? x },
-    errorCode: { reducer: (x: any, y: any) => y ?? x },
-    errorMessage: { reducer: (x: any, y: any) => y ?? x },
-    canRetry: { reducer: (x: any, y: any) => y ?? x },
-    progressPercentage: { reducer: (x: any, y: any) => y ?? x },
-    currentStep: { reducer: (x: any, y: any) => y ?? x },
-    estimatedTime: { reducer: (x: any, y: any) => y ?? x },
-    businessId: { reducer: (x: any, y: any) => y ?? x },
-    deviceId: { reducer: (x: any, y: any) => y ?? x },
-    codigoGeneracion: { reducer: (x: any, y: any) => y ?? x },
-    pdfBase64: { reducer: (x: any, y: any) => y ?? x },
-    sanitizedDte: { reducer: (x: any, y: any) => y ?? x }
-};
+const StateAnnotation = Annotation.Root({
+  dte: Annotation<any>({ reducer: (_x: any, y: any) => y }),
+  isValid: Annotation<boolean>({ reducer: (_x: any, y: any) => y }),
+  validationErrors: Annotation<string[]>({ reducer: (_x: any, y: any) => y, default: () => [] }),
+  isSigned: Annotation<boolean>({ reducer: (_x: any, y: any) => y }),
+  signature: Annotation<string>({ reducer: (_x: any, y: any) => y }),
+  isTransmitted: Annotation<boolean>({ reducer: (_x: any, y: any) => y }),
+  mhResponse: Annotation<any>({ reducer: (_x: any, y: any) => y }),
+  apiToken: Annotation<string>({ reducer: (_x: any, y: any) => y }),
+  apiTokenExpiresAt: Annotation<string>({ reducer: (_x: any, y: any) => y }),
+  isOffline: Annotation<boolean>({ reducer: (_x: any, y: any) => y }),
+  contingencyReason: Annotation<string>({ reducer: (_x: any, y: any) => y }),
+  taxImpact: Annotation<any>({ reducer: (_x: any, y: any) => y }),
+  status: Annotation<any>({ reducer: (_x: any, y: any) => y }),
+  retryCount: Annotation<number>({ reducer: (_x: any, y: any) => y, default: () => 0 }),
+  rawInput: Annotation<any>({ reducer: (_x: any, y: any) => y }),
+  passwordPri: Annotation<string>({ reducer: (_x: any, y: any) => y }),
+  ambiente: Annotation<'00' | '01'>({ reducer: (_x: any, y: any) => y }),
+  flowType: Annotation<'emission' | 'reception'>({ reducer: (_x: any, y: any) => y }),
+  errorCode: Annotation<string>({ reducer: (_x: any, y: any) => y }),
+  errorMessage: Annotation<string>({ reducer: (_x: any, y: any) => y }),
+  canRetry: Annotation<boolean>({ reducer: (_x: any, y: any) => y }),
+  progressPercentage: Annotation<number>({ reducer: (_x: any, y: any) => y }),
+  currentStep: Annotation<string>({ reducer: (_x: any, y: any) => y }),
+  estimatedTime: Annotation<number>({ reducer: (_x: any, y: any) => y }),
+  businessId: Annotation<string>({ reducer: (_x: any, y: any) => y }),
+  nit: Annotation<string>({ reducer: (_x: any, y: any) => y }),
+  deviceId: Annotation<string>({ reducer: (_x: any, y: any) => y }),
+  codigoGeneracion: Annotation<string>({ reducer: (_x: any, y: any) => y }),
+  pdfBase64: Annotation<string>({ reducer: (_x: any, y: any) => y }),
+  sanitizedDte: Annotation<any>({ reducer: (_x: any, y: any) => y }),
+});
 
-const workflow = new StateGraph<DTEState>({ channels })
+const workflow = new StateGraph(StateAnnotation)
   .addNode("validator", validateNode)
   .addNode("signer", signNode)
   .addNode("token_manager", tokenNode)
