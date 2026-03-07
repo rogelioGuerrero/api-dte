@@ -65,17 +65,23 @@ const workflow = new StateGraph<DTEState>({ channels })
   })
 
   // Flujo Emisión
-  .addConditionalEdges("validator", (state: any) => state.isValid ? "signer" : END)
+  .addConditionalEdges("validator", (state: any) => {
+    console.log('🔀 Validator transition:', { isValid: state.isValid, status: state.status, currentStep: state.currentStep });
+    return state.isValid ? "signer" : END;
+  })
   .addConditionalEdges("signer", (state: any) => {
+    console.log('🔀 Signer transition:', { status: state.status, isSigned: state.isSigned, currentStep: state.currentStep });
     // Si la firma falló o no se generó, terminar (o manejar error)
     if (state.status === 'failed' || !state.isSigned) return END;
     return "token_manager";
   })
   .addConditionalEdges("token_manager", (state: any) => {
+    console.log('🔀 Token Manager transition:', { status: state.status, currentStep: state.currentStep });
     if (state.status === 'failed') return END;
     return "transmitter";
   })
   .addConditionalEdges("transmitter", (state: any) => {
+    console.log('🔀 Transmitter transition:', { status: state.status, isTransmitted: state.isTransmitted, currentStep: state.currentStep });
       if (state.status === 'completed') return "persist_response";
       if (state.status === 'contingency') return "contingency";
       if (state.status === 'transmitting') return "transmitter"; 
