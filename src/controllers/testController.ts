@@ -3,6 +3,9 @@ import { createLogger } from '../utils/logger';
 import { sendEmail, generateDTEEmailHTML } from '../services/emailService';
 import { generateDtePdfBase64 } from '../services/pdfGenerator';
 import { invokeDiagGraph } from '../workflows/diagWorkflow';
+import { dteGraph } from '../workflows/dteWorkflow';
+import { INITIAL_STATE } from '../workflows/state';
+import { resolveBusinessIdentityByNIT } from '../business/businessStorage';
 
 const router = Router();
 const logger = createLogger('testController');
@@ -177,6 +180,44 @@ router.post('/diag-graph', async (req: Request, res: Response) => {
     return res.status(500).json({
       ok: false,
       error: error instanceof Error ? error.message : 'diag-graph failed'
+    });
+  }
+});
+
+router.post('/diag-real-workflow', async (req: Request, res: Response) => {
+  try {
+    const { dte, passwordPri = 'dummy-password', ambiente = '00' } = req.body;
+
+    if (!dte) {
+      return res.status(400).json({ ok: false, error: 'dte es requerido' });
+    }
+
+    const nitEmisor = dte.emisor?.nit?.replace(/[^0-9]/g, '') || '';
+    if (!nitEmisor) {
+      return res.status(400).json({ ok: false, error: 'El DTE no incluye NIT del emisor' });
+    }
+
+    const identity = await resolveBusinessIdentityByNIT(nitEmisor);
+    if (!identity) {
+      return res.status(404).json({ ok: false, error: `No existe business asociado al NIT ${nitEmisor}` });
+    }
+
+    const result = await (dteGraph as any).invoke({
+      ...INITIAL_STATE,
+      dte,
+      passwordPri,
+      ambiente,
+      flowType: 'emission',
+      businessId: identity.businessId,
+      nit: identity.nit,
+    });
+
+    return res.json({ ok: true, result });
+  } catch (error) {
+    logger.error('Error en diag-real-workflow', { error });
+    return res.status(500).json({
+      ok: false,
+      error: error instanceof Error ? error.message : 'diag-real-workflow failed'
     });
   }
 });
