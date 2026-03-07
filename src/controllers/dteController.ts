@@ -112,6 +112,20 @@ router.post('/transmit', async (req: AuthRequest, res: Response, next: NextFunct
       nit: identity.nit,
     });
 
+    logger.info('Raw transmit invoke result', {
+      keys: result ? Object.keys(result) : [],
+      status: result?.status,
+      currentStep: result?.currentStep,
+      isValid: result?.isValid,
+      isSigned: result?.isSigned,
+      isTransmitted: result?.isTransmitted,
+      hasSignature: !!result?.signature,
+      hasMhResponse: !!result?.mhResponse,
+      errorCode: result?.errorCode,
+      errorMessage: result?.errorMessage,
+      validationErrors: result?.validationErrors,
+    });
+
     const fallbackMhResponse = !result.mhResponse
       ? {
           success: false,
