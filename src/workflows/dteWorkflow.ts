@@ -12,6 +12,7 @@ import { prepareDocumentsNode } from './nodes/prepareDocumentsNode';
 import { contingencyNode } from "./nodes/contingencyNode";
 import { receptionNode } from "./nodes/receptionNode";
 import { taxNode } from "./nodes/taxNode";
+import { postValidationProbeNode } from "./nodes/postValidationProbeNode";
 
 const StateAnnotation = Annotation.Root({
   dte: Annotation<any>({ reducer: (_x: any, y: any) => y }),
@@ -48,6 +49,7 @@ const StateAnnotation = Annotation.Root({
 
 const workflow = new StateGraph(StateAnnotation)
   .addNode("validator", validateNode)
+  .addNode("post_validation_probe", postValidationProbeNode)
   .addNode("signer", signNode)
   .addNode("token_manager", tokenNode)
   .addNode("transmitter", transmitNode)
@@ -64,7 +66,8 @@ const workflow = new StateGraph(StateAnnotation)
   })
 
   // Flujo Emisión
-  .addEdge("validator", "signer")
+  .addEdge("validator", "post_validation_probe")
+  .addEdge("post_validation_probe", "signer")
   .addConditionalEdges("signer", (state: any) => {
     console.log('🔀 Signer transition:', { status: state.status, isSigned: state.isSigned, currentStep: state.currentStep });
     // Si la firma falló o no se generó, terminar (o manejar error)
