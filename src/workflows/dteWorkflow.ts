@@ -64,10 +64,7 @@ const workflow = new StateGraph(StateAnnotation)
   })
 
   // Flujo Emisión
-  .addConditionalEdges("validator", (state: any) => {
-    console.log('🔀 Validator transition:', { isValid: state.isValid, status: state.status, currentStep: state.currentStep });
-    return state.isValid ? "signer" : END;
-  })
+  .addEdge("validator", "signer")
   .addConditionalEdges("signer", (state: any) => {
     console.log('🔀 Signer transition:', { status: state.status, isSigned: state.isSigned, currentStep: state.currentStep });
     // Si la firma falló o no se generó, terminar (o manejar error)
