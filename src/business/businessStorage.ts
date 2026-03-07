@@ -367,15 +367,34 @@ export const getBusinessUsers = async (businessId: string): Promise<Array<{ emai
   try {
     const { data, error } = await supabase
       .from('business_users')
-      .select('user_id, role, auth.users(email)')
+      .select('user_id, role')
       .eq('business_id', businessId);
 
     if (error) throw error;
 
+    const userIds = Array.from(new Set((data || []).map((row: any) => row.user_id).filter(Boolean)));
+
+    let emailByUserId = new Map<string, string>();
+
+    if (userIds.length > 0) {
+      const { data: authUsers, error: authUsersError } = await supabase.auth.admin.listUsers({
+        page: 1,
+        perPage: 1000,
+      });
+
+      if (authUsersError) throw authUsersError;
+
+      emailByUserId = new Map(
+        (authUsers?.users || [])
+          .filter((user: any) => userIds.includes(user.id))
+          .map((user: any) => [user.id, user.email || ''])
+      );
+    }
+
     return (data || []).map((row: any) => ({
       user_id: row.user_id,
       role: row.role,
-      email: row.users?.email ?? null,
+      email: emailByUserId.get(row.user_id) || null,
     }));
   } catch (error: any) {
     logger.error('Error fetching business users', { businessId, error: error.message });
