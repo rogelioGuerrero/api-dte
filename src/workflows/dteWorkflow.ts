@@ -1,4 +1,4 @@
-import { StateGraph, END, Annotation } from "@langchain/langgraph";
+import { StateGraph, END, START, Annotation } from "@langchain/langgraph";
 import { DTEState } from "./state";
 
 // Importar Nodos
@@ -61,7 +61,7 @@ const workflow = new StateGraph(StateAnnotation)
   .addNode("tax_keeper", taxNode)
 
   // Router Inicial
-  .addConditionalEdges("__start__", (state: any) => {
+  .addConditionalEdges(START, (state: any) => {
     return state.flowType === 'reception' ? "reception_processor" : "validator";
   })
 
