@@ -61,9 +61,13 @@ const workflow = new StateGraph(StateAnnotation)
   .addNode("tax_keeper", taxNode)
 
   // Router Inicial
-  .addConditionalEdges(START, (state: any) => {
-    return state.flowType === 'reception' ? "reception_processor" : "validator";
-  })
+  .addConditionalEdges(
+    START,
+    (state: any) => {
+      return state.flowType === 'reception' ? "reception_processor" : "validator";
+    },
+    ["validator", "reception_processor"]
+  )
 
   // Flujo Emisión
   .addEdge("validator", "post_validation_probe")
