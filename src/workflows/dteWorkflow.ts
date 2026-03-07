@@ -1,5 +1,4 @@
 import { StateGraph, END, START, Annotation } from "@langchain/langgraph";
-import { DTEState } from "./state";
 
 // Importar Nodos
 import { validateNode } from "./nodes/validateNode";
@@ -10,7 +9,6 @@ import { emailNode } from './nodes/emailNode';
 import { persistResponseNode } from './nodes/persistResponseNode';
 import { prepareDocumentsNode } from './nodes/prepareDocumentsNode';
 import { contingencyNode } from "./nodes/contingencyNode";
-import { receptionNode } from "./nodes/receptionNode";
 import { taxNode } from "./nodes/taxNode";
 import { postValidationProbeNode } from "./nodes/postValidationProbeNode";
 
@@ -57,17 +55,10 @@ const workflow = new StateGraph(StateAnnotation)
   .addNode("prepare_documents", prepareDocumentsNode)
   .addNode("email_sender", emailNode)
   .addNode("contingency", contingencyNode)
-  .addNode("reception_processor", receptionNode)
   .addNode("tax_keeper", taxNode)
 
-  // Router Inicial
-  .addConditionalEdges(
-    START,
-    (state: any) => {
-      return state.flowType === 'reception' ? "reception_processor" : "validator";
-    },
-    ["validator", "reception_processor"]
-  )
+  // Router Inicial de emisión
+  .addEdge(START, "validator")
 
   // Flujo Emisión
   .addEdge("validator", "post_validation_probe")
@@ -94,10 +85,7 @@ const workflow = new StateGraph(StateAnnotation)
   .addEdge("prepare_documents", "email_sender")
   .addEdge("email_sender", "tax_keeper")
   .addEdge("contingency", "tax_keeper")
-  
-  // Flujo Recepción
-  .addEdge("reception_processor", "tax_keeper")
-  
+
   .addEdge("tax_keeper", END);
 
 export const dteGraph = workflow.compile();
