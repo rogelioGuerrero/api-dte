@@ -98,13 +98,52 @@ router.post('/transmit', async (req: AuthRequest, res: Response, next: NextFunct
       ambiente,
       flowType: 'emission'
     });
-    
+
+    const fallbackMhResponse = !result.mhResponse
+      ? {
+          success: false,
+          estado: result.status === 'contingency' ? 'CONTINGENCIA' : 'RECHAZADO',
+          codigoGeneracion:
+            result.codigoGeneracion ||
+            result.dte?.identificacion?.codigoGeneracion ||
+            dte?.identificacion?.codigoGeneracion,
+          numeroControl:
+            result.dte?.identificacion?.numeroControl ||
+            dte?.identificacion?.numeroControl,
+          mensaje: result.errorMessage || 'El backend rechazó o no pudo completar la transmisión.',
+          errores: [
+            {
+              codigo: result.errorCode || 'BACKEND-WORKFLOW',
+              descripcion: result.errorMessage || 'Fallo interno del workflow DTE',
+              severidad: 'ERROR',
+              ...(result.currentStep ? { campo: result.currentStep } : {}),
+              ...(result.validationErrors?.length
+                ? { valorActual: result.validationErrors.join(' | ') }
+                : {}),
+            },
+          ],
+        }
+      : result.mhResponse;
+
+    logger.info('Transmit workflow result', {
+      status: result.status,
+      currentStep: result.currentStep,
+      errorCode: result.errorCode,
+      hasMhResponse: !!result.mhResponse,
+      isTransmitted: result.isTransmitted,
+    });
+
     res.json({
       transmitted: result.isTransmitted,
-      mhResponse: result.mhResponse,
+      mhResponse: fallbackMhResponse,
       signature: result.signature,
       isOffline: result.isOffline,
-      contingencyReason: result.contingencyReason
+      contingencyReason: result.contingencyReason,
+      status: result.status,
+      currentStep: result.currentStep,
+      errorCode: result.errorCode,
+      errorMessage: result.errorMessage,
+      validationErrors: result.validationErrors,
     });
   } catch (error) {
     next(error);
