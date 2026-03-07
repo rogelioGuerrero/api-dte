@@ -22,52 +22,23 @@ const decodeJwsPayload = (jws: string) => {
 const logger = createLogger('transmitNode');
 
 export const transmitNode = async (state: DTEState): Promise<Partial<DTEState>> => {
-  console.log("📡 Transmisor: Enviando a Ministerio de Hacienda...");
-
-  if (!state.signature) {
+  const ambiente = state.ambiente || '00';
+  const nitEmisor = (state.dte?.emisor?.nit || '').toString().replace(/[\s-]/g, '').trim();
+  const nitLimpioBusqueda = nitEmisor || (state.businessId || '').toString().replace(/[^0-9]/g, '').trim();
+  
+  console.log(`📡 Transmitter: Enviando DTE a MH para NIT: ${nitLimpioBusqueda}, ambiente: ${ambiente}`);
+  
+  if (!state.dte || !state.signature || !state.apiToken) {
     return {
       status: 'failed',
-      errorCode: 'TRANSMIT_ERROR_NO_SIGNATURE',
-      errorMessage: 'No hay firma JWS para transmitir',
-      canRetry: true,
-      progressPercentage: 50
-    };
-  }
-
-  if (!state.dte) {
-    return {
-      status: 'failed',
-      errorCode: 'TRANSMIT_ERROR_NO_DTE',
-      errorMessage: 'No hay DTE en el estado para extraer metadata',
-      canRetry: true,
-      progressPercentage: 50
+      errorCode: 'TRANSMIT_ERROR_MISSING_DATA',
+      errorMessage: 'Faltan datos requeridos para transmisión (DTE, firma o token)',
+      canRetry: false,
+      currentStep: 'transmitter'
     };
   }
 
   try {
-    // Log del DTE que se enviará a MH (normalizado y firmado)
-    try {
-      const resumen = state.dte.resumen || {};
-      const items = (state.dte.cuerpoDocumento || []).map((i: any) => ({
-        numItem: i.numItem,
-        ventaGravada: i.ventaGravada,
-        ivaItem: i.ivaItem,
-        precioUni: i.precioUni,
-        cantidad: i.cantidad,
-      }));
-      logger.info('DTE listo para transmitir (payload base)', {
-        identificacion: state.dte.identificacion,
-        resumen,
-        items,
-      });
-    } catch (e) {
-      logger.warn('No se pudo loggear DTE listo para transmitir', { error: (e as any)?.message });
-    }
-
-    const ambiente = state.ambiente || '00';
-    const nitEmisor = (state.dte.emisor?.nit || '').toString().replace(/[\s-]/g, '').trim();
-    const nitLimpioBusqueda = nitEmisor || (state.businessId || '').toString().replace(/[^0-9]/g, '').trim();
-    
     // Obtener credenciales para extraer el token
     const credentials = await getMHCredentialsByNIT(nitLimpioBusqueda, ambiente);
 
@@ -76,46 +47,31 @@ export const transmitNode = async (state: DTEState): Promise<Partial<DTEState>> 
       return {
         status: 'failed',
         errorCode: 'TRANSMIT_ERROR_NO_CREDENTIALS',
-        errorMessage: `El NIT ${nitLimpioBusqueda} no tiene credenciales activas para ambiente ${ambiente}`,
+        errorMessage: `No se encontraron credenciales para NIT ${nitLimpioBusqueda} en ambiente ${ambiente}`,
         canRetry: false,
-        progressPercentage: 50
+        currentStep: 'transmitter'
       };
     }
 
-    console.log('🔐 Credenciales MH obtenidas', { businessId: credentials.business_id, nit: credentials.nit, ambiente });
+    console.log(`✅ Credenciales encontradas para transmisión, business_id: ${credentials.business_id}`);
 
-    let apiToken = normalizeBearerToken(credentials.api_token);
-
-    if (shouldRefreshTokenWithExp(credentials.api_token, credentials.api_token_expires_at, ambiente)) {
-      console.log(`🔄 Token necesita refresh para NIT ${nitLimpioBusqueda}`);
-      
-      if (!credentials.api_password) {
-        console.error(`❌ No api_password para NIT ${nitLimpioBusqueda}`);
-        return {
-          status: 'failed',
-          errorCode: 'TRANSMIT_ERROR_NO_API_PASSWORD',
-          errorMessage: 'No hay contraseña API configurada para obtener token MH',
-          canRetry: false,
-          progressPercentage: 50
-        };
-      }
-
-      const { token } = await getCachedMHAuthToken(nitLimpioBusqueda, credentials.api_password, ambiente);
-      apiToken = token;
-      console.log(`💾 Guardando token actualizado en BD...`);
-      await updateMHTokenByNIT(nitLimpioBusqueda, ambiente, apiToken, undefined);
-    }
+    // Usar el token actualizado del estado o el de las credenciales
+    const finalApiToken = state.apiToken || normalizeBearerToken(credentials.api_token);
     
-    // Extraer metadata necesaria para el MH
-    const version = state.dte.identificacion?.version || 1; // Usar versión declarada en el DTE
-    const tipoDte = state.dte.identificacion?.tipoDte || '01'; // Default CCF
-    const codigoGeneracion = state.dte.identificacion?.codigoGeneracion || randomUUID(); // Usar el mismo del DTE o generar uno
-    const idEnvio = Math.floor(Math.random() * 999999) + 1; // MH espera número entero, no UUID
+    if (!finalApiToken) {
+      return {
+        status: 'failed',
+        errorCode: 'TRANSMIT_ERROR_NO_TOKEN',
+        errorMessage: 'No hay token API válido para transmisión',
+        canRetry: true,
+        currentStep: 'transmitter'
+      };
+    }
 
-    // Transmisión real
-    const decoded = decodeJwsPayload(state.signature);
-    if (decoded) {
-      try {
+    // Log del payload JWS para debug
+    try {
+      const decoded = decodeJwsPayload(state.signature);
+      if (decoded) {
         const resumenDbg = decoded.resumen || {};
         const itemsDbg = (decoded.cuerpoDocumento || []).map((i: any) => ({ numItem: i.numItem, ventaGravada: i.ventaGravada, ivaItem: i.ivaItem }));
         logger.info('DEBUG JWS PAYLOAD', {
@@ -130,45 +86,42 @@ export const transmitNode = async (state: DTEState): Promise<Partial<DTEState>> 
           items: itemsDbg,
         });
         await saveSignedDteDebug({
-          codigoGeneracion,
+          codigoGeneracion: state.dte.identificacion?.codigoGeneracion || '',
           signature: state.signature,
           payload: decoded,
         });
-      } catch (e) {
-        logger.warn('No se pudo loggear payload decodificado', { error: (e as any)?.message });
       }
+    } catch (e) {
+      logger.warn('No se pudo loggear payload decodificado', { error: (e as any)?.message });
     }
 
-    const sendWithToken = async (token: string) => transmitirDTESandbox(
+    console.log(`🚀 Enviando DTE firmado a MH...`);
+    const result = await transmitirDTESandbox(
       state.signature,
       ambiente,
-      token,
-      version,
-      tipoDte,
-      idEnvio,
-      codigoGeneracion
+      finalApiToken,
+      1, // version
+      state.dte.identificacion?.tipoDte || '01',
+      1, // idEnvio
+      state.dte.identificacion?.codigoGeneracion
     );
 
-    let result = await sendWithToken(apiToken);
-
-    // Si MH responde 401, forzar refresh de token y reintentar una sola vez
-    const has401 = Array.isArray(result.errores) && result.errores.some((e: any) => (e.codigo || '').startsWith('HTTP-401'));
-    if (has401 && credentials.api_password) {
-      try {
-        console.log('🔄 401 de MH: forzando refresh de token y reintentando...');
-        const newToken = await requestMHAuthToken(nitLimpioBusqueda, credentials.api_password, ambiente);
-        apiToken = normalizeBearerToken(newToken);
-        await updateMHTokenByNIT(nitLimpioBusqueda, ambiente, apiToken, undefined);
-        result = await sendWithToken(apiToken);
-      } catch (err: any) {
-        console.error('❌ Falló refresh forzado de token MH tras 401', { error: err?.message });
-      }
+    if (result.estado === 'CONTINGENCIA') {
+      console.warn("⚠️ MH offline. Activando Contingencia.");
+      return {
+        status: 'contingency',
+        isOffline: true,
+        contingencyReason: result.mensaje || 'Servicio MH no disponible',
+        mhResponse: result,
+        businessId: credentials.business_id || state.businessId,
+        currentStep: 'transmitter',
+        progressPercentage: 75,
+        estimatedTime: 20 // 20 segundos más
+      };
     }
-    
+
     if (result.success) {
       console.log("✅ MH: Recibido exitosamente.", result.selloRecepcion);
-      
-      // El guardado y correo lo maneja emailNode
       
       return {
         isTransmitted: true,
@@ -182,26 +135,6 @@ export const transmitNode = async (state: DTEState): Promise<Partial<DTEState>> 
       // Manejo de errores
       console.error("❌ MH Rechazo/Error:", result);
 
-      // Log puntual de IVA normalizado para comparar con MH
-      try {
-        const items = (state.dte?.cuerpoDocumento || []).map((i: any) => ({
-          numItem: i.numItem,
-          ventaGravada: i.ventaGravada,
-          ivaItem: i.ivaItem,
-        }));
-        const resumen = state.dte?.resumen;
-        logger.info('DEBUG IVA NORMALIZADO', { items, resumen: {
-          totalGravada: resumen?.totalGravada,
-          totalIva: resumen?.totalIva,
-          ivaRete1: resumen?.ivaRete1,
-          reteRenta: resumen?.reteRenta,
-          montoTotalOperacion: resumen?.montoTotalOperacion,
-          totalPagar: resumen?.totalPagar,
-        }});
-      } catch (e) {
-        logger.warn('No se pudo loggear IVA normalizado', { error: (e as any)?.message });
-      }
-      
       // Detectar errores de negocio MH (estado RECHAZADO) -> no reintentar
       const mhRejected = result.estado === 'RECHAZADO' || (result as any).codigoMsg || (result as any).clasificaMsg;
 
@@ -227,7 +160,8 @@ export const transmitNode = async (state: DTEState): Promise<Partial<DTEState>> 
             errorCode: 'TRANSMIT_ERROR_COMMUNICATION',
             errorMessage: 'Falla de comunicación con Ministerio de Hacienda',
             canRetry: true,
-            progressPercentage: 70
+            progressPercentage: 70,
+            currentStep: 'transmitter'
           };
         }
       }
@@ -238,7 +172,8 @@ export const transmitNode = async (state: DTEState): Promise<Partial<DTEState>> 
         errorCode: 'TRANSMIT_ERROR_MH_VALIDATION',
         errorMessage: result.errores?.map(e => `MH [${e.codigo}]: ${e.descripcion}`).join(', ') || result.mensaje || 'Error desconocido MH',
         canRetry: false, // Errores de MH no se reintentan
-        progressPercentage: 60
+        progressPercentage: 60,
+        currentStep: 'transmitter'
       };
     }
   } catch (error: any) {
@@ -248,7 +183,8 @@ export const transmitNode = async (state: DTEState): Promise<Partial<DTEState>> 
       errorCode: 'TRANSMIT_ERROR_SYSTEM',
       errorMessage: `Error transmisión: ${error.message}`,
       canRetry: true,
-      progressPercentage: 60
+      progressPercentage: 60,
+      currentStep: 'transmitter'
     };
   }
 };

@@ -88,6 +88,9 @@ router.post('/transmit', async (req: AuthRequest, res: Response, next: NextFunct
       throw createError('DTE and passwordPri are required', 400);
     }
     
+    // Extraer business_id del NIT del emisor para el workflow
+    const nitEmisor = dte.emisor?.nit?.replace(/[^0-9]/g, '') || '';
+    
     logger.info('Transmitting DTE to MH');
     
     // Ejecutar workflow completo
@@ -96,7 +99,8 @@ router.post('/transmit', async (req: AuthRequest, res: Response, next: NextFunct
       dte,
       passwordPri,
       ambiente,
-      flowType: 'emission'
+      flowType: 'emission',
+      businessId: nitEmisor
     });
 
     const fallbackMhResponse = !result.mhResponse

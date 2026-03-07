@@ -13,7 +13,8 @@ export const signNode = async (state: DTEState): Promise<Partial<DTEState>> => {
       errorCode: 'SIGN_ERROR_NO_DTE',
       errorMessage: 'No hay DTE para firmar',
       canRetry: true,
-      progressPercentage: 25
+      progressPercentage: 25,
+      currentStep: 'signer'
     };
   }
 
@@ -25,6 +26,9 @@ export const signNode = async (state: DTEState): Promise<Partial<DTEState>> => {
     // Obtener las credenciales del negocio para sacar el token y la contraseña de firma
     // Buscamos por NIT y lo limpiamos de guiones para ser más robustos
     const nitLimpioBusqueda = (state.businessId || nitEmisor).replace(/[\s-]/g, '').trim();
+    
+    console.log(`🔍 Buscando credenciales para NIT: ${nitLimpioBusqueda}, ambiente: ${state.ambiente || '00'}`);
+    
     const credentials = await getMHCredentialsByNIT(nitLimpioBusqueda, state.ambiente || '00');
     
     if (!credentials) {
@@ -34,9 +38,12 @@ export const signNode = async (state: DTEState): Promise<Partial<DTEState>> => {
         errorCode: 'SIGN_ERROR_NO_CREDENTIALS',
         errorMessage: `El NIT ${nitLimpioBusqueda} no está registrado o no tiene credenciales activas en Supabase para el ambiente ${state.ambiente || '00'}`,
         canRetry: false,
-        progressPercentage: 25
+        progressPercentage: 25,
+        currentStep: 'signer'
       };
     }
+
+    console.log(`✅ Credenciales encontradas para business_id: ${credentials.business_id}`);
 
     // Validación de Suscripción / Licencia activa
     if (!credentials.activo) {
@@ -46,7 +53,8 @@ export const signNode = async (state: DTEState): Promise<Partial<DTEState>> => {
         errorCode: 'SIGN_ERROR_INACTIVE_LICENSE',
         errorMessage: `El servicio DTE se encuentra suspendido para el contribuyente ${nitLimpioBusqueda}. Por favor verifique su licencia o suscripción.`,
         canRetry: false,
-        progressPercentage: 25
+        progressPercentage: 25,
+        currentStep: 'signer'
       };
     }
 
@@ -60,7 +68,8 @@ export const signNode = async (state: DTEState): Promise<Partial<DTEState>> => {
         errorCode: 'SIGN_ERROR_NO_PASSWORD',
         errorMessage: 'La contraseña del certificado no está configurada en la base de datos para este NIT',
         canRetry: false,
-        progressPercentage: 25
+        progressPercentage: 25,
+        currentStep: 'signer'
       };
     }
 
@@ -71,10 +80,12 @@ export const signNode = async (state: DTEState): Promise<Partial<DTEState>> => {
         errorCode: 'SIGN_ERROR_NO_CERTIFICATE',
         errorMessage: 'El certificado digital (.p12/.pfx) no está configurado en la base de datos para este NIT',
         canRetry: false,
-        progressPercentage: 25
+        progressPercentage: 25,
+        currentStep: 'signer'
       };
     }
 
+    console.log(`🔐 Enviando a firmar con proveedor externo...`);
     const { jws, provider } = await signWithConfiguredProvider({
       nit: nitEmisor,
       passwordPri: finalPasswordPri,
@@ -99,7 +110,8 @@ export const signNode = async (state: DTEState): Promise<Partial<DTEState>> => {
       errorCode: 'SIGN_ERROR_SERVICE',
       errorMessage: `Error al firmar: ${error.message || 'Desconocido'}`,
       canRetry: true,
-      progressPercentage: 40
+      progressPercentage: 40,
+      currentStep: 'signer'
     };
   }
 };

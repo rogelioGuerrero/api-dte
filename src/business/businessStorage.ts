@@ -469,6 +469,8 @@ export const getMHCredentialsByNIT = async (nit: string, ambiente: '00' | '01'):
     const nitClean = (nit || '').replace(/[^0-9]/g, '');
     const nitRaw = (nit || '').trim();
 
+    logger.info('Buscando credenciales MH por NIT', { nitClean, nitRaw, ambiente });
+
     const { data, error } = await supabase
       .from('mh_credentials')
       .select('*')
@@ -478,10 +480,15 @@ export const getMHCredentialsByNIT = async (nit: string, ambiente: '00' | '01'):
       .single();
 
     if (error) {
-      if (error.code === 'PGRST116') return null;
+      if (error.code === 'PGRST116') {
+        logger.warn('No se encontraron credenciales MH', { nitClean, nitRaw, ambiente, error: error.message });
+        return null;
+      }
+      logger.error('Error en query de credenciales MH', { nitClean, nitRaw, ambiente, error: error.message });
       throw error;
     }
 
+    logger.info('Credenciales MH encontradas', { business_id: data.business_id, nit: data.nit, ambiente });
     return data as MHCredentials;
   } catch (error: any) {
     logger.error('Error fetching MH credentials by NIT', { nit, ambiente, error: error.message });
