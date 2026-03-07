@@ -97,11 +97,11 @@ export const createBusiness = async (business: Omit<Business, 'id' | 'created_at
 
 export const getBusinessesByUserAsNit = async (
   userId: string
-): Promise<Array<{ business_id: string; nombre: string; role: BusinessUser['role'] }>> => {
+): Promise<Array<{ id: string; business_id: string; nit: string; nombre: string; role: BusinessUser['role'] }>> => {
   try {
     const { data, error } = await supabase
       .from('business_users')
-      .select('role, businesses(nit, nit_clean, nombre, nombre_comercial)')
+      .select('business_id, role, businesses(id, nit, nit_clean, nombre, nombre_comercial)')
       .eq('user_id', userId);
 
     if (error) throw error;
@@ -110,7 +110,9 @@ export const getBusinessesByUserAsNit = async (
       const business = row.businesses || {};
       const nit = (business.nit_clean || business.nit || '').toString();
       return {
+        id: (business.id || row.business_id || '').toString(),
         business_id: nit,
+        nit,
         nombre: (business.nombre_comercial || business.nombre || '').toString(),
         role: row.role,
       };
