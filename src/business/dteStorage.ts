@@ -1,6 +1,5 @@
 import { supabase } from '../database/supabase';
 import { createLogger } from '../utils/logger';
-import { createHash } from 'crypto';
 
 const logger = createLogger('dteStorage');
 
@@ -23,25 +22,15 @@ export interface DTEResponseEmailStatus {
   correoError?: string | null;
 }
 
-const toDeterministicUUID = (value: string) => {
-  const hash = createHash('sha1').update(value).digest('hex');
-  const bytes = hash.slice(0, 32).split('');
-  bytes[12] = '5';
-  const variant = parseInt(bytes[16], 16);
-  bytes[16] = ((variant & 0x3) | 0x8).toString(16);
-  const b = bytes.join('');
-  return `${b.slice(0, 8)}-${b.slice(8, 12)}-${b.slice(12, 16)}-${b.slice(16, 20)}-${b.slice(20, 32)}`;
-};
-
 /**
  * Guardar respuesta completa de MH en Supabase
  */
 export async function saveDTEResponse(responseData: DTEResponse) {
   try {
-    const rawBiz = responseData.businessId || responseData.nit;
-    const isUuid = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(rawBiz);
-    const nitClean = (responseData.nit || rawBiz || '').replace(/[^0-9]/g, '');
-    const businessId = isUuid ? rawBiz : toDeterministicUUID(nitClean || rawBiz);
+    const businessId = responseData.businessId;
+    if (!businessId) {
+      throw new Error('businessId UUID es requerido para guardar respuesta DTE');
+    }
     const codigoGeneracion = responseData.codigoGeneracion
       || responseData.dteJson?.identificacion?.codigoGeneracion
       || responseData.mhResponse?.codigoGeneracion

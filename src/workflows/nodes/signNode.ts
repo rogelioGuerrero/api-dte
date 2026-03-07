@@ -21,11 +21,9 @@ export const signNode = async (state: DTEState): Promise<Partial<DTEState>> => {
   try {
     const processed = processDTE(state.dte);
     const dteLimpio = limpiarDteParaFirma(processed.dte as unknown as Record<string, unknown>);
-    const nitEmisor = (state.dte.emisor?.nit || '').toString().replace(/[\s-]/g, '').trim();
+    const nitEmisor = (state.nit || state.dte.emisor?.nit || '').toString().replace(/[\s-]/g, '').trim();
 
-    // Obtener las credenciales del negocio para sacar el token y la contraseña de firma
-    // Buscamos por NIT y lo limpiamos de guiones para ser más robustos
-    const nitLimpioBusqueda = (state.businessId || nitEmisor).replace(/[\s-]/g, '').trim();
+    const nitLimpioBusqueda = nitEmisor;
     
     console.log(`🔍 Buscando credenciales para NIT: ${nitLimpioBusqueda}, ambiente: ${state.ambiente || '00'}`);
     
@@ -101,7 +99,8 @@ export const signNode = async (state: DTEState): Promise<Partial<DTEState>> => {
       progressPercentage: 50,
       currentStep: 'signer',
       estimatedTime: 30, // 30 segundos restantes
-      businessId: credentials.business_id || state.businessId,
+      businessId: state.businessId || credentials.business_id,
+      nit: nitLimpioBusqueda,
     };
   } catch (error: any) {
     console.error("❌ Error de firma:", error);

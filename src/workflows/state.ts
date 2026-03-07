@@ -11,6 +11,7 @@ export interface DTEState {
   // Identificación para tracking
   codigoGeneracion?: string; // Para fácil identificación
   businessId?: string;       // Para consultas y RLS
+  nit?: string;             // NIT canónico del emisor
   deviceId?: string;         // fingerprint del dispositivo
   
   // Estados por cada nodo

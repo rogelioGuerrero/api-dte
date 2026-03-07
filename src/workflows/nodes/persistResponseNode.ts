@@ -16,10 +16,10 @@ export async function persistResponseNode(state: DTEState): Promise<Partial<DTES
       throw new Error('No hay respuesta de MH para persistir');
     }
 
-    const nitEmisor = state.dte?.emisor?.nit || state.dte?.identificacion?.nit;
-    const businessId = state.businessId || nitEmisor;
+    const nitEmisor = state.nit || state.dte?.emisor?.nit || state.dte?.identificacion?.nit;
+    const businessId = state.businessId;
 
-    if (!nitEmisor) {
+    if (!nitEmisor || !businessId) {
       throw new Error('No se puede identificar el emisor del DTE');
     }
 

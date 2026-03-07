@@ -23,8 +23,8 @@ const logger = createLogger('transmitNode');
 
 export const transmitNode = async (state: DTEState): Promise<Partial<DTEState>> => {
   const ambiente = state.ambiente || '00';
-  const nitEmisor = (state.dte?.emisor?.nit || '').toString().replace(/[\s-]/g, '').trim();
-  const nitLimpioBusqueda = nitEmisor || (state.businessId || '').toString().replace(/[^0-9]/g, '').trim();
+  const nitEmisor = (state.nit || state.dte?.emisor?.nit || '').toString().replace(/[\s-]/g, '').trim();
+  const nitLimpioBusqueda = nitEmisor;
   
   console.log(`📡 Transmitter: Enviando DTE a MH para NIT: ${nitLimpioBusqueda}, ambiente: ${ambiente}`);
   
@@ -113,7 +113,8 @@ export const transmitNode = async (state: DTEState): Promise<Partial<DTEState>> 
         isOffline: true,
         contingencyReason: result.mensaje || 'Servicio MH no disponible',
         mhResponse: result,
-        businessId: credentials.business_id || state.businessId,
+        businessId: state.businessId || credentials.business_id,
+        nit: nitLimpioBusqueda,
         currentStep: 'transmitter',
         progressPercentage: 75,
         estimatedTime: 20 // 20 segundos más

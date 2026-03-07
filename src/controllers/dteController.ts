@@ -8,6 +8,7 @@ import { AuthRequest } from '../middleware/auth';
 import { getDTEDocument, updateDTEDocumentStatus } from '../dte/dteStorage';
 import { getDTEsByBusiness } from '../dte/dteStorage';
 import { createProcessResponse, DteProcessResponse } from '../utils/apiResponse';
+import { resolveBusinessIdentityByNIT } from '../business/businessStorage';
 
 const router = Router();
 const logger = createLogger('dteController');
@@ -88,8 +89,15 @@ router.post('/transmit', async (req: AuthRequest, res: Response, next: NextFunct
       throw createError('DTE and passwordPri are required', 400);
     }
     
-    // Extraer business_id del NIT del emisor para el workflow
     const nitEmisor = dte.emisor?.nit?.replace(/[^0-9]/g, '') || '';
+    if (!nitEmisor) {
+      throw createError('El DTE no incluye NIT del emisor', 400);
+    }
+
+    const identity = await resolveBusinessIdentityByNIT(nitEmisor);
+    if (!identity) {
+      throw createError(`No existe business asociado al NIT ${nitEmisor}`, 404);
+    }
     
     logger.info('Transmitting DTE to MH');
     
@@ -100,7 +108,8 @@ router.post('/transmit', async (req: AuthRequest, res: Response, next: NextFunct
       passwordPri,
       ambiente,
       flowType: 'emission',
-      businessId: nitEmisor
+      businessId: identity.businessId,
+      nit: identity.nit,
     });
 
     const fallbackMhResponse = !result.mhResponse
@@ -165,6 +174,10 @@ router.post('/process', async (req: AuthRequest, res: Response, next: NextFuncti
     }
 
     const targetNit = request.nit || request.businessId;
+    const identity = await resolveBusinessIdentityByNIT(targetNit);
+    if (!identity) {
+      throw createError(`Business no encontrado para NIT ${targetNit}`, 404);
+    }
 
     // Extraer código de generación del DTE
     const codigoGeneracion = request.dte.identificacion?.codigoGeneracion;
@@ -174,7 +187,8 @@ router.post('/process', async (req: AuthRequest, res: Response, next: NextFuncti
 
     logger.info('Iniciando procesamiento DTE', { 
       codigoGeneracion, 
-      businessId: targetNit,
+      businessId: identity.businessId,
+      nit: identity.nit,
       flowType: request.flowType 
     });
 
@@ -184,7 +198,8 @@ router.post('/process', async (req: AuthRequest, res: Response, next: NextFuncti
       passwordPri: request.passwordPri, // Puede ser null, lo sacará de Supabase
       ambiente: request.ambiente || '00',
       flowType: request.flowType || 'emission',
-      businessId: targetNit,
+      businessId: identity.businessId,
+      nit: identity.nit,
       deviceId: request.deviceId,
       codigoGeneracion,
       status: 'validating',

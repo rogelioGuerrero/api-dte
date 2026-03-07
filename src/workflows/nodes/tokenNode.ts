@@ -11,8 +11,8 @@ const logger = createLogger('tokenNode');
  */
 export const tokenNode = async (state: DTEState): Promise<Partial<DTEState>> => {
   const ambiente = state.ambiente || '00';
-  const nitEmisor = (state.dte?.emisor?.nit || '').toString().replace(/[\s-]/g, '').trim();
-  const nitBusqueda = nitEmisor || (state.businessId || '').toString().replace(/[^0-9]/g, '').trim();
+  const nitEmisor = (state.nit || state.dte?.emisor?.nit || '').toString().replace(/[\s-]/g, '').trim();
+  const nitBusqueda = nitEmisor;
 
   console.log(`🔑 Token Manager: Procesando token para NIT: ${nitBusqueda}, ambiente: ${ambiente}`);
 
@@ -69,7 +69,8 @@ export const tokenNode = async (state: DTEState): Promise<Partial<DTEState>> => 
   return {
     apiToken,
     apiTokenExpiresAt,
-    businessId: credentials.business_id || state.businessId,
+    businessId: state.businessId || credentials.business_id,
+    nit: nitBusqueda,
     status: 'transmitting',
     currentStep: 'token_manager',
     progressPercentage: 60,

@@ -301,6 +301,21 @@ export const getBusinessByNIT = async (nit: string): Promise<Business | null> =>
   }
 };
 
+export const resolveBusinessIdentityByNIT = async (nit: string): Promise<{ businessId: string; nit: string } | null> => {
+  try {
+    const business = await getBusinessByNIT(nit);
+    if (!business?.id) return null;
+
+    return {
+      businessId: business.id,
+      nit: (business.nit_clean || business.nit || nit).replace(/[^0-9]/g, ''),
+    };
+  } catch (error: any) {
+    logger.error('Error resolving business identity by NIT', { nit, error: error.message });
+    throw error;
+  }
+};
+
 export const getBusinessesForUser = async (userId: string): Promise<Business[]> => {
   try {
     const { data, error } = await supabase

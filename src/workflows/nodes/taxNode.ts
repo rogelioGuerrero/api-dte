@@ -1,17 +1,6 @@
 import { DTEState } from "../state";
 import { updateTaxAccumulator, createEmptyAccumulator, getPeriodFromDate } from "../../tax/taxCalculator";
 import { getAccumulator, saveAccumulator } from '../../tax/taxStorage';
-import { createHash } from 'crypto';
-
-const toDeterministicUUID = (value: string) => {
-  const hash = createHash('sha1').update(value).digest('hex');
-  const bytes = hash.slice(0, 32).split('');
-  bytes[12] = '5'; // version 5
-  const variant = parseInt(bytes[16], 16);
-  bytes[16] = ((variant & 0x3) | 0x8).toString(16);
-  const b = bytes.join('');
-  return `${b.slice(0, 8)}-${b.slice(8, 12)}-${b.slice(12, 16)}-${b.slice(16, 20)}-${b.slice(20, 32)}`;
-};
 
 export const taxNode = async (state: DTEState): Promise<Partial<DTEState>> => {
   console.log(`📊 Contador Autónomo (${state.flowType || 'emission'}): Actualizando libros...`);
@@ -21,15 +10,11 @@ export const taxNode = async (state: DTEState): Promise<Partial<DTEState>> => {
   }
 
   try {
-    const rawBusinessId = (state.businessId || state.dte.emisor?.nit || '').toString().trim();
-    if (!rawBusinessId) {
-      console.warn('TaxNode: sin businessId/nit, no se actualiza acumulador');
+    const businessKey = (state.businessId || '').toString().trim();
+    if (!businessKey) {
+      console.warn('TaxNode: sin businessId UUID, no se actualiza acumulador');
       return {};
     }
-
-    const isUuid = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(rawBusinessId);
-    const nitClean = rawBusinessId.replace(/[^0-9]/g, '');
-    const businessKey = isUuid ? rawBusinessId : toDeterministicUUID(nitClean || rawBusinessId);
 
     const period = getPeriodFromDate(state.dte.identificacion.fecEmi);
     let existingAcc = await getAccumulator(businessKey, period.key, 'ALL');
