@@ -12,9 +12,15 @@ import {
   getBusinessesByUserAsNit,
   createBusinessUser,
   getBusinessUsers,
+  getUserRoleInBusiness,
   upsertBusinessSettings,
 } from '../business/businessStorage';
 import { supabase } from '../database/supabase';
+import {
+  PushSubscription,
+  removePushSubscriptionForBusinessUser,
+  savePushSubscriptionForBusinessUser,
+} from '../services/pushService';
 
 const router = Router();
 const logger = createLogger('businessController');
@@ -260,7 +266,27 @@ router.get('/businesses/:id', async (req: AuthRequest, res: Response, next: Next
     const businessId = req.params.id;
     const business = await getBusinessById(businessId);
     if (!business) throw createError('Business no encontrado', 404);
-    res.json({ success: true, business });
+    res.json({
+      success: true,
+      business: {
+        id: business.id || null,
+        nit: business.nit ?? null,
+        nrc: business.nrc ?? null,
+        nombre: business.nombre ?? null,
+        nombre_comercial: business.nombre_comercial ?? null,
+        telefono: business.telefono ?? null,
+        correo: business.correo ?? null,
+        dir_departamento: business.dir_departamento ?? null,
+        dir_municipio: business.dir_municipio ?? null,
+        dir_complemento: business.dir_complemento ?? null,
+        cod_actividad: business.cod_actividad ?? null,
+        desc_actividad: business.desc_actividad ?? null,
+        tipo_establecimiento: business.tipo_establecimiento ?? null,
+        cod_estable_mh: business.cod_estable_mh ?? null,
+        cod_punto_venta_mh: business.cod_punto_venta_mh ?? null,
+        logo_url: business.logo_url ?? null,
+      },
+    });
   } catch (error) {
     next(error);
   }
@@ -323,8 +349,16 @@ router.get('/businesses/:id/users', async (req: AuthRequest, res: Response, next
   try {
     if (!req.user?.id) throw createError('No autenticado', 401);
     const businessId = req.params.id;
+    const business = await getBusinessById(businessId);
+    if (!business) throw createError('Business no encontrado', 404);
     const users = await getBusinessUsers(businessId);
-    res.json({ success: true, users });
+    res.json({
+      success: true,
+      users: users.map((user) => ({
+        email: user.email,
+        role: user.role,
+      })),
+    });
   } catch (error) {
     next(error);
   }
@@ -451,8 +485,20 @@ router.post('/business_users/lookup_email', async (req: AuthRequest, res: Respon
 // POST /api/business_users/invite - envía invitación Supabase y responde pending
 router.post('/business_users/invite', async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
+    if (!req.user?.id) throw createError('No autenticado', 401);
     const { businessId, email, role = 'operator' } = req.body;
     if (!businessId || !email) throw createError('businessId y email son requeridos', 400);
+    if (!['owner', 'admin', 'operator'].includes(role)) {
+      throw createError('role inválido', 400);
+    }
+
+    const business = await getBusinessById(businessId);
+    if (!business) throw createError('Business no encontrado', 404);
+
+    const requesterRole = await getUserRoleInBusiness(businessId, req.user.id);
+    if (requesterRole !== 'owner' && requesterRole !== 'admin') {
+      throw createError('No autorizado', 403);
+    }
 
     const redirectTo =
       process.env.SUPABASE_INVITE_REDIRECT ||
@@ -464,7 +510,98 @@ router.post('/business_users/invite', async (req: AuthRequest, res: Response, ne
     });
     if (error) throw error;
 
-    res.json({ success: true, invite: { email: data.user?.email, role, status: 'pending' } });
+    res.json({
+      success: true,
+      invite: {
+        businessId,
+        email: data.user?.email || email,
+        role,
+        status: 'pending',
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /api/business/push-subscriptions - sincroniza suscripción push del usuario para un emisor
+router.post('/push-subscriptions', async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    if (!req.user?.id) throw createError('No autenticado', 401);
+
+    const { businessId, subscription, userAgent } = req.body as {
+      businessId?: string | null;
+      subscription?: PushSubscription;
+      userAgent?: string;
+    };
+
+    if (!businessId) throw createError('businessId es requerido', 400);
+    if (!subscription || !subscription.endpoint || !subscription.keys?.p256dh || !subscription.keys?.auth) {
+      throw createError('Suscripción inválida', 400);
+    }
+
+    const business = await getBusinessById(businessId);
+    if (!business) throw createError('Business no encontrado', 404);
+
+    const { data: membership, error: membershipError } = await supabase
+      .from('business_users')
+      .select('id, role')
+      .eq('business_id', businessId)
+      .eq('user_id', req.user.id)
+      .single();
+
+    if (membershipError || !membership?.id) {
+      throw createError('No autorizado para este emisor', 403);
+    }
+
+    await savePushSubscriptionForBusinessUser(membership.id, subscription, userAgent);
+
+    res.json({
+      success: true,
+      pushSubscription: {
+        businessId,
+        endpoint: subscription.endpoint,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// DELETE /api/business/push-subscriptions - elimina suscripción push del usuario para un emisor
+router.delete('/push-subscriptions', async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    if (!req.user?.id) throw createError('No autenticado', 401);
+
+    const { businessId, endpoint } = req.body as {
+      businessId?: string | null;
+      endpoint?: string;
+    };
+
+    if (!businessId) throw createError('businessId es requerido', 400);
+
+    const business = await getBusinessById(businessId);
+    if (!business) throw createError('Business no encontrado', 404);
+
+    const { data: membership, error: membershipError } = await supabase
+      .from('business_users')
+      .select('id')
+      .eq('business_id', businessId)
+      .eq('user_id', req.user.id)
+      .single();
+
+    if (membershipError || !membership?.id) {
+      throw createError('No autorizado para este emisor', 403);
+    }
+
+    await removePushSubscriptionForBusinessUser(membership.id, endpoint);
+
+    res.json({
+      success: true,
+      removed: true,
+      businessId,
+      endpoint: endpoint || null,
+    });
   } catch (error) {
     next(error);
   }

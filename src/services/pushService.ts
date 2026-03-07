@@ -154,6 +154,31 @@ export const broadcastMessage = async (
   }
 };
 
+export const removePushSubscriptionForBusinessUser = async (
+  businessUserId: string,
+  endpoint?: string
+): Promise<void> => {
+  try {
+    let query = supabase
+      .from('push_subscriptions')
+      .delete()
+      .eq('user_id', businessUserId);
+
+    if (endpoint) {
+      query = query.eq('subscription->>endpoint', endpoint);
+    }
+
+    const { error } = await query;
+
+    if (error) throw error;
+
+    logger.info('Suscripción push eliminada para business_user', { businessUserId, endpoint: endpoint || null });
+  } catch (error: any) {
+    logger.error('Error eliminando suscripción push para business_user', { error: error.message });
+    throw error;
+  }
+};
+
 export const savePushSubscription = async (
   userId: string,
   subscription: PushSubscription,
@@ -176,6 +201,32 @@ export const savePushSubscription = async (
     logger.info('Suscripción push guardada', { userId, endpoint: subscription.endpoint });
   } catch (error: any) {
     logger.error('Error guardando suscripción push', { error: error.message });
+    throw error;
+  }
+};
+
+export const savePushSubscriptionForBusinessUser = async (
+  businessUserId: string,
+  subscription: PushSubscription,
+  userAgent?: string
+): Promise<void> => {
+  try {
+    const { error } = await supabase
+      .from('push_subscriptions')
+      .upsert({
+        user_id: businessUserId,
+        subscription,
+        user_agent: userAgent,
+        updated_at: new Date().toISOString()
+      }, {
+        onConflict: 'user_id, (subscription->\'endpoint\')'
+      });
+
+    if (error) throw error;
+
+    logger.info('Suscripción push guardada para business_user', { businessUserId, endpoint: subscription.endpoint });
+  } catch (error: any) {
+    logger.error('Error guardando suscripción push para business_user', { error: error.message });
     throw error;
   }
 };

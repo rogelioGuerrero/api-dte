@@ -14,6 +14,7 @@ export interface AuthRequest extends Omit<Request, 'headers' | 'params' | 'query
     id: string;
     email?: string;
     role?: 'owner' | 'admin' | 'operator';
+    isPlatformAdmin?: boolean;
   };
 }
 
@@ -38,10 +39,27 @@ export const authMiddleware = async (
     }
 
     const supaUser = userResponse.user;
+    const normalizedEmail = (supaUser.email || '').toLowerCase();
+
+    const { data: platformAdmin, error: platformAdminError } = await supabase
+      .from('platform_admins')
+      .select('user_id, active')
+      .eq('user_id', supaUser.id)
+      .eq('email', normalizedEmail)
+      .eq('active', true)
+      .maybeSingle();
+
+    if (platformAdminError) {
+      throw platformAdminError;
+    }
+
+    const isPlatformAdmin = !!platformAdmin?.user_id;
+
     req.user = {
       id: supaUser.id,
       email: supaUser.email || undefined,
       role: 'operator', // se ajusta abajo si hay businessId
+      isPlatformAdmin,
     };
 
     // BusinessId opcional: body, query, params, header
@@ -53,6 +71,11 @@ export const authMiddleware = async (
 
     if (!businessIdRaw) {
       // Endpoint sin contexto de negocio (e.g., crear emisor o invitar)
+      return next();
+    }
+
+    if (isPlatformAdmin) {
+      req.user.role = 'admin';
       return next();
     }
 
