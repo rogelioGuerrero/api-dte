@@ -14,6 +14,7 @@ import pushController from './controllers/pushController';
 import adminController from './controllers/adminController';
 import licensingController from './controllers/licensingController';
 import testController from './controllers/testController';
+import { invokeDiagGraph } from './workflows/diagWorkflow';
 
 // Cargar variables de entorno
 dotenv.config();
@@ -35,6 +36,29 @@ app.get('/health', (req, res) => {
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV || 'development'
   });
+});
+
+app.get('/diag-graph-root', async (_req, res) => {
+  try {
+    const result = await invokeDiagGraph({
+      identificacion: {
+        tipoDte: '01',
+        codigoGeneracion: 'ROOT-DIAG',
+        fecEmi: new Date().toISOString().slice(0, 10),
+        ambiente: '00',
+        version: 1,
+      },
+      emisor: { nit: '14012805761025' },
+      cuerpoDocumento: [],
+      resumen: { totalGravada: 0, totalPagar: 0 },
+    });
+    res.json({ ok: true, result });
+  } catch (error) {
+    res.status(500).json({
+      ok: false,
+      error: error instanceof Error ? error.message : 'diag-graph-root failed'
+    });
+  }
 });
 
 // API Routes

@@ -149,6 +149,19 @@ router.get('/pdf-preview', async (_req: Request, res: Response) => {
   }
 });
 
+router.get('/diag-graph-get', async (_req: Request, res: Response) => {
+  try {
+    const result = await invokeDiagGraph(sampleDte);
+    return res.json({ ok: true, result });
+  } catch (error) {
+    logger.error('Error en diag-graph-get', { error });
+    return res.status(500).json({
+      ok: false,
+      error: error instanceof Error ? error.message : 'diag-graph-get failed'
+    });
+  }
+});
+
 router.post('/diag-graph', async (req: Request, res: Response) => {
   try {
     const { dte } = req.body;
