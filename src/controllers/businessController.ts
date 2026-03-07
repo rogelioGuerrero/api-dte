@@ -8,9 +8,11 @@ import {
   updateBusinessProfileById,
   createBusiness,
   getBusinessById,
+  getBusinessSettingsById,
   getBusinessesByUserAsNit,
   createBusinessUser,
   getBusinessUsers,
+  upsertBusinessSettings,
 } from '../business/businessStorage';
 import { supabase } from '../database/supabase';
 
@@ -259,6 +261,58 @@ router.get('/businesses/:id', async (req: AuthRequest, res: Response, next: Next
     const business = await getBusinessById(businessId);
     if (!business) throw createError('Business no encontrado', 404);
     res.json({ success: true, business });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GET /api/business/settings/:businessId - configuración remota por emisor
+router.get('/settings/:businessId', async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    if (!req.user?.id) throw createError('No autenticado', 401);
+
+    const businessId = req.params.businessId;
+    const business = await getBusinessById(businessId);
+    if (!business) throw createError('Business no encontrado', 404);
+
+    const settings = await getBusinessSettingsById(businessId);
+    res.json({ success: true, settings });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// PUT /api/business/settings/:businessId - crear o actualizar configuración remota por emisor
+router.put('/settings/:businessId', async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    if (!req.user?.id) throw createError('No autenticado', 401);
+
+    const businessId = req.params.businessId;
+    const business = await getBusinessById(businessId);
+    if (!business) throw createError('Business no encontrado', 404);
+
+    const {
+      default_tab = null,
+      features = {},
+      push_enabled = false,
+      fingerprint_enabled = false,
+      advanced_config_enabled = false,
+      plan_code = null,
+      plan_label = null,
+    } = req.body || {};
+
+    const settings = await upsertBusinessSettings({
+      business_id: businessId,
+      default_tab,
+      features,
+      push_enabled,
+      fingerprint_enabled,
+      advanced_config_enabled,
+      plan_code,
+      plan_label,
+    });
+
+    res.json({ success: true, settings });
   } catch (error) {
     next(error);
   }

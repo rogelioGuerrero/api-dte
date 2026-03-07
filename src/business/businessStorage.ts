@@ -3,6 +3,18 @@ import { createLogger } from '../utils/logger';
 
 const logger = createLogger('businessStorage');
 
+export interface BusinessSettings {
+  business_id: string;
+  default_tab?: string | null;
+  features: Record<string, any>;
+  push_enabled: boolean;
+  fingerprint_enabled: boolean;
+  advanced_config_enabled: boolean;
+  plan_code?: string | null;
+  plan_label?: string | null;
+  updated_at?: string;
+}
+
 export interface Business {
   id?: string;
   nit: string;
@@ -27,6 +39,18 @@ export interface Business {
   created_at?: string;
   updated_at?: string;
 }
+
+const normalizeBusinessSettings = (row: any, businessId: string): BusinessSettings => ({
+  business_id: row?.business_id || businessId,
+  default_tab: row?.default_tab ?? null,
+  features: row?.features && typeof row.features === 'object' ? row.features : {},
+  push_enabled: !!row?.push_enabled,
+  fingerprint_enabled: !!row?.fingerprint_enabled,
+  advanced_config_enabled: !!row?.advanced_config_enabled,
+  plan_code: row?.plan_code ?? null,
+  plan_label: row?.plan_label ?? null,
+  updated_at: row?.updated_at,
+});
 
 export interface BusinessUser {
   id?: string;
@@ -113,6 +137,55 @@ export const getBusinessById = async (businessId: string): Promise<Business | nu
     return data as Business;
   } catch (error: any) {
     logger.error('Error fetching business by id', { businessId, error: error.message });
+    throw error;
+  }
+};
+
+export const getBusinessSettingsById = async (businessId: string): Promise<BusinessSettings> => {
+  try {
+    const { data, error } = await supabase
+      .from('business_settings')
+      .select('*')
+      .eq('business_id', businessId)
+      .maybeSingle();
+
+    if (error) throw error;
+
+    return normalizeBusinessSettings(data, businessId);
+  } catch (error: any) {
+    logger.error('Error fetching business settings', { businessId, error: error.message });
+    throw error;
+  }
+};
+
+export const upsertBusinessSettings = async (
+  payload: Omit<BusinessSettings, 'updated_at'>
+): Promise<BusinessSettings> => {
+  try {
+    const dataToSave = {
+      business_id: payload.business_id,
+      default_tab: payload.default_tab ?? null,
+      features: payload.features && typeof payload.features === 'object' ? payload.features : {},
+      push_enabled: !!payload.push_enabled,
+      fingerprint_enabled: !!payload.fingerprint_enabled,
+      advanced_config_enabled: !!payload.advanced_config_enabled,
+      plan_code: payload.plan_code ?? null,
+      plan_label: payload.plan_label ?? null,
+      updated_at: new Date().toISOString(),
+    };
+
+    const { data, error } = await supabase
+      .from('business_settings')
+      .upsert(dataToSave, { onConflict: 'business_id' })
+      .select('*')
+      .single();
+
+    if (error) throw error;
+
+    logger.info('Business settings upserted', { businessId: payload.business_id });
+    return normalizeBusinessSettings(data, payload.business_id);
+  } catch (error: any) {
+    logger.error('Error upserting business settings', { businessId: payload.business_id, error: error.message });
     throw error;
   }
 };
