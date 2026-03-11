@@ -23,14 +23,14 @@ async function main() {
         "version": 1,
         "ambiente": "00",
         "tipoDte": "01",
-        "numeroControl": "DTE-01-M001P001-000000000000011",
-        "codigoGeneracion": "88221AE2-1E88-428B-8CC0-6A4F1B8DA93C",
+        "numeroControl": "DTE-01-M001P001-000000000000012",
+        "codigoGeneracion": "2408A782-AF03-43FE-B22D-AFFE86F613EA",
         "tipoModelo": 1,
         "tipoOperacion": 1,
         "tipoContingencia": null,
         "motivoContin": null,
         "fecEmi": "2026-03-11",
-        "horEmi": "15:13:27",
+        "horEmi": "15:17:15",
         "tipoMoneda": "USD"
       },
       "documentoRelacionado": null,
@@ -63,7 +63,7 @@ async function main() {
         "descActividad": null,
         "direccion": null,
         "telefono": null,
-        "correo": ""
+        "correo": "guerrero_vi@yahoo.com"
       },
       "otrosDocumentos": null,
       "ventaTercero": null,
