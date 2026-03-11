@@ -227,7 +227,7 @@ export const DTE_SCHEMA = {
               },
             },
             telefono: { type: ['string', 'null'], maxLength: 30 },
-            correo: { type: 'string', format: 'email', maxLength: 100 },
+            correo: { type: ['string', 'null'], format: 'email', maxLength: 100 },
           },
         },
         otrosDocumentos: { type: ['object', 'null'] },
