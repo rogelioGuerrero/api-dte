@@ -4,11 +4,15 @@ import { firmarDocumento, limpiarDteParaFirma } from "../../integrations/firmaCl
 import { processDTE } from "../../mh/process";
 import { saveDTEDocument } from "../../dte/dteStorage";
 import { TransmisionResult } from "../../types/types";
+import { getMHCredentialsByNIT } from "../../business/businessStorage";
 
 export const contingencyNode = async (state: DTEState): Promise<Partial<DTEState>> => {
-  console.log("📦 Gestor Contingencia: Transformando a Modelo Diferido...");
+  console.log("📦 [contingencyNode] Gestor Contingencia: Transformando a Modelo Diferido...");
   
-  if (!state.dte || !state.passwordPri) return { status: 'failed' };
+  if (!state.dte) {
+    console.error("❌ [contingencyNode] No hay DTE en el estado.");
+    return { status: 'failed' };
+  }
 
   try {
     // Transformar DTE a Contingencia
@@ -19,13 +23,35 @@ export const contingencyNode = async (state: DTEState): Promise<Partial<DTEState
     const dteLimpio = limpiarDteParaFirma(processed.dte as unknown as Record<string, unknown>);
     const nitEmisor = (state.dte.emisor?.nit || '').toString().replace(/[\s-]/g, '').trim();
 
+    // Obtener credenciales para tener el certificado
+    console.log(`🔍 [contingencyNode] Buscando certificado para NIT: ${nitEmisor}`);
+    const credentials = await getMHCredentialsByNIT(nitEmisor, state.ambiente || '00');
+
+    if (!credentials || !credentials.certificado_b64) {
+      console.error(`❌ [contingencyNode] No se encontró certificado para NIT ${nitEmisor}`);
+      return { 
+        status: 'failed',
+        validationErrors: [`No se encontraron credenciales/certificado para NIT ${nitEmisor} en contingencia`]
+      };
+    }
+
+    const passwordPri = state.passwordPri || credentials.password_pri;
+    if (!passwordPri) {
+      console.error(`❌ [contingencyNode] No hay contraseña de llave privada`);
+      return {
+        status: 'failed',
+        validationErrors: [`No hay contraseña de llave privada para firmar contingencia`]
+      };
+    }
+
     const jwsContingencia = await firmarDocumento({
       nit: nitEmisor,
-      passwordPri: state.passwordPri,
+      passwordPri: passwordPri,
+      certificadoB64: credentials.certificado_b64,
       dteJson: dteLimpio,
     });
 
-    console.log("💾 DTE Contingencia firmado y listo.");
+    console.log("💾 [contingencyNode] DTE Contingencia firmado y listo.");
     
     // Guardar documento en contingencia
     await saveDTEDocument({
@@ -56,6 +82,7 @@ export const contingencyNode = async (state: DTEState): Promise<Partial<DTEState
       } as TransmisionResult
     };
   } catch (error: any) {
+    console.error("❌ [contingencyNode] Error:", error);
     return {
       status: 'failed',
       validationErrors: [`Error generando contingencia: ${error.message}`]

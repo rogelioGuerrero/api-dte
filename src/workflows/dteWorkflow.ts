@@ -62,7 +62,21 @@ const workflow = new StateGraph(StateAnnotation)
 
   // Flujo Emisión
   .addEdge("validator", "post_validation_probe")
-  .addEdge("post_validation_probe", "signer")
+  .addConditionalEdges("post_validation_probe", (state: any) => {
+    console.log('🔀 Post-Validation transition check:', { 
+      isValid: state.isValid, 
+      status: state.status,
+      validationErrors: state.validationErrors?.length 
+    });
+    
+    // Si la validación falló, terminamos el flujo aquí retornando los errores
+    if (state.status === 'failed' || state.isValid === false) {
+      console.log('⛔ Validación fallida. Deteniendo flujo antes de firmar.');
+      return END;
+    }
+    
+    return "signer";
+  })
   .addConditionalEdges("signer", (state: any) => {
     console.log('🔀 Signer transition:', { status: state.status, isSigned: state.isSigned, currentStep: state.currentStep });
     // Si la firma falló o no se generó, terminar (o manejar error)
