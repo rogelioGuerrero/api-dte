@@ -89,8 +89,8 @@ router.post('/transmit', async (req: AuthRequest, res: Response, next: NextFunct
   try {
     const { dte, passwordPri, ambiente = '00' } = req.body;
     
-    if (!dte || !passwordPri) {
-      throw createError('DTE and passwordPri are required', 400);
+    if (!dte) {
+      throw createError('DTE is required', 400);
     }
     
     const nitEmisor = dte.emisor?.nit?.replace(/[^0-9]/g, '') || '';

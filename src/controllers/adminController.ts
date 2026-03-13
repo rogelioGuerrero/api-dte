@@ -2,7 +2,8 @@ import { Router, Response, NextFunction } from 'express';
 import { createLogger } from '../utils/logger';
 import { createError } from '../middleware/errorHandler';
 import { AuthRequest } from '../middleware/auth';
-import { broadcastMessage, BroadcastRequest } from '../services/pushService';
+import { broadcastMessage, BroadcastRequest, isPushConfigured, sendPushTestToBusiness } from '../services/pushService';
+import { getBusinessById, getBusinessSettingsById } from '../business/businessStorage';
 import crypto from 'crypto';
 
 const router = Router();
@@ -54,6 +55,62 @@ router.post('/broadcast', requireAdmin, async (req: AuthRequest, res: Response, 
       success: true,
       message: 'Mensaje enviado exitosamente',
       result
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /api/admin/send-push-test
+router.post('/send-push-test', requireAdmin, async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    if (!req.user?.id) {
+      throw createError('Usuario no autenticado', 401);
+    }
+
+    const {
+      businessId,
+      title = 'Prueba push',
+      body = 'Notificación enviada desde backend',
+      url = '/',
+    } = req.body as {
+      businessId?: string | null;
+      title?: string;
+      body?: string;
+      url?: string;
+    };
+
+    if (!businessId) {
+      throw createError('businessId es requerido', 400);
+    }
+
+    const business = await getBusinessById(businessId);
+    if (!business) {
+      throw createError('Business no encontrado', 404);
+    }
+
+    const settings = await getBusinessSettingsById(businessId);
+    if (!settings.push_enabled) {
+      throw createError('Este negocio tiene deshabilitadas las notificaciones push desde Configuración Avanzada.', 409);
+    }
+
+    if (!isPushConfigured()) {
+      throw createError('Backend push no configurado: faltan VAPID keys o subject válido', 500);
+    }
+
+    const result = await sendPushTestToBusiness(businessId, { title, body, url });
+
+    logger.info('Push test enviado desde admin', {
+      adminId: req.user.id,
+      businessId,
+      title,
+      result,
+    });
+
+    res.json({
+      success: true,
+      message: 'Push de prueba enviado exitosamente',
+      result,
     });
   } catch (error) {
     next(error);
