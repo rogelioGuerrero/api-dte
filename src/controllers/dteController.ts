@@ -12,6 +12,10 @@ import { resolveBusinessIdentityByNIT } from '../business/businessStorage';
 
 const router = Router();
 const logger = createLogger('dteController');
+const activeEmissionRequests = new Map<string, number>();
+
+const buildEmissionLockKey = (businessId: string, numeroControl: string) =>
+  `${businessId}:${numeroControl.trim().toUpperCase()}`;
 
 // Request interface para /api/dte/process
 interface ProcessDTERequest {
@@ -179,6 +183,7 @@ router.post('/transmit', async (req: AuthRequest, res: Response, next: NextFunct
 
 // POST /api/dte/process
 router.post('/process', async (req: AuthRequest, res: Response, next: NextFunction) => {
+  let emissionLockKey: string | null = null;
   try {
     const request: ProcessDTERequest = req.body;
     
@@ -195,12 +200,41 @@ router.post('/process', async (req: AuthRequest, res: Response, next: NextFuncti
 
     // Extraer código de generación del DTE
     const codigoGeneracion = request.dte.identificacion?.codigoGeneracion;
+    const numeroControl = request.dte.identificacion?.numeroControl;
     if (!codigoGeneracion) {
       throw createError('El DTE no tiene código de generación', 400);
     }
+    if (!numeroControl) {
+      throw createError('El DTE no tiene número de control', 400);
+    }
+
+    emissionLockKey = buildEmissionLockKey(identity.businessId, numeroControl);
+    if (activeEmissionRequests.has(emissionLockKey)) {
+      logger.warn('Bloqueando reintento concurrente de DTE', {
+        codigoGeneracion,
+        numeroControl,
+        businessId: identity.businessId,
+        nit: identity.nit,
+      });
+
+      return res.status(409).json({
+        success: false,
+        error: {
+          severity: 'warning',
+          category: 'system',
+          code: 'DTE_ALREADY_PROCESSING',
+          userMessage: 'Tu documento ya está siendo enviado. Por favor espera unos segundos; no es necesario volver a enviarlo.',
+          canRetry: false,
+          details: [`numeroControl: ${numeroControl}`]
+        }
+      } satisfies DteProcessResponse);
+    }
+
+    activeEmissionRequests.set(emissionLockKey, Date.now());
 
     logger.info('Iniciando procesamiento DTE', { 
       codigoGeneracion, 
+      numeroControl,
       businessId: identity.businessId,
       nit: identity.nit,
       flowType: request.flowType 
@@ -239,6 +273,10 @@ router.post('/process', async (req: AuthRequest, res: Response, next: NextFuncti
   } catch (error: any) {
     logger.error('Error en procesamiento DTE', { error: error.message });
     next(error);
+  } finally {
+    if (emissionLockKey) {
+      activeEmissionRequests.delete(emissionLockKey);
+    }
   }
 });
 
