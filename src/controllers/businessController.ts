@@ -18,8 +18,10 @@ import {
 import { supabase } from '../database/supabase';
 import {
   PushSubscription,
-  removePushSubscriptionForBusinessUser,
-  savePushSubscriptionForBusinessUser,
+  isPushConfigured,
+  removePushSubscriptionForBusiness,
+  savePushSubscriptionForBusiness,
+  sendPushTestToBusiness,
 } from '../services/pushService';
 
 const router = Router();
@@ -53,6 +55,19 @@ const resolveBusinessUuidToNit = async (businessUuid: string): Promise<string> =
 
   if (error || !data) return raw;
   return (data as any).nit_clean || (data as any).nit || raw;
+};
+
+const requireBusinessMembership = async (businessId: string, userId: string): Promise<void> => {
+  const { data: membership, error: membershipError } = await supabase
+    .from('business_users')
+    .select('id')
+    .eq('business_id', businessId)
+    .eq('user_id', userId)
+    .single();
+
+  if (membershipError || !membership?.id) {
+    throw createError('No autorizado para este emisor', 403);
+  }
 };
 
 // POST /api/business/credentials
@@ -524,7 +539,7 @@ router.post('/business_users/invite', async (req: AuthRequest, res: Response, ne
   }
 });
 
-// POST /api/business/push-subscriptions - sincroniza suscripción push del usuario para un emisor
+// POST /api/business/push-subscriptions - guarda suscripción push por negocio/dispositivo
 router.post('/push-subscriptions', async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     if (!req.user?.id) throw createError('No autenticado', 401);
@@ -543,24 +558,15 @@ router.post('/push-subscriptions', async (req: AuthRequest, res: Response, next:
     const business = await getBusinessById(businessId);
     if (!business) throw createError('Business no encontrado', 404);
 
-    const { data: membership, error: membershipError } = await supabase
-      .from('business_users')
-      .select('id, role')
-      .eq('business_id', businessId)
-      .eq('user_id', req.user.id)
-      .single();
+    await requireBusinessMembership(businessId, req.user.id);
+    const saved = await savePushSubscriptionForBusiness(businessId, subscription, userAgent);
 
-    if (membershipError || !membership?.id) {
-      throw createError('No autorizado para este emisor', 403);
-    }
-
-    await savePushSubscriptionForBusinessUser(membership.id, subscription, userAgent);
-
-    res.json({
+    res.status(201).json({
       success: true,
       pushSubscription: {
         businessId,
-        endpoint: subscription.endpoint,
+        endpoint: saved.endpoint,
+        disabled: saved.disabled,
       },
     });
   } catch (error) {
@@ -568,7 +574,7 @@ router.post('/push-subscriptions', async (req: AuthRequest, res: Response, next:
   }
 });
 
-// DELETE /api/business/push-subscriptions - elimina suscripción push del usuario para un emisor
+// DELETE /api/business/push-subscriptions - elimina suscripción push por negocio/dispositivo
 router.delete('/push-subscriptions', async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     if (!req.user?.id) throw createError('No autenticado', 401);
@@ -579,28 +585,64 @@ router.delete('/push-subscriptions', async (req: AuthRequest, res: Response, nex
     };
 
     if (!businessId) throw createError('businessId es requerido', 400);
+    if (!endpoint) throw createError('endpoint es requerido', 400);
 
     const business = await getBusinessById(businessId);
     if (!business) throw createError('Business no encontrado', 404);
 
-    const { data: membership, error: membershipError } = await supabase
-      .from('business_users')
-      .select('id')
-      .eq('business_id', businessId)
-      .eq('user_id', req.user.id)
-      .single();
-
-    if (membershipError || !membership?.id) {
-      throw createError('No autorizado para este emisor', 403);
-    }
-
-    await removePushSubscriptionForBusinessUser(membership.id, endpoint);
+    await requireBusinessMembership(businessId, req.user.id);
+    const removedCount = await removePushSubscriptionForBusiness(businessId, endpoint);
 
     res.json({
       success: true,
-      removed: true,
+      removed: removedCount > 0,
+      removedCount,
       businessId,
-      endpoint: endpoint || null,
+      endpoint,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /api/business/push-test - dispara una notificación de prueba a suscripciones activas
+router.post('/push-test', async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    if (!req.user?.id) throw createError('No autenticado', 401);
+
+    const {
+      businessId,
+      title = 'Prueba push',
+      body = 'Notificación enviada correctamente',
+      url = '/',
+    } = req.body as {
+      businessId?: string | null;
+      title?: string;
+      body?: string;
+      url?: string;
+    };
+
+    if (!businessId) throw createError('businessId es requerido', 400);
+
+    const business = await getBusinessById(businessId);
+    if (!business) throw createError('Business no encontrado', 404);
+
+    await requireBusinessMembership(businessId, req.user.id);
+
+    const settings = await getBusinessSettingsById(businessId);
+    if (!settings.push_enabled) {
+      throw createError('Este negocio tiene deshabilitadas las notificaciones push desde Configuración Avanzada.', 409);
+    }
+
+    if (!isPushConfigured()) {
+      throw createError('Backend push no configurado: faltan VAPID keys o subject válido', 500);
+    }
+
+    const result = await sendPushTestToBusiness(businessId, { title, body, url });
+
+    res.json({
+      success: true,
+      result,
     });
   } catch (error) {
     next(error);

@@ -1,12 +1,17 @@
--- Para suscripciones push de usuarios
+-- Para suscripciones push por negocio/dispositivo
 CREATE TABLE push_subscriptions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID REFERENCES business_users(id),
-  subscription JSONB NOT NULL,
+  business_id UUID NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
+  endpoint TEXT NOT NULL,
+  p256dh TEXT NOT NULL,
+  auth TEXT NOT NULL,
   user_agent TEXT,
+  disabled BOOLEAN NOT NULL DEFAULT FALSE,
+  last_sent_at TIMESTAMP NULL,
+  last_error TEXT NULL,
   created_at TIMESTAMP DEFAULT NOW(),
   updated_at TIMESTAMP DEFAULT NOW(),
-  UNIQUE(user_id, (subscription->>'endpoint'))
+  UNIQUE(business_id, endpoint)
 );
 
 -- Para logs de mensajes enviados (auditoría)
@@ -22,6 +27,7 @@ CREATE TABLE push_logs (
 );
 
 -- Índices para mejor rendimiento
-CREATE INDEX idx_push_subscriptions_user_id ON push_subscriptions(user_id);
+CREATE INDEX idx_push_subscriptions_business_id ON push_subscriptions(business_id);
+CREATE INDEX idx_push_subscriptions_disabled ON push_subscriptions(disabled);
 CREATE INDEX idx_push_logs_sent_at ON push_logs(sent_at);
 CREATE INDEX idx_push_logs_admin_id ON push_logs(admin_id);
