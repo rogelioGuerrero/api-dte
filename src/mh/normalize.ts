@@ -68,7 +68,7 @@ export const normalizeDTE = (dte: DTEJSON): DTEJSON => {
       tributos: tipoDte === '01' ? null : (ventaGravada > 0 ? ['20'] : null),
       psv: roundTo(i.psv ?? 0, 2),
       noGravado: roundTo(i.noGravado ?? 0, 2),
-      ivaItem: ivaCalculado,
+      ...(tipoDte === '03' ? {} : { ivaItem: ivaCalculado }),
     };
   });
 
@@ -111,8 +111,13 @@ export const normalizeDTE = (dte: DTEJSON): DTEJSON => {
     } as any,
     receptor: {
       ...(dte as any).receptor,
-      tipoDocumento: (trimOrNull((dte as any).receptor?.tipoDocumento) as any) ?? null,
-      numDocumento: onlyDigits((dte as any).receptor?.numDocumento),
+      ...(tipoDte === '03'
+        ? {}
+        : {
+            tipoDocumento: (trimOrNull((dte as any).receptor?.tipoDocumento) as any) ?? null,
+            numDocumento: onlyDigits((dte as any).receptor?.numDocumento),
+          }),
+      nit: onlyDigits((dte as any).receptor?.nit),
       nrc: onlyDigits((dte as any).receptor?.nrc),
       nombre: (dte as any).receptor?.nombre ? String((dte as any).receptor.nombre).trim() : '',
       codActividad: trimOrNull((dte as any).receptor?.codActividad) as any,
@@ -136,7 +141,9 @@ export const normalizeDTE = (dte: DTEJSON): DTEJSON => {
       const totalGravada = roundTo(items.reduce((a, b) => a + b.ventaGravada, 0), 2);
       const totalNoSuj = roundTo(items.reduce((a, b) => a + b.ventaNoSuj, 0), 2);
       const totalExenta = roundTo(items.reduce((a, b) => a + b.ventaExenta, 0), 2);
-      const totalIva = roundTo(items.reduce((a, b) => a + b.ivaItem, 0), 2);
+      const totalIva = tipoDte === '03'
+        ? roundTo((dte as any).resumen?.totalIva ?? 0, 2)
+        : roundTo(items.reduce((a, b) => a + (b.ivaItem ?? 0), 0), 2);
       // En tipo 01 (Factura consumidor final) montos con IVA incluido; totalIva es informativo.
       const subTotalVentas = roundTo(totalNoSuj + totalExenta + totalGravada, 2);
       const subTotal = subTotalVentas;
