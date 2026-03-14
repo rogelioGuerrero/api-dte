@@ -1,4 +1,4 @@
-import { Router, Request, Response, NextFunction } from 'express';
+﻿import { Router, Request, Response, NextFunction } from 'express';
 import { createLogger } from '../utils/logger';
 import { createError } from '../middleware/errorHandler';
 import { dteGraph } from '../workflows/dteWorkflow';
@@ -51,14 +51,31 @@ const buildReconciledMhResponse = (payload: {
 };
 
 // Request interface para /api/dte/process
+const isTemporarySignerWait = (result: any) =>
+  result?.currentStep === 'signer' && result?.errorCode === 'SIGNER_TEMPORARILY_UNAVAILABLE';
+
+const buildPendingSignerResponse = (result: any, dte: any) => ({
+  success: true,
+  estado: 'PENDIENTE_FIRMA',
+  codigoGeneracion:
+    result?.codigoGeneracion ||
+    result?.dte?.identificacion?.codigoGeneracion ||
+    dte?.identificacion?.codigoGeneracion,
+  numeroControl:
+    result?.dte?.identificacion?.numeroControl ||
+    dte?.identificacion?.numeroControl,
+  mensaje: 'Estamos preparando tu documento. Contin?a en proceso y puedes reintentar en unos segundos si a?n no finaliza.',
+  pending: true,
+});
+
 interface ProcessDTERequest {
-  dte: any;                    // DTE JSON completo
-  passwordPri?: string;        // Password para firma (ahora opcional, se busca en Supabase)
-  ambiente: '00' | '01';       // Pruebas/Producción
+  dte: any;
+  passwordPri?: string;
+  ambiente: '00' | '01';
   flowType: 'emission' | 'reception';
-  businessId?: string;         // UUID del negocio (legacy)
-  nit?: string;                // NIT del emisor (nuevo estándar)
-  deviceId?: string;           // Fingerprint opcional
+  businessId?: string;
+  nit?: string;
+  deviceId?: string;
 }
 
 // POST /api/dte/validate
@@ -95,7 +112,7 @@ router.post('/sign', async (req: AuthRequest, res: Response, next: NextFunction)
     
     logger.info('Signing DTE');
     
-    // Ejecutar solo los nodos de validación y firma
+    // Ejecutar solo los nodos de validaciÃ³n y firma
     const result = await (dteGraph as any).invoke({
       ...INITIAL_STATE,
       dte,
@@ -260,7 +277,7 @@ router.post('/transmit', async (req: AuthRequest, res: Response, next: NextFunct
           numeroControl:
             result.dte?.identificacion?.numeroControl ||
             dte?.identificacion?.numeroControl,
-          mensaje: result.errorMessage || 'El backend rechazó o no pudo completar la transmisión.',
+          mensaje: result.errorMessage || 'El backend rechazÃ³ o no pudo completar la transmisiÃ³n.',
           errores: [
             {
               codigo: result.errorCode || 'BACKEND-WORKFLOW',
@@ -276,23 +293,23 @@ router.post('/transmit', async (req: AuthRequest, res: Response, next: NextFunct
       : result.mhResponse;
 
     logger.info('Transmit workflow result', {
-      status: result.status,
+      status: isTemporarySignerWait(result) ? 'processing' : result.status,
       currentStep: result.currentStep,
-      errorCode: result.errorCode,
+      errorCode: isTemporarySignerWait(result) ? undefined : result.errorCode,
       hasMhResponse: !!result.mhResponse,
       isTransmitted: result.isTransmitted,
     });
 
     res.json({
-      transmitted: result.isTransmitted,
+      transmitted: isTemporarySignerWait(result) ? false : result.isTransmitted,
       mhResponse: fallbackMhResponse,
       signature: result.signature,
       isOffline: result.isOffline,
       contingencyReason: result.contingencyReason,
-      status: result.status,
+      status: isTemporarySignerWait(result) ? 'processing' : result.status,
       currentStep: result.currentStep,
-      errorCode: result.errorCode,
-      errorMessage: result.errorMessage,
+      errorCode: isTemporarySignerWait(result) ? undefined : result.errorCode,
+      errorMessage: isTemporarySignerWait(result) ? undefined : result.errorMessage,
       validationErrors: result.validationErrors,
     });
   } catch (error) {
@@ -317,14 +334,14 @@ router.post('/process', async (req: AuthRequest, res: Response, next: NextFuncti
       throw createError(`Business no encontrado para NIT ${targetNit}`, 404);
     }
 
-    // Extraer código de generación del DTE
+    // Extraer cÃ³digo de generaciÃ³n del DTE
     const codigoGeneracion = request.dte.identificacion?.codigoGeneracion;
     const numeroControl = request.dte.identificacion?.numeroControl;
     if (!codigoGeneracion) {
-      throw createError('El DTE no tiene código de generación', 400);
+      throw createError('El DTE no tiene cÃ³digo de generaciÃ³n', 400);
     }
     if (!numeroControl) {
-      throw createError('El DTE no tiene número de control', 400);
+      throw createError('El DTE no tiene nÃºmero de control', 400);
     }
 
     emissionLockKey = buildEmissionLockKey(identity.businessId, numeroControl);
@@ -342,7 +359,7 @@ router.post('/process', async (req: AuthRequest, res: Response, next: NextFuncti
           severity: 'warning',
           category: 'system',
           code: 'DTE_ALREADY_PROCESSING',
-          userMessage: 'Tu documento ya está siendo enviado. Por favor espera unos segundos; no es necesario volver a enviarlo.',
+          userMessage: 'Tu documento ya estÃ¡ siendo enviado. Por favor espera unos segundos; no es necesario volver a enviarlo.',
           canRetry: false,
           details: [`numeroControl: ${numeroControl}`]
         }
@@ -362,7 +379,7 @@ router.post('/process', async (req: AuthRequest, res: Response, next: NextFuncti
     // Crear estado inicial para LangGraph
     const initialState: Partial<DTEState> = {
       dte: request.dte,
-      passwordPri: request.passwordPri, // Puede ser null, lo sacará de Supabase
+      passwordPri: request.passwordPri, // Puede ser null, lo sacarÃ¡ de Supabase
       ambiente: request.ambiente || '00',
       flowType: request.flowType || 'emission',
       businessId: identity.businessId,
@@ -383,7 +400,7 @@ router.post('/process', async (req: AuthRequest, res: Response, next: NextFuncti
 
     logger.info('Procesamiento DTE completado', { 
       codigoGeneracion, 
-      status: result.status,
+      status: isTemporarySignerWait(result) ? 'processing' : result.status,
       success: response.success
     });
 
@@ -435,7 +452,7 @@ router.post('/contingency', async (req: AuthRequest, res: Response, next: NextFu
 
 /**
  * GET /api/dte/:codigoGeneracion/status
- * Consulta el estado actual de un DTE específico
+ * Consulta el estado actual de un DTE especÃ­fico
  */
 router.get('/:codigoGeneracion/status', 
   async (req: AuthRequest, res: Response, next: NextFunction) => {
@@ -467,7 +484,7 @@ router.get('/:codigoGeneracion/status',
         createdAt: dteDoc.created_at,
         updatedAt: dteDoc.updated_at,
         
-        // Respuesta de MH si está disponible
+        // Respuesta de MH si estÃ¡ disponible
         mhResponse: dteDoc.mh_response ? {
           estado: dteDoc.mh_response.estado,
           selloRecepcion: dteDoc.mh_response.selloRecepcion,
@@ -531,11 +548,11 @@ router.get('/business/:businessId/dtes',
           createdAt: doc.created_at,
           updatedAt: doc.updated_at,
           
-          // Información básica de MH
+          // InformaciÃ³n bÃ¡sica de MH
           selloRecibido: doc.sello_recibido,
           fhProcesamiento: doc.fh_procesamiento,
           
-          // URLs si están disponibles
+          // URLs si estÃ¡n disponibles
           tienePdf: !!doc.pdf_url,
           tieneXml: !!doc.xml_url,
           tieneJson: !!doc.json_url
@@ -559,7 +576,7 @@ router.get('/business/:businessId/dtes',
 
 /**
  * POST /api/dte/:codigoGeneracion/retry
- * Reintenta la transmisión de un DTE en contingencia
+ * Reintenta la transmisiÃ³n de un DTE en contingencia
  */
 router.post('/:codigoGeneracion/retry', 
   async (req: AuthRequest, res: Response, next: NextFunction) => {
@@ -587,15 +604,15 @@ router.post('/:codigoGeneracion/retry',
         throw createError('Solo se pueden reintentar DTEs en contingencia', 400);
       }
 
-      logger.info('Reintentando transmisión DTE', { codigoGeneracion, businessId });
+      logger.info('Reintentando transmisiÃ³n DTE', { codigoGeneracion, businessId });
 
-      // Aquí reprocesaríamos el DTE con el workflow
+      // AquÃ­ reprocesarÃ­amos el DTE con el workflow
       // Por ahora actualizamos el estado a transmitting
       await updateDTEDocumentStatus(codigoGeneracion, 'transmitting');
 
       const result = {
         success: true,
-        message: 'Reintentando transmisión',
+        message: 'Reintentando transmisiÃ³n',
         codigoGeneracion,
         newStatus: 'transmitting',
         ambiente
@@ -611,3 +628,6 @@ router.post('/:codigoGeneracion/retry',
 );
 
 export default router;
+
+
+
