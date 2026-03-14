@@ -145,3 +145,52 @@ export async function getDTEResponseByCodigo(codigoGeneracion: string) {
     throw error;
   }
 }
+
+export async function getDTEResponseByNumeroControl(
+  businessId: string,
+  numeroControl: string,
+  ambiente?: string,
+  tipoDte?: string
+) {
+  try {
+    let query = supabase
+      .from('dte_responses')
+      .select('*')
+      .eq('business_id', businessId)
+      .eq('dte_json->identificacion->>numeroControl', numeroControl)
+      .order('fecha_hora_procesamiento', { ascending: false })
+      .limit(1);
+
+    if (ambiente) {
+      query = query.eq('ambiente', ambiente);
+    }
+
+    if (tipoDte) {
+      query = query.eq('tipo_dte', tipoDte);
+    }
+
+    const { data, error } = await query.maybeSingle();
+
+    if (error) {
+      logger.error('Error buscando respuesta DTE por número de control', {
+        error,
+        businessId,
+        numeroControl,
+        ambiente,
+        tipoDte,
+      });
+      throw error;
+    }
+
+    return data;
+  } catch (error) {
+    logger.error('Error en getDTEResponseByNumeroControl', {
+      error,
+      businessId,
+      numeroControl,
+      ambiente,
+      tipoDte,
+    });
+    throw error;
+  }
+}

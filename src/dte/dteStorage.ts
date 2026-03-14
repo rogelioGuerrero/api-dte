@@ -1,4 +1,4 @@
-import { supabase } from '../database/supabase';
+﻿import { supabase } from '../database/supabase';
 import { createLogger } from '../utils/logger';
 import { DTEJSON } from './generator';
 
@@ -16,8 +16,8 @@ export interface DTEDocument {
   receiver_nit?: string;
   dte_json: DTEJSON;
   firma_jws?: string;
-  estado: string; // 'draft', 'signed', 'transmitted', 'rejected', 'contingency', 'processed'
-  clase_documento: string; // 'emitido', 'recibido'
+  estado: string;
+  clase_documento: string;
   mh_response?: any;
   pdf_url?: string;
   xml_url?: string;
@@ -51,7 +51,7 @@ export const saveDTEDocument = async (doc: DTEDocument): Promise<void> => {
       }, { onConflict: 'codigo_generacion' });
 
     if (error) throw error;
-    
+
     logger.info('DTE document saved successfully', { codigoGeneracion: doc.codigo_generacion, businessId: doc.business_id });
   } catch (error: any) {
     logger.error('Error saving DTE document', { error: error.message });
@@ -79,6 +79,40 @@ export const getDTEDocument = async (codigoGeneracion: string): Promise<DTEDocum
   }
 };
 
+export const getDTEDocumentByNumeroControl = async (
+  businessId: string,
+  numeroControl: string,
+  tipoDte?: string
+): Promise<DTEDocument | null> => {
+  try {
+    let query = supabase
+      .from('dte_documents')
+      .select('*')
+      .eq('business_id', businessId)
+      .eq('numero_control', numeroControl)
+      .order('updated_at', { ascending: false })
+      .limit(1);
+
+    if (tipoDte) {
+      query = query.eq('tipo_dte', tipoDte);
+    }
+
+    const { data, error } = await query.maybeSingle();
+
+    if (error) throw error;
+
+    return (data as DTEDocument | null) ?? null;
+  } catch (error: any) {
+    logger.error('Error fetching DTE document by numero_control', {
+      error: error.message,
+      businessId,
+      numeroControl,
+      tipoDte,
+    });
+    throw error;
+  }
+};
+
 export const getDTEsByPeriod = async (startDate: string, endDate: string, businessId: string): Promise<DTEDocument[]> => {
   try {
     const { data, error } = await supabase
@@ -92,7 +126,6 @@ export const getDTEsByPeriod = async (startDate: string, endDate: string, busine
     if (error) throw error;
 
     return (data || []) as DTEDocument[];
-
   } catch (error: any) {
     logger.error('Error fetching DTEs by period', { error: error.message });
     throw error;
@@ -100,7 +133,7 @@ export const getDTEsByPeriod = async (startDate: string, endDate: string, busine
 };
 
 export const getDTEsByBusiness = async (
-  businessId: string, 
+  businessId: string,
   options?: {
     tipoDte?: string;
     claseDocumento?: string;
@@ -145,7 +178,7 @@ export const getDTEsByBusiness = async (
 };
 
 export const updateDTEDocumentStatus = async (
-  codigoGeneracion: string, 
+  codigoGeneracion: string,
   newStatus: string,
   additionalData?: Partial<DTEDocument>
 ): Promise<void> => {
@@ -155,7 +188,6 @@ export const updateDTEDocumentStatus = async (
       updated_at: new Date().toISOString()
     };
 
-    // Agregar datos adicionales si se proporcionan
     if (additionalData) {
       if (additionalData.mh_response) updateData.mh_response = additionalData.mh_response;
       if (additionalData.pdf_url) updateData.pdf_url = additionalData.pdf_url;
@@ -171,7 +203,7 @@ export const updateDTEDocumentStatus = async (
       .eq('codigo_generacion', codigoGeneracion);
 
     if (error) throw error;
-    
+
     logger.info('DTE document status updated', { codigoGeneracion, newStatus });
   } catch (error: any) {
     logger.error('Error updating DTE document status', { error: error.message, codigoGeneracion });

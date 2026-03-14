@@ -1,5 +1,5 @@
-import { DTEState } from "../state";
-import { transmitirDTESandbox } from "../../mh/sandboxClient";
+﻿import { DTEState } from "../state";
+import { consultarDTESandbox, transmitirDTESandbox } from "../../mh/sandboxClient";
 import { createLogger } from '../../utils/logger';
 import { getMHCredentialsByNIT, updateMHTokenByNIT } from '../../business/businessStorage';
 import { randomUUID } from 'crypto';
@@ -21,13 +21,19 @@ const decodeJwsPayload = (jws: string) => {
 
 const logger = createLogger('transmitNode');
 
+const isNumeroControlDuplicateResponse = (result: any) => {
+  const duplicateCode = result?.codigoMsg === '004';
+  const duplicateMessage = `${result?.mensaje || ''} ${result?.descripcionMsg || ''}`.toUpperCase();
+  return duplicateCode || duplicateMessage.includes('YA EXISTE UN REGISTRO CON ESE VALOR');
+};
+
 export const transmitNode = async (state: DTEState): Promise<Partial<DTEState>> => {
   const ambiente = state.ambiente || '00';
   const nitEmisor = (state.nit || state.dte?.emisor?.nit || '').toString().replace(/[\s-]/g, '').trim();
   const nitLimpioBusqueda = nitEmisor;
-  
+
   console.log(`📡 Transmitter: Enviando DTE a MH para NIT: ${nitLimpioBusqueda}, ambiente: ${ambiente}`);
-  
+
   if (!state.dte || !state.signature || !state.apiToken) {
     return {
       status: 'failed',
@@ -39,7 +45,6 @@ export const transmitNode = async (state: DTEState): Promise<Partial<DTEState>> 
   }
 
   try {
-    // Obtener credenciales para extraer el token
     const credentials = await getMHCredentialsByNIT(nitLimpioBusqueda, ambiente);
 
     if (!credentials) {
@@ -55,9 +60,8 @@ export const transmitNode = async (state: DTEState): Promise<Partial<DTEState>> 
 
     console.log(`✅ Credenciales encontradas para transmisión, business_id: ${credentials.business_id}`);
 
-    // Usar el token actualizado del estado o el de las credenciales
     const finalApiToken = state.apiToken || normalizeBearerToken(credentials.api_token);
-    
+
     if (!finalApiToken) {
       return {
         status: 'failed',
@@ -68,7 +72,6 @@ export const transmitNode = async (state: DTEState): Promise<Partial<DTEState>> 
       };
     }
 
-    // Log del payload JWS para debug
     try {
       const decoded = decodeJwsPayload(state.signature);
       if (decoded) {
@@ -100,9 +103,9 @@ export const transmitNode = async (state: DTEState): Promise<Partial<DTEState>> 
       state.signature,
       ambiente,
       finalApiToken,
-      1, // version
+      1,
       state.dte.identificacion?.tipoDte || '01',
-      1, // idEnvio
+      1,
       state.dte.identificacion?.codigoGeneracion
     );
 
@@ -117,66 +120,106 @@ export const transmitNode = async (state: DTEState): Promise<Partial<DTEState>> 
         nit: nitLimpioBusqueda,
         currentStep: 'transmitter',
         progressPercentage: 75,
-        estimatedTime: 20 // 20 segundos más
+        estimatedTime: 20
       };
     }
 
     if (result.success) {
       console.log("✅ MH: Recibido exitosamente.", result.selloRecepcion);
-      
+
       return {
         isTransmitted: true,
         mhResponse: result,
         status: 'completed',
         progressPercentage: 90,
         currentStep: 'transmitter',
-        estimatedTime: 5 // 5 segundos para tax keeper
+        estimatedTime: 5
       };
-    } else {
-      // Manejo de errores
-      console.error("❌ MH Rechazo/Error:", result);
+    }
 
-      // Detectar errores de negocio MH (estado RECHAZADO) -> no reintentar
-      const mhRejected = result.estado === 'RECHAZADO' || (result as any).codigoMsg || (result as any).clasificaMsg;
+    console.error("❌ MH Rechazo/Error:", result);
 
-      // Detectar problemas de conexión o errores 500 para contingencia
-      const isCommError = !mhRejected && result.errores?.some((e: any) => e.codigo === 'COM-ERR' || e.codigo.startsWith('HTTP-'));
-      
-      if (isCommError) {
-        if ((state.retryCount || 0) < 2) {
-          console.log(`🔄 Error de conexión. Reintentando (${(state.retryCount || 0) + 1}/3)...`);
-          return {
-            retryCount: (state.retryCount || 0) + 1,
-            status: 'transmitting',
-            progressPercentage: 60,
-            currentStep: 'transmitter',
-            estimatedTime: 20 // 20 segundos más
-          };
-        } else {
-          console.warn("⚠️ Timeout/Error Conexión. Activando Contingencia.");
-          return {
-            status: 'contingency',
-            isOffline: true,
-            contingencyReason: "Falla de comunicación con MH",
-            errorCode: 'TRANSMIT_ERROR_COMMUNICATION',
-            errorMessage: 'Falla de comunicación con Ministerio de Hacienda',
-            canRetry: true,
-            progressPercentage: 70,
-            currentStep: 'transmitter'
-          };
-        }
+    if (isNumeroControlDuplicateResponse(result) && state.dte?.identificacion?.codigoGeneracion) {
+      try {
+        const consultaMh = await consultarDTESandbox<any>(
+          state.dte.identificacion.codigoGeneracion,
+          ambiente
+        );
+
+        logger.warn('Consulta MH tras duplicado numeroControl', {
+          codigoGeneracion: state.dte.identificacion.codigoGeneracion,
+          numeroControl: state.dte.identificacion?.numeroControl,
+          ambiente,
+          consultaMh,
+        });
+
+        return {
+          status: 'failed',
+          mhResponse: result,
+          mhDuplicateCheck: consultaMh,
+          errorCode: 'TRANSMIT_ERROR_DUPLICATE_NUMERO_CONTROL',
+          errorMessage: result.mensaje || 'Número de control ya registrado en MH',
+          canRetry: false,
+          progressPercentage: 60,
+          currentStep: 'transmitter'
+        };
+      } catch (consultaError: any) {
+        logger.warn('No se pudo consultar MH tras duplicado numeroControl', {
+          codigoGeneracion: state.dte.identificacion.codigoGeneracion,
+          numeroControl: state.dte.identificacion?.numeroControl,
+          ambiente,
+          error: consultaError?.message,
+        });
+
+        return {
+          status: 'failed',
+          mhResponse: result,
+          errorCode: 'TRANSMIT_ERROR_DUPLICATE_NUMERO_CONTROL',
+          errorMessage: result.mensaje || 'Número de control ya registrado en MH',
+          canRetry: false,
+          progressPercentage: 60,
+          currentStep: 'transmitter'
+        };
+      }
+    }
+
+    const mhRejected = result.estado === 'RECHAZADO' || (result as any).codigoMsg || (result as any).clasificaMsg;
+    const isCommError = !mhRejected && result.errores?.some((e: any) => e.codigo === 'COM-ERR' || e.codigo.startsWith('HTTP-'));
+
+    if (isCommError) {
+      if ((state.retryCount || 0) < 2) {
+        console.log(`🔄 Error de conexión. Reintentando (${(state.retryCount || 0) + 1}/3)...`);
+        return {
+          retryCount: (state.retryCount || 0) + 1,
+          status: 'transmitting',
+          progressPercentage: 60,
+          currentStep: 'transmitter',
+          estimatedTime: 20
+        };
       }
 
-      // Errores de validación de MH (no reintentables)
+      console.warn("⚠️ Timeout/Error Conexión. Activando Contingencia.");
       return {
-        status: 'failed',
-        errorCode: 'TRANSMIT_ERROR_MH_VALIDATION',
-        errorMessage: result.errores?.map(e => `MH [${e.codigo}]: ${e.descripcion}`).join(', ') || result.mensaje || 'Error desconocido MH',
-        canRetry: false, // Errores de MH no se reintentan
-        progressPercentage: 60,
+        status: 'contingency',
+        isOffline: true,
+        contingencyReason: "Falla de comunicación con MH",
+        errorCode: 'TRANSMIT_ERROR_COMMUNICATION',
+        errorMessage: 'Falla de comunicación con Ministerio de Hacienda',
+        canRetry: true,
+        progressPercentage: 70,
         currentStep: 'transmitter'
       };
     }
+
+    return {
+      status: 'failed',
+      mhResponse: result,
+      errorCode: 'TRANSMIT_ERROR_MH_VALIDATION',
+      errorMessage: result.errores?.map(e => `MH [${e.codigo}]: ${e.descripcion}`).join(', ') || result.mensaje || 'Error desconocido MH',
+      canRetry: false,
+      progressPercentage: 60,
+      currentStep: 'transmitter'
+    };
   } catch (error: any) {
     console.error("❌ Error crítico en transmisión:", error);
     return {
