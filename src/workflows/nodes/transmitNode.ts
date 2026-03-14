@@ -112,6 +112,12 @@ export const transmitNode = async (state: DTEState): Promise<Partial<DTEState>> 
     console.log(`🚀 Enviando DTE firmado a MH...`);
     const tipoDte = state.dte.identificacion?.tipoDte || '01';
     const envelopeVersion = getEnvelopeVersionByTipoDte(tipoDte);
+    logger.info('MH ENVELOPE DEBUG', {
+      tipoDte,
+      envelopeVersion,
+      codigoGeneracion: state.dte.identificacion?.codigoGeneracion,
+      numeroControl: state.dte.identificacion?.numeroControl,
+    });
 
     const result = await transmitirDTESandbox(
       state.signature,
