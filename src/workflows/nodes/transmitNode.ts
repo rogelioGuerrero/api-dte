@@ -27,6 +27,17 @@ const isNumeroControlDuplicateResponse = (result: any) => {
   return duplicateCode || duplicateMessage.includes('YA EXISTE UN REGISTRO CON ESE VALOR');
 };
 
+const getEnvelopeVersionByTipoDte = (tipoDte?: string): number => {
+  switch ((tipoDte || '').trim()) {
+    case '03':
+      return 3;
+    case '11':
+      return 1;
+    default:
+      return 1;
+  }
+};
+
 export const transmitNode = async (state: DTEState): Promise<Partial<DTEState>> => {
   const ambiente = state.ambiente || '00';
   const nitEmisor = (state.nit || state.dte?.emisor?.nit || '').toString().replace(/[\s-]/g, '').trim();
@@ -99,12 +110,15 @@ export const transmitNode = async (state: DTEState): Promise<Partial<DTEState>> 
     }
 
     console.log(`🚀 Enviando DTE firmado a MH...`);
+    const tipoDte = state.dte.identificacion?.tipoDte || '01';
+    const envelopeVersion = getEnvelopeVersionByTipoDte(tipoDte);
+
     const result = await transmitirDTESandbox(
       state.signature,
       ambiente,
       finalApiToken,
-      1,
-      state.dte.identificacion?.tipoDte || '01',
+      envelopeVersion,
+      tipoDte,
       1,
       state.dte.identificacion?.codigoGeneracion
     );
