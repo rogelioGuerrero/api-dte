@@ -245,7 +245,7 @@
           type: 'object',
           required: ['ambiente', 'tipoDte', 'numeroControl', 'codigoGeneracion', 'tipoModelo', 'tipoOperacion', 'fecEmi', 'horEmi', 'tipoMoneda'],
           properties: {
-            version: { type: 'integer', const: 1 },
+            version: { type: 'integer', const: 3 },
             ambiente: { type: 'string', enum: ['00', '01'] },
             tipoDte: { type: 'string', const: '03' },
             numeroControl: { type: 'string', pattern: '^DTE-03-[A-Z0-9]{8}-\\d{15}$' },
@@ -278,7 +278,7 @@
           type: 'object',
           required: ['ambiente', 'tipoDte', 'numeroControl', 'codigoGeneracion', 'tipoModelo', 'tipoOperacion', 'fecEmi', 'horEmi', 'tipoMoneda'],
           properties: {
-            version: { type: 'integer', const: 1 },
+            version: { type: 'integer', const: 3 },
             ambiente: { type: 'string', enum: ['00', '01'] },
             tipoDte: { type: 'string', const: '11' },
             numeroControl: { type: 'string', pattern: '^DTE-11-[A-Z0-9]{8}-\\d{15}$' },
