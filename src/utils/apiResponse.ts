@@ -1,10 +1,10 @@
-import { processMHResponse, MHErrorResponse } from './mhErrorMapping';
+﻿import { processMHResponse, MHErrorResponse } from './mhErrorMapping';
 
 // Interface para respuesta del frontend (contrato API)
 export interface DteProcessResponse {
   success: boolean;
   
-  // Datos de éxito (si success: true o aceptado con observaciones)
+  // Datos de Ã©xito (si success: true o aceptado con observaciones)
   data?: {
     codigoGeneracion: string;
     selloRecepcion: string;
@@ -23,12 +23,12 @@ export interface DteProcessResponse {
 }
  
 export interface ProcessError {
-  severity: 'error' | 'warning';   // 'warning' es para el código 002 (Aceptado con observaciones)
+  severity: 'error' | 'warning';   // 'warning' es para el cÃ³digo 002 (Aceptado con observaciones)
   category: 'auth' | 'data' | 'math' | 'contingency' | 'network' | 'system';
   code: string;                    // Ej: 'MH_DATA_NIT_NOT_EXISTS'
   userMessage: string;             // Mensaje amigable (Ej: "El NIT no existe...")
-  canRetry: boolean;               // Controla si muestro el botón [🔄 Reintentar]
-  details?: string[];              // Códigos crudos de MH para debug/soporte técnico
+  canRetry: boolean;               // Controla si muestro el botÃ³n [ðŸ”„ Reintentar]
+  details?: string[];              // CÃ³digos crudos de MH para debug/soporte tÃ©cnico
 }
 
 // Mapeo de errores de red/sistema para contingencia
@@ -37,7 +37,7 @@ export const NetworkErrorMapping = {
     severity: 'error' as const,
     category: 'network' as const,
     code: 'MH_TIMEOUT',
-    userMessage: 'El Ministerio de Hacienda está tardando demasiado en responder. Tu documento se ha guardado de forma segura y podrás enviarlo más tarde.',
+    userMessage: 'El Ministerio de Hacienda estÃ¡ tardando demasiado en responder. Tu documento se ha guardado de forma segura y podrÃ¡s enviarlo mÃ¡s tarde.',
     canRetry: true,
     details: ['Timeout after 8000ms']
   },
@@ -45,7 +45,7 @@ export const NetworkErrorMapping = {
     severity: 'error' as const,
     category: 'network' as const,
     code: 'MH_CONNECTION_ERROR',
-    userMessage: 'No se puede conectar con el Ministerio de Hacienda. Verifica tu conexión a internet o intenta más tarde.',
+    userMessage: 'No se puede conectar con el Ministerio de Hacienda. Verifica tu conexiÃ³n a internet o intenta mÃ¡s tarde.',
     canRetry: true,
     details: ['Connection failed']
   },
@@ -56,12 +56,20 @@ export const NetworkErrorMapping = {
     userMessage: 'El servidor del Ministerio de Hacienda tiene problemas técnicos. Tu documento está seguro y podrás reintentar.',
     canRetry: true,
     details: ['HTTP 5xx error']
+  },
+  SIGNER_WARMING: {
+    severity: 'error' as const,
+    category: 'system' as const,
+    code: 'SIGNER_TEMPORARILY_UNAVAILABLE',
+    userMessage: 'El servicio de firma está iniciando o temporalmente saturado. Intenta nuevamente en unos segundos.',
+    canRetry: true,
+    details: ['Signature provider cold start or temporary rate limit']
   }
 };
 
-// Función para crear respuesta estandarizada
+// FunciÃ³n para crear respuesta estandarizada
 export const createProcessResponse = (result: any): DteProcessResponse => {
-  // Caso éxito total
+  // Caso Ã©xito total
   if (result.status === 'completed' && result.mhResponse?.estado === 'PROCESADO') {
     return {
       success: true,
@@ -80,7 +88,7 @@ export const createProcessResponse = (result: any): DteProcessResponse => {
     };
   }
 
-  // Caso aceptado con observaciones (código 002)
+  // Caso aceptado con observaciones (cÃ³digo 002)
   if (result.status === 'completed' && result.mhResponse?.estado === 'RECIBIDO_CON_OBSERVACIONES') {
     const mhErrors = processMHResponse(result.mhResponse);
     const observation = mhErrors.observations?.[0];
@@ -103,9 +111,9 @@ export const createProcessResponse = (result: any): DteProcessResponse => {
         severity: 'warning',
         category: 'data',
         code: observation?.code || 'MH_RECEIVED_WITH_OBSERVATIONS',
-        userMessage: observation?.userMessage || 'Hacienda aceptó tu documento con observaciones.',
+        userMessage: observation?.userMessage || 'Hacienda aceptÃ³ tu documento con observaciones.',
         canRetry: false,
-        details: observation ? ['Código 002: Recibido con observaciones'] : undefined
+        details: observation ? ['CÃ³digo 002: Recibido con observaciones'] : undefined
       }
     };
   }
@@ -147,7 +155,7 @@ export const createProcessResponse = (result: any): DteProcessResponse => {
     };
   }
 
-  // Caso errores del sistema (validación, firma, etc.)
+  // Caso errores del sistema (validaciÃ³n, firma, etc.)
   if (result.status === 'failed') {
     return {
       success: false,
@@ -176,7 +184,7 @@ export const createProcessResponse = (result: any): DteProcessResponse => {
   };
 };
 
-// Mapeo de categorías internas a contrato del frontend
+// Mapeo de categorÃ­as internas a contrato del frontend
 const mapCategoryToContract = (internalCategory: string): ProcessError['category'] => {
   const categoryMap: Record<string, ProcessError['category']> = {
     'auth': 'auth',
@@ -190,3 +198,4 @@ const mapCategoryToContract = (internalCategory: string): ProcessError['category
   
   return categoryMap[internalCategory] || 'system';
 };
+
