@@ -1,4 +1,4 @@
-import type { DTEJSON } from '../dte/generator';
+﻿import type { DTEJSON } from '../dte/generator';
 
 const onlyDigits = (value: string | null | undefined): string | null => {
   if (value === null || value === undefined) return null;
@@ -28,7 +28,7 @@ export const normalizeDTE = (dte: DTEJSON): DTEJSON => {
   const codigosValidos015 = ['20', 'D1', 'C8', 'J1', 'J2', 'J3'];
   const tipoDte = (dte.identificacion?.tipoDte || '').trim();
   const versionIdentificacion = dte.identificacion?.version
-    ?? (tipoDte === '03' ? 3 : tipoDte === '11' ? 1 : 1);
+    ?? (tipoDte === '03' ? 1 : tipoDte === '11' ? 1 : 1);
 
   const normalizedItems = (dte.cuerpoDocumento || []).map((i: any) => {
     const cantidad = roundTo(i.cantidad, 8);
@@ -41,7 +41,7 @@ export const normalizeDTE = (dte: DTEJSON): DTEJSON => {
 
     if (tipoDte === '01' && gross > 0) {
       // Para factura consumidor final: montos llevan IVA incluido.
-      // MH espera montos con IVA; IVA se envía informativo, no se suma al total.
+      // MH espera montos con IVA; IVA se envÃ­a informativo, no se suma al total.
       ventaGravada = roundTo(gross, 2);
       const base = Math.round((gross / 1.13) * 100) / 100;
       ivaCalculado = roundTo(gross - base, 2);
@@ -181,3 +181,4 @@ export const normalizeDTE = (dte: DTEJSON): DTEJSON => {
 
   return normalized;
 };
+

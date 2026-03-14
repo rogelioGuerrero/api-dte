@@ -1,7 +1,7 @@
-export const DTE_SCHEMA = {
+﻿export const DTE_SCHEMA = {
   $schema: 'http://json-schema.org/draft-07/schema#',
   title: 'Esquema Oficial MH DTE',
-  description: 'Esquema validado por Ministerio de Hacienda para transmisión DTE',
+  description: 'Esquema validado por Ministerio de Hacienda para transmisiÃ³n DTE',
   type: 'object',
   oneOf: [
     { $ref: '#/definitions/FE' },
@@ -245,7 +245,7 @@ export const DTE_SCHEMA = {
           type: 'object',
           required: ['ambiente', 'tipoDte', 'numeroControl', 'codigoGeneracion', 'tipoModelo', 'tipoOperacion', 'fecEmi', 'horEmi', 'tipoMoneda'],
           properties: {
-            version: { type: 'integer' },
+            version: { type: 'integer', const: 1 },
             ambiente: { type: 'string', enum: ['00', '01'] },
             tipoDte: { type: 'string', const: '03' },
             numeroControl: { type: 'string', pattern: '^DTE-03-[A-Z0-9]{8}-\\d{15}$' },
@@ -278,7 +278,7 @@ export const DTE_SCHEMA = {
           type: 'object',
           required: ['ambiente', 'tipoDte', 'numeroControl', 'codigoGeneracion', 'tipoModelo', 'tipoOperacion', 'fecEmi', 'horEmi', 'tipoMoneda'],
           properties: {
-            version: { type: 'integer' },
+            version: { type: 'integer', const: 1 },
             ambiente: { type: 'string', enum: ['00', '01'] },
             tipoDte: { type: 'string', const: '11' },
             numeroControl: { type: 'string', pattern: '^DTE-11-[A-Z0-9]{8}-\\d{15}$' },
@@ -305,3 +305,5 @@ export const DTE_SCHEMA = {
     },
   },
 } as const;
+
+
