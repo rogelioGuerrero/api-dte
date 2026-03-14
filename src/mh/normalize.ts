@@ -27,8 +27,11 @@ const roundTo = (value: number, decimals: number): number => {
 export const normalizeDTE = (dte: DTEJSON): DTEJSON => {
   const codigosValidos015 = ['20', 'D1', 'C8', 'J1', 'J2', 'J3'];
   const tipoDte = (dte.identificacion?.tipoDte || '').trim();
-  const versionIdentificacion = dte.identificacion?.version
-    ?? (tipoDte === '03' ? 1 : tipoDte === '11' ? 1 : 1);
+  const versionIdentificacion = tipoDte === '03'
+    ? 1
+    : tipoDte === '11'
+      ? 1
+      : (dte.identificacion?.version ?? 1);
 
   const normalizedItems = (dte.cuerpoDocumento || []).map((i: any) => {
     const cantidad = roundTo(i.cantidad, 8);
