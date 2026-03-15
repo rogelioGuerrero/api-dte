@@ -2,6 +2,7 @@ import { StateGraph, END, START, Annotation } from "@langchain/langgraph";
 
 // Importar Nodos
 import { validateNode } from "./nodes/validateNode";
+import { validateNodeCCF } from "./nodes/validateNodeCCF";
 import { signNode } from "./nodes/signNode";
 import { transmitNode } from "./nodes/transmitNode";
 import { tokenNode } from "./nodes/tokenNode";
@@ -47,6 +48,7 @@ const StateAnnotation = Annotation.Root({
 
 const workflow = new StateGraph(StateAnnotation)
   .addNode("validator", validateNode)
+  .addNode("validator_ccf", validateNodeCCF)
   .addNode("post_validation_probe", postValidationProbeNode)
   .addNode("signer", signNode)
   .addNode("token_manager", tokenNode)
@@ -58,10 +60,20 @@ const workflow = new StateGraph(StateAnnotation)
   .addNode("tax_keeper", taxNode)
 
   // Router Inicial de emisión
-  .addEdge(START, "validator")
+  .addConditionalEdges(START, (state: any) => {
+    const tipoDte = state?.dte?.identificacion?.tipoDte;
+    if (tipoDte === '03') {
+      console.log('🔀 Start router: tipoDte 03 detectado, usando validator_ccf');
+      return "validator_ccf";
+    }
+
+    console.log('🔀 Start router: usando validator estándar');
+    return "validator";
+  })
 
   // Flujo Emisión
   .addEdge("validator", "post_validation_probe")
+  .addEdge("validator_ccf", "post_validation_probe")
   .addConditionalEdges("post_validation_probe", (state: any) => {
     console.log('🔀 Post-Validation transition check:', { 
       isValid: state.isValid, 

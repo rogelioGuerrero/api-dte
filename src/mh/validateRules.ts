@@ -5,8 +5,9 @@ const near = (a: number, b: number, tol: number) => Math.abs(a - b) <= tol;
 
 export const validateDteRules = (dte: DTEJSON): ErrorValidacionMH[] => {
   const errores: ErrorValidacionMH[] = [];
+  const tipoDte = dte.identificacion.tipoDte;
 
-  if (dte.identificacion.tipoDte === '01' && dte.resumen.montoTotalOperacion < 1095) {
+  if (tipoDte === '01' && dte.resumen.montoTotalOperacion < 1095) {
     if (dte.receptor.tipoDocumento !== null || dte.receptor.numDocumento !== null) {
       errores.push({
         codigo: 'RULE-0001',
@@ -17,7 +18,7 @@ export const validateDteRules = (dte: DTEJSON): ErrorValidacionMH[] => {
     }
   }
 
-  if (dte.identificacion.tipoDte === '01' && dte.resumen.montoTotalOperacion >= 1095) {
+  if (tipoDte === '01' && dte.resumen.montoTotalOperacion >= 1095) {
     if (dte.receptor.tipoDocumento === null || dte.receptor.numDocumento === null) {
       errores.push({
         codigo: 'RULE-0001C',
@@ -26,6 +27,59 @@ export const validateDteRules = (dte: DTEJSON): ErrorValidacionMH[] => {
         severidad: 'ERROR',
       });
     }
+  }
+
+  if (tipoDte === '03') {
+    if ((dte.resumen.montoTotalOperacion ?? 0) <= 0) {
+      errores.push({
+        codigo: 'RULE-0301',
+        campo: 'resumen.montoTotalOperacion',
+        descripcion: 'CCF 03 requiere montoTotalOperacion mayor a 0',
+        severidad: 'ERROR',
+      });
+    }
+
+    if ((dte.resumen.totalIva ?? 0) <= 0) {
+      errores.push({
+        codigo: 'RULE-0302',
+        campo: 'resumen.totalIva',
+        descripcion: 'CCF 03 requiere totalIva mayor a 0',
+        severidad: 'ERROR',
+      });
+    }
+
+    if (!Array.isArray(dte.resumen.tributos) || dte.resumen.tributos.length === 0) {
+      errores.push({
+        codigo: 'RULE-0303',
+        campo: 'resumen.tributos',
+        descripcion: 'CCF 03 requiere resumen.tributos con el IVA consolidado',
+        severidad: 'ERROR',
+      });
+    }
+
+    dte.cuerpoDocumento.forEach((item, idx) => {
+      if ((item.ventaGravada ?? 0) > 0 && (!Array.isArray(item.tributos) || item.tributos.length === 0)) {
+        errores.push({
+          codigo: 'RULE-0304',
+          campo: `cuerpoDocumento[${idx + 1}].tributos`,
+          descripcion: `Item ${idx + 1}: ventaGravada mayor a 0 requiere tributos[]`,
+          severidad: 'ERROR',
+        });
+      }
+    });
+  }
+
+  if (tipoDte !== '01') {
+    if (!dte.resumen.totalLetras || !dte.resumen.totalLetras.trim().endsWith('USD')) {
+      errores.push({
+        codigo: 'RULE-0400',
+        campo: 'resumen.totalLetras',
+        descripcion: 'totalLetras debe terminar en \"USD\"',
+        severidad: 'ERROR',
+      });
+    }
+
+    return errores;
   }
 
   if (dte.receptor.tipoDocumento === null) {
