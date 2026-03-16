@@ -16,6 +16,17 @@ Construir una plataforma administrativa separada del backend `api-dte` para:
    - estados de integración
 4. Auditar actividad operativa del sistema.
 
+# Instrucción para el LLM que construirá el proyecto
+
+Trata este documento como especificación inicial del producto. Debes:
+
+1. crear el proyecto desde cero
+2. proponer una arquitectura mantenible
+3. dejarlo ejecutable
+4. evitar mocks innecesarios
+5. reutilizar estructura existente de Supabase cuando ya exista
+6. pedir aclaración sólo cuando falte un dato realmente bloqueante
+
 # Recomendación tecnológica
 
 Usar:
@@ -138,6 +149,14 @@ Si alguna ya existe, reutilizarla. No duplicar estructura.
 4. Feature flags y planes.
 5. Auditoría.
 6. Manual de despliegue.
+
+# Criterios de aceptación
+
+1. Un administrador puede consultar DTEs por negocio, NIT, estado y fecha.
+2. Un administrador puede ver detalle técnico y de negocio del DTE.
+3. Un administrador puede administrar negocios, planes y features según permisos.
+4. Toda operación sensible queda auditada.
+5. No se exponen secretos, certificados ni credenciales MH al frontend.
 
 # Orden de ejecución recomendado
 

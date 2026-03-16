@@ -15,6 +15,17 @@ La app debe permitir:
 5. historial de documentos
 6. operación tolerante a conectividad móvil
 
+# Instrucción para el LLM que construirá el proyecto
+
+Trata este documento como especificación inicial del producto. Debes:
+
+1. crear una app Android mantenible
+2. priorizar `01` en la primera entrega
+3. usar `api-dte` como backend oficial
+4. no mover firma ni lógica MH al dispositivo
+5. no improvisar contratos si backend no los define
+6. dejar preparada la base para `03` sin implementarlo a medias
+
 # Recomendación tecnológica
 
 La opción más profesional para Android puro es:
@@ -139,6 +150,14 @@ Si hoy esos endpoints no están pensados para móvil, crear una capa de API esta
 3. Cliente API tipado.
 4. Soporte inicial a `01`.
 5. Manual de publicación interna.
+
+# Criterios de aceptación
+
+1. El usuario puede autenticarse y emitir `01`.
+2. La app muestra estado del procesamiento y sello cuando exista.
+3. La app permite consultar historial y detalle.
+4. La app no almacena secretos sensibles del backend o MH.
+5. La arquitectura permite crecer luego a `03` sin rehacer la app.
 
 # Orden recomendado
 
