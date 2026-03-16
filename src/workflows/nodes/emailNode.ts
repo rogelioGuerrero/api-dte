@@ -10,8 +10,10 @@ const logger = createLogger('emailNode');
  */
 export async function emailNode(state: DTEState): Promise<Partial<DTEState>> {
   try {
+    const dteToEmail = state.preparedDte || state.dte;
+
     // Validaciones iniciales
-    if (!state.dte) {
+    if (!dteToEmail) {
       throw new Error('No hay DTE para enviar correo');
     }
 
@@ -19,22 +21,22 @@ export async function emailNode(state: DTEState): Promise<Partial<DTEState>> {
       throw new Error('No hay respuesta de MH para enviar correo');
     }
 
-    const nitEmisor = state.dte?.emisor?.nit || state.dte?.identificacion?.nit;
+    const nitEmisor = dteToEmail?.emisor?.nit || dteToEmail?.identificacion?.nit;
     if (!nitEmisor) {
       throw new Error('No se puede identificar el emisor del DTE');
     }
 
     logger.info('Iniciando envío de correos para DTE', {
-      codigoGeneracion: state.dte.codigoGeneracion,
+      codigoGeneracion: dteToEmail.identificacion?.codigoGeneracion,
       nit: nitEmisor
     });
 
     // Enviar correos (si hay emails)
-    const receptorEmail = state.receptorEmail || state.dte.receptor?.correo || state.dte.emisor?.correo;
+    const receptorEmail = state.receptorEmail || dteToEmail.receptor?.correo || dteToEmail.emisor?.correo;
 
     if (!receptorEmail) {
       logger.warn('No hay correo de receptor/emisor; se aborta envío de email', {
-        codigoGeneracion: state.dte.codigoGeneracion
+        codigoGeneracion: dteToEmail.identificacion?.codigoGeneracion
       });
 
       return {
@@ -50,10 +52,10 @@ export async function emailNode(state: DTEState): Promise<Partial<DTEState>> {
 
     try {
       const sanitizedDte = (state as any).sanitizedDte || (() => {
-        const copy = { ...state.dte } as any;
-        copy.identificacion = { ...(state.dte as any).identificacion };
-        copy.emisor = { ...(state.dte as any).emisor };
-        copy.receptor = state.dte.receptor ? { ...(state.dte as any).receptor } : undefined;
+        const copy = { ...dteToEmail } as any;
+        copy.identificacion = { ...(dteToEmail as any).identificacion };
+        copy.emisor = { ...(dteToEmail as any).emisor };
+        copy.receptor = dteToEmail.receptor ? { ...(dteToEmail as any).receptor } : undefined;
         if (copy.receptor) copy.receptor.correo = receptorEmail;
         return copy;
       })();
@@ -72,7 +74,7 @@ export async function emailNode(state: DTEState): Promise<Partial<DTEState>> {
 
     logger.info('Correos enviados', {
       receptorSuccess: emailResults.receptor.success,
-      codigoGeneracion: state.dte.codigoGeneracion
+      codigoGeneracion: dteToEmail.identificacion?.codigoGeneracion
     });
 
     const correoEnviado = !!emailResults.receptor.success;
@@ -99,7 +101,7 @@ export async function emailNode(state: DTEState): Promise<Partial<DTEState>> {
     
     logger.error('Error en emailNode', {
       error: errorMessage,
-      codigoGeneracion: state.dte?.codigoGeneracion
+      codigoGeneracion: state.preparedDte?.identificacion?.codigoGeneracion || state.dte?.identificacion?.codigoGeneracion
     });
 
     // El error de correo no debe detener el workflow

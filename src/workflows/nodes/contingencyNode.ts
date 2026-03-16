@@ -8,20 +8,21 @@ import { getMHCredentialsByNIT } from "../../business/businessStorage";
 
 export const contingencyNode = async (state: DTEState): Promise<Partial<DTEState>> => {
   console.log("📦 [contingencyNode] Gestor Contingencia: Transformando a Modelo Diferido...");
+  const dteToContingency = state.preparedDte || state.dte;
   
-  if (!state.dte) {
+  if (!dteToContingency) {
     console.error("❌ [contingencyNode] No hay DTE en el estado.");
     return { status: 'failed' };
   }
 
   try {
     // Transformar DTE a Contingencia
-    const dteContingencia = convertirAContingencia(state.dte, state.contingencyReason);
+    const dteContingencia = convertirAContingencia(dteToContingency, state.contingencyReason);
     
     // Volver a procesar y firmar el DTE de contingencia
     const processed = processDTE(dteContingencia);
     const dteLimpio = limpiarDteParaFirma(processed.dte as unknown as Record<string, unknown>);
-    const nitEmisor = (state.dte.emisor?.nit || '').toString().replace(/[\s-]/g, '').trim();
+    const nitEmisor = (dteToContingency.emisor?.nit || '').toString().replace(/[\s-]/g, '').trim();
 
     // Obtener credenciales para tener el certificado
     console.log(`🔍 [contingencyNode] Buscando certificado para NIT: ${nitEmisor}`);
@@ -69,6 +70,7 @@ export const contingencyNode = async (state: DTEState): Promise<Partial<DTEState
 
     return {
       dte: dteContingencia,
+      preparedDte: dteContingencia,
       signature: jwsContingencia,
       isOffline: true,
       status: 'completed', // Marcamos como completado para el usuario (tiene su DTE firmado)
