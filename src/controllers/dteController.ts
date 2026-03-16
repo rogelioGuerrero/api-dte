@@ -116,6 +116,7 @@ router.post('/sign', async (req: AuthRequest, res: Response, next: NextFunction)
     const result = await (dteGraph as any).invoke({
       ...INITIAL_STATE,
       dte,
+      inputDte: dte,
       passwordPri,
       flowType: 'emission'
     });
@@ -159,6 +160,7 @@ router.post('/transmit', async (req: AuthRequest, res: Response, next: NextFunct
     const result = await (dteGraph as any).invoke({
       ...INITIAL_STATE,
       dte,
+      inputDte: dte,
       passwordPri,
       ambiente,
       flowType: 'emission',
@@ -379,6 +381,7 @@ router.post('/process', async (req: AuthRequest, res: Response, next: NextFuncti
     // Crear estado inicial para LangGraph
     const initialState: Partial<DTEState> = {
       dte: request.dte,
+      inputDte: request.dte,
       passwordPri: request.passwordPri, // Puede ser null, lo sacarÃ¡ de Supabase
       ambiente: request.ambiente || '00',
       flowType: request.flowType || 'emission',

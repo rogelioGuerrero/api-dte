@@ -15,6 +15,8 @@ import { postValidationProbeNode } from "./nodes/postValidationProbeNode";
 
 const StateAnnotation = Annotation.Root({
   dte: Annotation<any>({ reducer: (_x: any, y: any) => y }),
+  inputDte: Annotation<any>({ reducer: (_x: any, y: any) => y }),
+  preparedDte: Annotation<any>({ reducer: (_x: any, y: any) => y }),
   isValid: Annotation<boolean>({ reducer: (_x: any, y: any) => y }),
   validationErrors: Annotation<string[]>({ reducer: (_x: any, y: any) => y, default: () => [] }),
   isSigned: Annotation<boolean>({ reducer: (_x: any, y: any) => y }),

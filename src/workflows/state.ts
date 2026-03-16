@@ -4,6 +4,7 @@ import { MonthlyTaxAccumulator } from '../tax/types';
 export interface DTEState {
   // Inputs iniciales
   rawInput?: any;           // JSON crudo del frontend
+  inputDte?: DTEJSON;       // Documento fiscal de entrada antes de preparar
   passwordPri?: string;     // Password para firma
   ambiente?: '00' | '01';   // Pruebas/Producción
   flowType?: 'emission' | 'reception'; // Tipo de flujo
@@ -21,6 +22,7 @@ export interface DTEState {
   signature?: string;       // JWS firmado
   isTransmitted?: boolean;  // Resultado del transmitter
   mhResponse?: any;         // Respuesta de MH
+  preparedDte?: DTEJSON;    // Documento normalizado y validado listo para MH
   
   // Estados especiales
   isOffline?: boolean;      // Contingencia

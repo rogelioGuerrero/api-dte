@@ -9,14 +9,16 @@ const logger = createLogger('persistResponseNode');
  */
 export async function persistResponseNode(state: DTEState): Promise<Partial<DTEState>> {
   try {
-    if (!state.dte) {
+    const dteToPersist = state.preparedDte || state.dte;
+
+    if (!dteToPersist) {
       throw new Error('No hay DTE para persistir');
     }
     if (!state.mhResponse) {
       throw new Error('No hay respuesta de MH para persistir');
     }
 
-    const nitEmisor = state.nit || state.dte?.emisor?.nit || state.dte?.identificacion?.nit;
+    const nitEmisor = state.nit || dteToPersist?.emisor?.nit || dteToPersist?.identificacion?.nit;
     const businessId = state.businessId;
 
     if (!nitEmisor || !businessId) {
@@ -26,17 +28,17 @@ export async function persistResponseNode(state: DTEState): Promise<Partial<DTES
     const savedResponse = await saveDTEResponse({
       businessId: businessId!,
       nit: nitEmisor,
-      dteJson: state.dte,
+      dteJson: dteToPersist,
       mhResponse: state.mhResponse,
-      ambiente: state.dte.identificacion.ambiente || state.ambiente || '00',
-      tipoDte: (state.dte as any).tipoDte || state.dte.identificacion?.tipoDte,
-      codigoGeneracion: state.dte.identificacion?.codigoGeneracion || state.dte.codigoGeneracion,
+      ambiente: dteToPersist.identificacion.ambiente || state.ambiente || '00',
+      tipoDte: (dteToPersist as any).tipoDte || dteToPersist.identificacion?.tipoDte,
+      codigoGeneracion: dteToPersist.identificacion?.codigoGeneracion,
       selloRecibido: state.mhResponse.selloRecibido || state.mhResponse.selloRecepcion,
     });
 
     logger.info('Respuesta MH guardada en Supabase', {
       responseId: savedResponse.id,
-      codigoGeneracion: state.dte.identificacion?.codigoGeneracion || state.dte.codigoGeneracion,
+      codigoGeneracion: dteToPersist.identificacion?.codigoGeneracion,
     });
 
     return {
@@ -45,7 +47,7 @@ export async function persistResponseNode(state: DTEState): Promise<Partial<DTES
     };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
-    logger.error('Error en persistResponseNode', { error: errorMessage, codigoGeneracion: state.dte?.codigoGeneracion });
+    logger.error('Error en persistResponseNode', { error: errorMessage, codigoGeneracion: state.preparedDte?.identificacion?.codigoGeneracion || state.dte?.identificacion?.codigoGeneracion });
     return {
       persistenceSaved: false,
       persistenceError: errorMessage,

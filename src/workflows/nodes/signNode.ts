@@ -28,8 +28,9 @@ const buildTemporaryFirmaMessage = (error: any) => {
 
 export const signNode = async (state: DTEState): Promise<Partial<DTEState>> => {
   console.log("✍️ [signNode] Nodo Firmador INICIADO. Solicitando firma electrónica...");
+  const dteToSign = state.preparedDte || state.dte;
 
-  if (!state.dte) {
+  if (!dteToSign) {
     console.error("❌ [signNode] Error: No hay DTE en el estado para firmar.");
     return {
       status: 'failed',
@@ -42,11 +43,11 @@ export const signNode = async (state: DTEState): Promise<Partial<DTEState>> => {
   }
 
   try {
-    console.log("🔄 [signNode] Procesando DTE para firma (processDTE)...");
-    const processed = processDTE(state.dte);
+    console.log("🔄 [signNode] Preparando DTE para firma...");
+    const processed = state.preparedDte ? { dte: state.preparedDte, errores: [] } : processDTE(dteToSign);
     const dteLimpio = limpiarDteParaFirma(processed.dte as unknown as Record<string, unknown>);
 
-    const nitEmisor = (state.nit || state.dte.emisor?.nit || '').toString().replace(/[\s-]/g, '').trim();
+    const nitEmisor = (state.nit || dteToSign.emisor?.nit || '').toString().replace(/[\s-]/g, '').trim();
     console.log(`🆔 [signNode] NIT Emisor detectado: ${nitEmisor}`);
 
     const nitLimpioBusqueda = nitEmisor;
@@ -119,6 +120,8 @@ export const signNode = async (state: DTEState): Promise<Partial<DTEState>> => {
     console.log(`📝 [signNode] JWS longitud: ${jws?.length}`);
 
     return {
+      dte: processed.dte,
+      preparedDte: processed.dte,
       isSigned: true,
       signature: jws,
       status: 'transmitting',

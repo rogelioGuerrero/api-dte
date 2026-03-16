@@ -11,16 +11,18 @@ const logger = createLogger('prepareDocumentsNode');
  */
 export async function prepareDocumentsNode(state: DTEState): Promise<Partial<DTEState>> {
   try {
-    if (!state.dte) {
+    const dteToPrepare = state.preparedDte || state.dte;
+
+    if (!dteToPrepare) {
       throw new Error('No hay DTE para preparar documentos');
     }
 
-    const receptorEmail = state.receptorEmail || state.dte.receptor?.correo || state.dte.emisor?.correo;
+    const receptorEmail = state.receptorEmail || dteToPrepare.receptor?.correo || dteToPrepare.emisor?.correo;
     const sanitizedDte = (() => {
-      const copy = { ...state.dte } as any;
-      copy.identificacion = { ...(state.dte as any).identificacion };
-      copy.emisor = { ...(state.dte as any).emisor };
-      copy.receptor = state.dte.receptor ? { ...(state.dte as any).receptor } : undefined;
+      const copy = { ...dteToPrepare } as any;
+      copy.identificacion = { ...(dteToPrepare as any).identificacion };
+      copy.emisor = { ...(dteToPrepare as any).emisor };
+      copy.receptor = dteToPrepare.receptor ? { ...(dteToPrepare as any).receptor } : undefined;
       if (copy.receptor && receptorEmail) copy.receptor.correo = receptorEmail;
       return copy;
     })();
@@ -34,7 +36,7 @@ export async function prepareDocumentsNode(state: DTEState): Promise<Partial<DTE
           logoUrl: sanitizedDte.emisor?.logo_url || sanitizedDte.emisor?.logoUrl,
         });
         logger.info('PDF generado en prepareDocumentsNode', {
-          codigoGeneracion: sanitizedDte.identificacion?.codigoGeneracion || state.dte?.codigoGeneracion,
+          codigoGeneracion: sanitizedDte.identificacion?.codigoGeneracion,
           length: pdfBase64?.length,
         });
       } catch (pdfError: any) {
@@ -49,7 +51,7 @@ export async function prepareDocumentsNode(state: DTEState): Promise<Partial<DTE
     };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
-    logger.error('Error en prepareDocumentsNode', { error: errorMessage, codigoGeneracion: state.dte?.codigoGeneracion });
+    logger.error('Error en prepareDocumentsNode', { error: errorMessage, codigoGeneracion: state.preparedDte?.identificacion?.codigoGeneracion || state.dte?.identificacion?.codigoGeneracion });
     return {
       documentsPrepared: false,
       documentsError: errorMessage,

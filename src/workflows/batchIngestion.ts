@@ -31,6 +31,7 @@ export const ingestDteBatch = async (
       const initialState: DTEState = {
         ...INITIAL_STATE,
         dte: item.dte as any, 
+        inputDte: item.dte as any,
         flowType: flowType,
         passwordPri: passwordPri, // Pasar contraseña al estado
         status: 'draft',
