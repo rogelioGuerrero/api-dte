@@ -88,10 +88,22 @@ export const validateNodeCCF = async (state: DTEState): Promise<Partial<DTEState
         if (!Array.isArray(item.tributos) || item.tributos.length === 0) {
           valErrors.push(`ITEM_TRIBUTOS_REQUERIDOS: Item ${item.numItem || ''} con ventaGravada debe incluir tributos[]`);
         }
+
+        if (Array.isArray(item.tributos) && item.tributos.some((tributo: any) => tributo !== '20')) {
+          valErrors.push(`ITEM_TRIBUTOS_INVALIDOS: Item ${item.numItem || ''} solo debe incluir código 20 en tributos[]`);
+        }
       }
 
       if (!Object.prototype.hasOwnProperty.call(item, 'codTributo')) {
         valErrors.push(`ITEM_CODTRIBUTO_REQUERIDO: Item ${item.numItem || ''} debe incluir codTributo`);
+      }
+
+      if ((item.ventaGravada || 0) > 0 && item.codTributo !== '20') {
+        valErrors.push(`ITEM_CODTRIBUTO_INVALIDO: Item ${item.numItem || ''} con ventaGravada debe usar codTributo=20`);
+      }
+
+      if (Object.prototype.hasOwnProperty.call(item, 'ivaItem')) {
+        valErrors.push(`ITEM_IVAITEM_INVALIDO: Item ${item.numItem || ''} no debe incluir ivaItem en CCF 03; el IVA consolidado lo define resumen.totalIva`);
       }
 
       sumaGravada += item.ventaGravada || 0;
@@ -157,6 +169,8 @@ export const validateNodeCCF = async (state: DTEState): Promise<Partial<DTEState
       const ivaTributo = resumen.tributos.find((t: any) => t?.codigo === '20');
       if (!ivaTributo) {
         valErrors.push('RESUMEN_IVA_CODIGO_20_REQUERIDO: resumen.tributos debe incluir el código 20');
+      } else if (!near(Number(ivaTributo.valor || 0), Number(resumenTotalIva || 0))) {
+        valErrors.push(`RESUMEN_IVA_VALOR_MISMATCH: resumen.tributos[codigo=20].valor ${ivaTributo.valor} ≠ resumen.totalIva ${resumenTotalIva}`);
       }
     }
 

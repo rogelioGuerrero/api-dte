@@ -30,6 +30,24 @@ export const validateDteRules = (dte: DTEJSON): ErrorValidacionMH[] => {
   }
 
   if (tipoDte === '03') {
+    if (dte.receptor.tipoDocumento !== undefined && dte.receptor.tipoDocumento !== null) {
+      errores.push({
+        codigo: 'RULE-0300A',
+        campo: 'receptor.tipoDocumento',
+        descripcion: 'CCF 03 no admite receptor.tipoDocumento',
+        severidad: 'ERROR',
+      });
+    }
+
+    if (dte.receptor.numDocumento !== undefined && dte.receptor.numDocumento !== null) {
+      errores.push({
+        codigo: 'RULE-0300B',
+        campo: 'receptor.numDocumento',
+        descripcion: 'CCF 03 no admite receptor.numDocumento',
+        severidad: 'ERROR',
+      });
+    }
+
     if ((dte.resumen.montoTotalOperacion ?? 0) <= 0) {
       errores.push({
         codigo: 'RULE-0301',
@@ -58,6 +76,15 @@ export const validateDteRules = (dte: DTEJSON): ErrorValidacionMH[] => {
     }
 
     dte.cuerpoDocumento.forEach((item, idx) => {
+      if (item.codTributo !== '20') {
+        errores.push({
+          codigo: 'RULE-0304A',
+          campo: `cuerpoDocumento[${idx + 1}].codTributo`,
+          descripcion: `Item ${idx + 1}: codTributo debe ser 20 en CCF 03`,
+          severidad: 'ERROR',
+        });
+      }
+
       if ((item.ventaGravada ?? 0) > 0 && (!Array.isArray(item.tributos) || item.tributos.length === 0)) {
         errores.push({
           codigo: 'RULE-0304',
@@ -66,7 +93,35 @@ export const validateDteRules = (dte: DTEJSON): ErrorValidacionMH[] => {
           severidad: 'ERROR',
         });
       }
+
+      if (Array.isArray(item.tributos) && item.tributos.some((tributo) => tributo !== '20')) {
+        errores.push({
+          codigo: 'RULE-0304B',
+          campo: `cuerpoDocumento[${idx + 1}].tributos`,
+          descripcion: `Item ${idx + 1}: tributos[] solo debe contener código 20 en CCF 03`,
+          severidad: 'ERROR',
+        });
+      }
+
+      if ((item as any).ivaItem !== undefined) {
+        errores.push({
+          codigo: 'RULE-0304C',
+          campo: `cuerpoDocumento[${idx + 1}].ivaItem`,
+          descripcion: `Item ${idx + 1}: ivaItem no debe enviarse en CCF 03`,
+          severidad: 'ERROR',
+        });
+      }
     });
+
+    const ivaTributo = dte.resumen.tributos?.find((t) => t.codigo === '20');
+    if (ivaTributo && !near(ivaTributo.valor, dte.resumen.totalIva ?? 0, 0.01)) {
+      errores.push({
+        codigo: 'RULE-0305',
+        campo: 'resumen.tributos[codigo=20].valor',
+        descripcion: 'El IVA consolidado en resumen.tributos debe coincidir con resumen.totalIva',
+        severidad: 'ERROR',
+      });
+    }
   }
 
   if (tipoDte !== '01') {
