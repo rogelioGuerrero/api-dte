@@ -63,7 +63,7 @@ const workflow = new StateGraph(StateAnnotation)
 
   // Router Inicial de emisión
   .addConditionalEdges(START, (state: any) => {
-    const tipoDte = state?.dte?.identificacion?.tipoDte;
+    const tipoDte = state?.inputDte?.identificacion?.tipoDte || state?.dte?.identificacion?.tipoDte;
     if (tipoDte === '03') {
       console.log('🔀 Start router: tipoDte 03 detectado, usando validator_ccf');
       return "validator_ccf";
