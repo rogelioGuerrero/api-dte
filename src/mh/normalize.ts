@@ -56,7 +56,7 @@ export const normalizeDTE = (dte: DTEJSON): DTEJSON => {
       tipoItem: i.tipoItem,
       numeroDocumento: trimOrNull(i.numeroDocumento) as any,
       codigo: i.codigo ? String(i.codigo).trim() : null,
-      codTributo: trimOrNull(i.codTributo) as any,
+      codTributo: tipoDte === '03' && ventaGravada > 0 ? '20' : trimOrNull(i.codTributo) as any,
       descripcion: String(i.descripcion || '').trim(),
       cantidad,
       uniMedida: i.uniMedida,
@@ -112,7 +112,10 @@ export const normalizeDTE = (dte: DTEJSON): DTEJSON => {
     receptor: {
       ...(dte as any).receptor,
       ...(tipoDte === '03'
-        ? {}
+        ? {
+            tipoDocumento: null,
+            numDocumento: null,
+          }
         : {
             tipoDocumento: (trimOrNull((dte as any).receptor?.tipoDocumento) as any) ?? null,
             numDocumento: onlyDigits((dte as any).receptor?.numDocumento),
