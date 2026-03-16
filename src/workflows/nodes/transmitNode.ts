@@ -39,13 +39,14 @@ const getEnvelopeVersionByTipoDte = (tipoDte?: string): number => {
 };
 
 export const transmitNode = async (state: DTEState): Promise<Partial<DTEState>> => {
+  const dteToTransmit = state.preparedDte || state.dte;
   const ambiente = state.ambiente || '00';
-  const nitEmisor = (state.nit || state.dte?.emisor?.nit || '').toString().replace(/[\s-]/g, '').trim();
+  const nitEmisor = (state.nit || dteToTransmit?.emisor?.nit || '').toString().replace(/[\s-]/g, '').trim();
   const nitLimpioBusqueda = nitEmisor;
 
   console.log(`📡 Transmitter: Enviando DTE a MH para NIT: ${nitLimpioBusqueda}, ambiente: ${ambiente}`);
 
-  if (!state.dte || !state.signature || !state.apiToken) {
+  if (!dteToTransmit || !state.signature || !state.apiToken) {
     return {
       status: 'failed',
       errorCode: 'TRANSMIT_ERROR_MISSING_DATA',
@@ -100,7 +101,7 @@ export const transmitNode = async (state: DTEState): Promise<Partial<DTEState>> 
           items: itemsDbg,
         });
         await saveSignedDteDebug({
-          codigoGeneracion: state.dte.identificacion?.codigoGeneracion || '',
+          codigoGeneracion: dteToTransmit.identificacion?.codigoGeneracion || '',
           signature: state.signature,
           payload: decoded,
         });
@@ -110,13 +111,13 @@ export const transmitNode = async (state: DTEState): Promise<Partial<DTEState>> 
     }
 
     console.log(`🚀 Enviando DTE firmado a MH...`);
-    const tipoDte = state.dte.identificacion?.tipoDte || '01';
+    const tipoDte = dteToTransmit.identificacion?.tipoDte || '01';
     const envelopeVersion = getEnvelopeVersionByTipoDte(tipoDte);
     logger.info('MH ENVELOPE DEBUG', {
       tipoDte,
       envelopeVersion,
-      codigoGeneracion: state.dte.identificacion?.codigoGeneracion,
-      numeroControl: state.dte.identificacion?.numeroControl,
+      codigoGeneracion: dteToTransmit.identificacion?.codigoGeneracion,
+      numeroControl: dteToTransmit.identificacion?.numeroControl,
     });
 
     const result = await transmitirDTESandbox(
@@ -126,7 +127,7 @@ export const transmitNode = async (state: DTEState): Promise<Partial<DTEState>> 
       envelopeVersion,
       tipoDte,
       1,
-      state.dte.identificacion?.codigoGeneracion
+      dteToTransmit.identificacion?.codigoGeneracion
     );
 
     if (result.estado === 'CONTINGENCIA') {
@@ -159,16 +160,16 @@ export const transmitNode = async (state: DTEState): Promise<Partial<DTEState>> 
 
     console.error("❌ MH Rechazo/Error:", result);
 
-    if (isNumeroControlDuplicateResponse(result) && state.dte?.identificacion?.codigoGeneracion) {
+    if (isNumeroControlDuplicateResponse(result) && dteToTransmit?.identificacion?.codigoGeneracion) {
       try {
         const consultaMh = await consultarDTESandbox<any>(
-          state.dte.identificacion.codigoGeneracion,
+          dteToTransmit.identificacion.codigoGeneracion,
           ambiente
         );
 
         logger.warn('Consulta MH tras duplicado numeroControl', {
-          codigoGeneracion: state.dte.identificacion.codigoGeneracion,
-          numeroControl: state.dte.identificacion?.numeroControl,
+          codigoGeneracion: dteToTransmit.identificacion.codigoGeneracion,
+          numeroControl: dteToTransmit.identificacion?.numeroControl,
           ambiente,
           consultaMh,
         });
@@ -185,8 +186,8 @@ export const transmitNode = async (state: DTEState): Promise<Partial<DTEState>> 
         };
       } catch (consultaError: any) {
         logger.warn('No se pudo consultar MH tras duplicado numeroControl', {
-          codigoGeneracion: state.dte.identificacion.codigoGeneracion,
-          numeroControl: state.dte.identificacion?.numeroControl,
+          codigoGeneracion: dteToTransmit.identificacion.codigoGeneracion,
+          numeroControl: dteToTransmit.identificacion?.numeroControl,
           ambiente,
           error: consultaError?.message,
         });
