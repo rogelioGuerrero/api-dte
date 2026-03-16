@@ -4,8 +4,9 @@ import { getAccumulator, saveAccumulator } from '../../tax/taxStorage';
 
 export const taxNode = async (state: DTEState): Promise<Partial<DTEState>> => {
   console.log(`📊 Contador Autónomo (${state.flowType || 'emission'}): Actualizando libros...`);
+  const dteForTax = state.preparedDte || state.dte;
   
-  if (state.status !== 'completed' || !state.dte) {
+  if (state.status !== 'completed' || !dteForTax) {
     return {};
   }
 
@@ -16,7 +17,7 @@ export const taxNode = async (state: DTEState): Promise<Partial<DTEState>> => {
       return {};
     }
 
-    const period = getPeriodFromDate(state.dte.identificacion.fecEmi);
+    const period = getPeriodFromDate(dteForTax.identificacion.fecEmi);
     let existingAcc = await getAccumulator(businessKey, period.key, 'ALL');
     if (!existingAcc) {
       // Si no existe business en Supabase, opcionalmente podríamos abortar; por ahora creamos acumulador local
@@ -25,7 +26,7 @@ export const taxNode = async (state: DTEState): Promise<Partial<DTEState>> => {
     const baseAcc = existingAcc;
     
     // Pasamos el flowType para distinguir si suma a Ventas o Compras
-    const updatedAcc = updateTaxAccumulator(baseAcc, state.dte, state.flowType);
+    const updatedAcc = updateTaxAccumulator(baseAcc, dteForTax, state.flowType);
     
     try {
       await saveAccumulator(updatedAcc);
