@@ -16,8 +16,9 @@ const near = (a: number, b: number, tol = 0.01) => Math.abs(a - b) <= tol;
 
 export const validateNodeCCF = async (state: DTEState): Promise<Partial<DTEState>> => {
   console.log("🕵️ Agente Validador CCF: Revisando estructura y reglas de negocio para tipo 03...");
+  const sourceDte = state.inputDte || state.dte;
 
-  if (!state.dte) {
+  if (!sourceDte) {
     return {
       isValid: false,
       validationErrors: ["No se recibió DTE para validar"],
@@ -30,7 +31,7 @@ export const validateNodeCCF = async (state: DTEState): Promise<Partial<DTEState
   }
 
   try {
-    const rawDte: any = state.dte;
+    const rawDte: any = sourceDte;
     logger.info('DTE crudo CCF recibido', {
       codigoGeneracion: rawDte?.identificacion?.codigoGeneracion,
       tipoDte: rawDte?.identificacion?.tipoDte,
@@ -166,7 +167,8 @@ export const validateNodeCCF = async (state: DTEState): Promise<Partial<DTEState
     if (valErrors.length > 0) {
       console.warn("⚠️ [validateNodeCCF] Errores de validación cruda detectados:", valErrors);
       return {
-        dte: state.dte,
+        dte: sourceDte,
+        inputDte: sourceDte,
         isValid: false,
         validationErrors: valErrors,
         status: 'failed',
@@ -180,7 +182,7 @@ export const validateNodeCCF = async (state: DTEState): Promise<Partial<DTEState
 
     console.log("✅ [validateNodeCCF] Validación cruda exitosa. Procediendo a processDTE...");
 
-    const { dte, errores } = processDTE(state.dte as any);
+    const { dte, errores } = processDTE(sourceDte as any);
     console.log("🔍 [validateNodeCCF] processDTE completado. Errores encontrados:", errores.length);
 
     const valErrorsSchema: string[] = errores.map((e) => {
@@ -195,6 +197,8 @@ export const validateNodeCCF = async (state: DTEState): Promise<Partial<DTEState
       console.log("✅ [validateNodeCCF] DTE CCF válido según esquema. Listo para firmar.");
       return {
         dte,
+        inputDte: sourceDte,
+        preparedDte: dte,
         isValid: true,
         validationErrors: [],
         status: 'signing',
@@ -207,6 +211,8 @@ export const validateNodeCCF = async (state: DTEState): Promise<Partial<DTEState
     console.warn("⚠️ [validateNodeCCF] Errores de esquema/reglas detectados:", valErrorsSchema);
     return {
       dte,
+      inputDte: sourceDte,
+      preparedDte: dte,
       isValid: false,
       validationErrors: valErrorsSchema,
       status: 'failed',

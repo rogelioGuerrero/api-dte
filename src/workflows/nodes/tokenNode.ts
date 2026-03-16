@@ -10,8 +10,9 @@ const logger = createLogger('tokenNode');
  * Devuelve apiToken y apiTokenExpiresAt en el estado parcial.
  */
 export const tokenNode = async (state: DTEState): Promise<Partial<DTEState>> => {
+  const dteForToken = state.preparedDte || state.dte;
   const ambiente = state.ambiente || '00';
-  const nitEmisor = (state.nit || state.dte?.emisor?.nit || '').toString().replace(/[\s-]/g, '').trim();
+  const nitEmisor = (state.nit || dteForToken?.emisor?.nit || '').toString().replace(/[\s-]/g, '').trim();
   const nitBusqueda = nitEmisor;
 
   console.log(`🔑 Token Manager: Procesando token para NIT: ${nitBusqueda}, ambiente: ${ambiente}`);
