@@ -1,61 +1,26 @@
-import { DTEState } from "../state";
-import { processDTE } from "../../mh/process";
-import { createLogger } from "../../utils/logger";
+import type { DTEJSON } from '../../../dte/generator';
+import { processDTE } from '../../../mh/process';
+import type { DtePreparationResult, DteTypeHandler } from '../base/DteTypeHandler';
 
-const logger = createLogger('validateNodeCCF');
-
-const round8 = (value: number) => {
-  return Math.round(value * 1e8) / 1e8;
-};
-
-const round2 = (value: number) => {
-  return Math.round(value * 1e2) / 1e2;
-};
-
+const round8 = (value: number) => Math.round(value * 1e8) / 1e8;
+const round2 = (value: number) => Math.round(value * 1e2) / 1e2;
 const near = (a: number, b: number, tol = 0.01) => Math.abs(a - b) <= tol;
 
-export const validateNodeCCF = async (state: DTEState): Promise<Partial<DTEState>> => {
-  console.log("🕵️ Agente Validador CCF: Revisando estructura y reglas de negocio para tipo 03...");
-  const sourceDte = state.inputDte || state.dte;
+const mapProcessErrors = (errores: { codigo: string; descripcion: string; campo?: string; valorActual?: unknown }[]) => {
+  return errores.map((e) => {
+    let msg = `${e.codigo}: ${e.descripcion}`;
+    if (e.campo) msg += ` (campo: ${e.campo})`;
+    if (e.valorActual !== undefined) msg += ` [valor: ${JSON.stringify(e.valorActual)}]`;
+    return msg;
+  });
+};
 
-  if (!sourceDte) {
-    return {
-      isValid: false,
-      validationErrors: ["No se recibió DTE para validar"],
-      status: 'failed',
-      errorCode: 'VALIDATION_NO_DTE',
-      canRetry: false,
-      progressPercentage: 10,
-      currentStep: 'validator_ccf'
-    };
-  }
+export class CreditFiscal03Handler implements DteTypeHandler {
+  readonly tipoDte = '03';
 
-  try {
-    const rawDte: any = sourceDte;
-    logger.info('DTE crudo CCF recibido', {
-      codigoGeneracion: rawDte?.identificacion?.codigoGeneracion,
-      tipoDte: rawDte?.identificacion?.tipoDte,
-      resumen: rawDte?.resumen,
-      items: rawDte?.cuerpoDocumento,
-    });
-
-    const tipoDte = rawDte?.identificacion?.tipoDte;
-    if (tipoDte !== '03') {
-      return {
-        isValid: false,
-        validationErrors: [`Tipo DTE no soportado por validator CCF: ${tipoDte ?? 'N/D'}`],
-        status: 'failed',
-        progressPercentage: 10,
-        currentStep: 'validator_ccf',
-        canRetry: false,
-        errorCode: 'VALIDATION_UNSUPPORTED_DTE',
-        errorMessage: 'El validador CCF solo acepta tipoDte 03'
-      };
-    }
-
-    console.log("🔍 [validateNodeCCF] Iniciando validación cruda...");
+  validateRaw(input: DTEJSON): string[] {
+    const rawDte: any = input;
     const valErrors: string[] = [];
-
     const items = Array.isArray(rawDte.cuerpoDocumento) ? rawDte.cuerpoDocumento : [];
     const resumen = rawDte.resumen || {};
     const receptor = rawDte.receptor || {};
@@ -178,73 +143,32 @@ export const validateNodeCCF = async (state: DTEState): Promise<Partial<DTEState
       valErrors.push('RESUMEN_TOTAL_LETRAS_INVALIDO: totalLetras debe terminar en USD');
     }
 
-    if (valErrors.length > 0) {
-      console.warn("⚠️ [validateNodeCCF] Errores de validación cruda detectados:", valErrors);
+    return valErrors;
+  }
+
+  process(input: DTEJSON) {
+    return processDTE(input);
+  }
+
+  prepare(input: DTEJSON): DtePreparationResult {
+    const rawErrors = this.validateRaw(input);
+    if (rawErrors.length > 0) {
       return {
-        dte: sourceDte,
-        inputDte: sourceDte,
+        dte: input,
         isValid: false,
-        validationErrors: valErrors,
-        status: 'failed',
-        progressPercentage: 10,
-        currentStep: 'validator_ccf',
-        canRetry: false,
-        errorCode: 'VALIDATION_FAILED',
-        errorMessage: 'Errores de validación DTE CCF (crudo)'
+        validationErrors: rawErrors,
       };
     }
 
-    console.log("✅ [validateNodeCCF] Validación cruda exitosa. Procediendo a processDTE...");
+    const processed = this.process(input);
+    const schemaErrors = mapProcessErrors(processed.errores);
 
-    const { dte, errores } = processDTE(sourceDte as any);
-    console.log("🔍 [validateNodeCCF] processDTE completado. Errores encontrados:", errores.length);
-
-    const valErrorsSchema: string[] = errores.map((e) => {
-      let msg = `${e.codigo}: ${e.descripcion}`;
-      if (e.campo) msg += ` (campo: ${e.campo})`;
-      if (e.valorActual !== undefined) msg += ` [valor: ${JSON.stringify(e.valorActual)}]`;
-      return msg;
-    });
-
-    const isValid = valErrorsSchema.length === 0;
-    if (isValid) {
-      console.log("✅ [validateNodeCCF] DTE CCF válido según esquema. Listo para firmar.");
-      return {
-        dte,
-        inputDte: sourceDte,
-        preparedDte: dte,
-        isValid: true,
-        validationErrors: [],
-        status: 'signing',
-        progressPercentage: 25,
-        currentStep: 'validator_ccf',
-        estimatedTime: 45,
-      };
-    }
-
-    console.warn("⚠️ [validateNodeCCF] Errores de esquema/reglas detectados:", valErrorsSchema);
     return {
-      dte,
-      inputDte: sourceDte,
-      preparedDte: dte,
-      isValid: false,
-      validationErrors: valErrorsSchema,
-      status: 'failed',
-      progressPercentage: 10,
-      currentStep: 'validator_ccf',
-      canRetry: false,
-      errorCode: 'VALIDATION_FAILED',
-      errorMessage: 'Errores de validación DTE CCF',
-    };
-  } catch (error: any) {
-    console.error("❌ [validateNodeCCF] Excepción NO CONTROLADA en validateNodeCCF:", error);
-    return {
-      isValid: false,
-      validationErrors: [`EXCEPTION_IN_VALIDATOR_CCF: ${error?.message || error}`],
-      status: 'failed',
-      errorCode: 'VALIDATOR_CCF_CRASH',
-      errorMessage: 'Error interno en el validador CCF',
-      currentStep: 'validator_ccf'
+      dte: processed.dte,
+      isValid: schemaErrors.length === 0,
+      validationErrors: schemaErrors,
     };
   }
-};
+}
+
+export const creditFiscal03Handler = new CreditFiscal03Handler();
