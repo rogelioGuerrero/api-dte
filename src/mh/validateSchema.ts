@@ -1,5 +1,6 @@
 import Ajv from 'ajv';
 import addFormats from 'ajv-formats';
+import { resolveDteContract } from './contracts';
 import { DTE_SCHEMA } from './schema';
 import type { ErrorValidacionMH } from './types';
 
@@ -15,9 +16,9 @@ ajv.addSchema(DTE_SCHEMA, 'dte-schema-root');
 
 // Obtener validadores específicos por referencia
 const validators: Record<string, any> = {
-  '01': ajv.getSchema('dte-schema-root#/definitions/FE'),
-  '03': ajv.getSchema('dte-schema-root#/definitions/CCFE'),
-  '11': ajv.getSchema('dte-schema-root#/definitions/FEXE'),
+  FE: ajv.getSchema('dte-schema-root#/definitions/FE'),
+  CCFE: ajv.getSchema('dte-schema-root#/definitions/CCFE'),
+  FEXE: ajv.getSchema('dte-schema-root#/definitions/FEXE'),
 };
 
 // Validador genérico de respaldo
@@ -25,12 +26,13 @@ const validateGeneric = ajv.compile(DTE_SCHEMA);
 
 export const validateDteSchema = (dte: any): ErrorValidacionMH[] => {
   const tipoDte = dte?.identificacion?.tipoDte;
+  const contract = resolveDteContract(tipoDte);
   
   // Seleccionar validador específico si existe, sino usar el genérico
   let validate = validateGeneric;
 
-  if (tipoDte && validators[tipoDte]) {
-    validate = validators[tipoDte];
+  if (contract && validators[contract.schemaRef]) {
+    validate = validators[contract.schemaRef];
   } else {
     // Si no hay validador específico, usamos el genérico pero validamos contra el root
     // que tiene oneOf.

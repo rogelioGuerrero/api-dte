@@ -1,4 +1,5 @@
 ﻿import type { DTEJSON } from '../dte/generator';
+import { resolveDteContract } from './contracts';
 
 const onlyDigits = (value: string | null | undefined): string | null => {
   if (value === null || value === undefined) return null;
@@ -25,8 +26,8 @@ const roundTo = (value: number, decimals: number): number => {
 
 
 export const normalizeDTE = (dte: DTEJSON): DTEJSON => {
-  const codigosValidos015 = ['20', 'D1', 'C8', 'J1', 'J2', 'J3'];
   const tipoDte = (dte.identificacion?.tipoDte || '').trim();
+  const contract = resolveDteContract(tipoDte);
   const versionIdentificacion = tipoDte === '03'
     ? 3
     : tipoDte === '11'
@@ -109,32 +110,47 @@ export const normalizeDTE = (dte: DTEJSON): DTEJSON => {
       telefono: (dte as any).emisor?.telefono ? String((dte as any).emisor.telefono).trim() : '',
       correo: (dte as any).emisor?.correo ? String((dte as any).emisor.correo).trim() : '',
     } as any,
-    receptor: {
-      ...(dte as any).receptor,
-      ...(tipoDte === '03'
-        ? {
-            tipoDocumento: null,
-            numDocumento: null,
-          }
-        : {
-            tipoDocumento: (trimOrNull((dte as any).receptor?.tipoDocumento) as any) ?? null,
-            numDocumento: onlyDigits((dte as any).receptor?.numDocumento),
-          }),
-      nit: onlyDigits((dte as any).receptor?.nit),
-      nrc: onlyDigits((dte as any).receptor?.nrc),
-      nombre: (dte as any).receptor?.nombre ? String((dte as any).receptor.nombre).trim() : '',
-      codActividad: trimOrNull((dte as any).receptor?.codActividad) as any,
-      descActividad: trimOrNull((dte as any).receptor?.descActividad) as any,
-      correo: trimOrNull((dte as any).receptor?.correo) as any,
-      telefono: trimOrNull((dte as any).receptor?.telefono) as any,
-      direccion: (dte as any).receptor?.direccion
-        ? {
-            departamento: normalizeTwoDigitCode((dte as any).receptor.direccion.departamento) as any,
-            municipio: normalizeTwoDigitCode((dte as any).receptor.direccion.municipio) as any,
-            complemento: trimOrNull((dte as any).receptor.direccion.complemento) as any,
-          }
-        : null,
-    } as any,
+    receptor: (() => {
+      const baseReceptor = {
+        ...(dte as any).receptor,
+        ...(tipoDte === '03'
+          ? {
+              tipoDocumento: null,
+              numDocumento: null,
+            }
+          : {
+              tipoDocumento: (trimOrNull((dte as any).receptor?.tipoDocumento) as any) ?? null,
+              numDocumento: onlyDigits((dte as any).receptor?.numDocumento),
+            }),
+        nit: onlyDigits((dte as any).receptor?.nit),
+        nrc: onlyDigits((dte as any).receptor?.nrc),
+        nombre: (dte as any).receptor?.nombre ? String((dte as any).receptor.nombre).trim() : '',
+        codActividad: trimOrNull((dte as any).receptor?.codActividad) as any,
+        descActividad: trimOrNull((dte as any).receptor?.descActividad) as any,
+        correo: trimOrNull((dte as any).receptor?.correo) as any,
+        telefono: trimOrNull((dte as any).receptor?.telefono) as any,
+        direccion: (dte as any).receptor?.direccion
+          ? {
+              departamento: normalizeTwoDigitCode((dte as any).receptor.direccion.departamento) as any,
+              municipio: normalizeTwoDigitCode((dte as any).receptor.direccion.municipio) as any,
+              complemento: trimOrNull((dte as any).receptor.direccion.complemento) as any,
+            }
+          : null,
+      } as any;
+
+      if (!contract?.normalize) {
+        return baseReceptor;
+      }
+
+      const contractNormalization = contract.normalize(dte, {
+        onlyDigits,
+        normalizeTwoDigitCode,
+        trimOrNull,
+        roundTo,
+      });
+
+      return contractNormalization.receptor ?? baseReceptor;
+    })(),
     otrosDocumentos: (dte as any).otrosDocumentos ?? null,
     ventaTercero: (dte as any).ventaTercero ?? null,
     cuerpoDocumento: normalizedItems,
