@@ -15,6 +15,30 @@ La app debe permitir:
 5. historial de documentos
 6. operación tolerante a conectividad móvil
 
+# Contexto real del backend y Supabase que debes respetar
+
+El backend `api-dte` ya usa Supabase y ya existe un modelo real que la app debe respetar.
+
+Asume como base:
+
+1. `businesses`
+2. `business_users`
+3. `business_settings`
+4. `mh_credentials`
+5. `dte_documents`
+6. `dte_responses`
+7. `tax_accumulators`
+
+La app Android no debe inventar un modelo alterno para negocio, usuario o historial documental.
+
+Debes considerar que:
+
+1. el negocio tiene identidad fiscal y operativa en `businesses`
+2. el usuario se vincula al negocio mediante `business_users`
+3. la configuración funcional del negocio está en `business_settings`
+4. el historial documental y resultados operativos existen en `dte_documents` y `dte_responses`
+5. las credenciales MH son administradas por backend/Supabase y no deben exponerse a móvil
+
 # Instrucción para el LLM que construirá el proyecto
 
 Trata este documento como especificación inicial del producto. Debes:
@@ -25,6 +49,7 @@ Trata este documento como especificación inicial del producto. Debes:
 4. no mover firma ni lógica MH al dispositivo
 5. no improvisar contratos si backend no los define
 6. dejar preparada la base para `03` sin implementarlo a medias
+7. asumir que la app debe convivir con autenticación, negocio y configuración ya existentes
 
 # Recomendación tecnológica
 
@@ -58,6 +83,8 @@ Pero mi recomendación inicial es `Kotlin + Compose` si de verdad quieres una AP
 - Login seguro.
 - Persistencia de sesión.
 - Recuperación de negocio/NIT asociado.
+- Resolver el contexto del negocio usando `business_users`.
+- Cargar configuración operativa desde `business_settings`.
 
 ## 2. Catálogos
 
@@ -65,6 +92,8 @@ Pero mi recomendación inicial es `Kotlin + Compose` si de verdad quieres una AP
 - Clientes frecuentes.
 - Formas de pago.
 - Sucursales / puntos de venta si aplica.
+
+Si esos catálogos aún no existen de forma oficial en backend o Supabase, no inventarlos como fuente maestra persistente sin antes definir su contrato.
 
 ## 3. Emisión DTE
 
@@ -79,17 +108,36 @@ Pero mi recomendación inicial es `Kotlin + Compose` si de verdad quieres una AP
   - sello
   - errores
 
+La app debe usar el contexto del negocio para:
+
+1. mostrar datos del emisor desde `businesses`
+2. respetar toggles o features desde `business_settings`
+3. mostrar restricciones funcionales según plan o configuración activa
+
 ## 4. Historial
 
 - Lista de documentos emitidos.
 - Filtros por fecha, tipo, estado.
 - Vista detalle del documento y respuesta MH.
+- Mostrar cuando exista:
+  - `codigo_generacion`
+  - `numero_control`
+  - `tipo_dte`
+  - `estado`
+  - `sello_recibido`
+  - `correo_enviado`
+  - `pdf_url`
+  - `json_url`
+  - `xml_url`
+- El historial debe poder construirse desde `dte_documents`, `dte_responses` o desde un endpoint consolidado.
 
 ## 5. Operación offline parcial
 
 - Guardar borradores localmente.
 - Encolar reintentos con `WorkManager`.
 - Sin inventar una lógica paralela a la de contingencia del backend.
+
+Los borradores locales no deben considerarse documentos oficiales hasta que el backend los procese.
 
 # Alcance recomendado por fases
 
@@ -140,8 +188,12 @@ La app debe usar endpoints del backend para:
 2. firmar/transmitir por flujo completo
 3. consultar historial
 4. consultar detalle por `codigoGeneracion`
+5. consultar negocio actual y configuración funcional
+6. consultar estado operativo del contexto del usuario
 
 Si hoy esos endpoints no están pensados para móvil, crear una capa de API estable antes de arrancar el cliente Android.
+
+La app no debe consultar directamente tablas sensibles como `mh_credentials`.
 
 # Entregables
 
@@ -150,6 +202,7 @@ Si hoy esos endpoints no están pensados para móvil, crear una capa de API esta
 3. Cliente API tipado.
 4. Soporte inicial a `01`.
 5. Manual de publicación interna.
+6. Propuesta explícita de contrato API móvil contra `api-dte`.
 
 # Criterios de aceptación
 
@@ -158,6 +211,7 @@ Si hoy esos endpoints no están pensados para móvil, crear una capa de API esta
 3. La app permite consultar historial y detalle.
 4. La app no almacena secretos sensibles del backend o MH.
 5. La arquitectura permite crecer luego a `03` sin rehacer la app.
+6. La app reutiliza el contexto real de negocio/usuario/configuración ya existente en backend y Supabase.
 
 # Orden recomendado
 
