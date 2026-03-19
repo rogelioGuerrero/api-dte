@@ -8,6 +8,7 @@ import { tokenNode } from "./nodes/tokenNode";
 import { emailNode } from './nodes/emailNode';
 import { persistResponseNode } from './nodes/persistResponseNode';
 import { prepareDocumentsNode } from './nodes/prepareDocumentsNode';
+import { reserveControlNumberNode } from './nodes/reserveControlNumberNode';
 import { contingencyNode } from "./nodes/contingencyNode";
 import { taxNode } from "./nodes/taxNode";
 import { postValidationProbeNode } from "./nodes/postValidationProbeNode";
@@ -45,11 +46,14 @@ const StateAnnotation = Annotation.Root({
   codigoGeneracion: Annotation<string>({ reducer: (_x: any, y: any) => y }),
   pdfBase64: Annotation<string>({ reducer: (_x: any, y: any) => y }),
   sanitizedDte: Annotation<any>({ reducer: (_x: any, y: any) => y }),
+  reservedCorrelativo: Annotation<number>({ reducer: (_x: any, y: any) => y }),
+  reservedNumeroControl: Annotation<string>({ reducer: (_x: any, y: any) => y }),
 });
 
 const workflow = new StateGraph(StateAnnotation)
   .addNode("validator", validateNode)
   .addNode("post_validation_probe", postValidationProbeNode)
+  .addNode("reserve_control_number", reserveControlNumberNode)
   .addNode("signer", signNode)
   .addNode("token_manager", tokenNode)
   .addNode("transmitter", transmitNode)
@@ -79,9 +83,16 @@ const workflow = new StateGraph(StateAnnotation)
       console.log('⛔ Validación fallida. Deteniendo flujo antes de firmar.');
       return END;
     }
-    
+
+    return "reserve_control_number";
+  })
+
+  .addConditionalEdges("reserve_control_number", (state: any) => {
+    console.log('🔀 Reserve Control Number transition:', { status: state.status, currentStep: state.currentStep });
+    if (state.status === 'failed') return END;
     return "signer";
   })
+
   .addConditionalEdges("signer", (state: any) => {
     console.log('🔀 Signer transition:', { status: state.status, isSigned: state.isSigned, currentStep: state.currentStep });
     // Si la firma falló o no se generó, terminar (o manejar error)

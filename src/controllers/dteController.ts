@@ -15,8 +15,8 @@ const router = Router();
 const logger = createLogger('dteController');
 const activeEmissionRequests = new Map<string, number>();
 
-const buildEmissionLockKey = (businessId: string, numeroControl: string) =>
-  `${businessId}:${numeroControl.trim().toUpperCase()}`;
+const buildEmissionLockKey = (businessId: string, codigoGeneracion: string) =>
+  `${businessId}:${codigoGeneracion.trim().toUpperCase()}`;
 
 const isDuplicateNumeroControlMhResponse = (mhResponse: any) => {
   if (!mhResponse) return false;
@@ -338,15 +338,12 @@ router.post('/process', async (req: AuthRequest, res: Response, next: NextFuncti
 
     // Extraer cÃ³digo de generaciÃ³n del DTE
     const codigoGeneracion = request.dte.identificacion?.codigoGeneracion;
-    const numeroControl = request.dte.identificacion?.numeroControl;
     if (!codigoGeneracion) {
       throw createError('El DTE no tiene cÃ³digo de generaciÃ³n', 400);
     }
-    if (!numeroControl) {
-      throw createError('El DTE no tiene nÃºmero de control', 400);
-    }
+    const numeroControl = request.dte.identificacion?.numeroControl;
 
-    emissionLockKey = buildEmissionLockKey(identity.businessId, numeroControl);
+    emissionLockKey = buildEmissionLockKey(identity.businessId, codigoGeneracion);
     if (activeEmissionRequests.has(emissionLockKey)) {
       logger.warn('Bloqueando reintento concurrente de DTE', {
         codigoGeneracion,
@@ -363,7 +360,7 @@ router.post('/process', async (req: AuthRequest, res: Response, next: NextFuncti
           code: 'DTE_ALREADY_PROCESSING',
           userMessage: 'Tu documento ya estÃ¡ siendo enviado. Por favor espera unos segundos; no es necesario volver a enviarlo.',
           canRetry: false,
-          details: [`numeroControl: ${numeroControl}`]
+          details: [`codigoGeneracion: ${codigoGeneracion}`]
         }
       } satisfies DteProcessResponse);
     }
