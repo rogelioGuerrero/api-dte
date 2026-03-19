@@ -1,6 +1,7 @@
 import { DTEState } from '../state';
 import { createLogger } from '../../utils/logger';
 import { saveDTEResponse } from '../../business/dteStorage';
+import { saveDTEDocument } from '../../dte/dteStorage';
 
 const logger = createLogger('persistResponseNode');
 
@@ -35,6 +36,22 @@ export async function persistResponseNode(state: DTEState): Promise<Partial<DTES
       codigoGeneracion: dteToPersist.identificacion?.codigoGeneracion,
       selloRecibido: state.mhResponse.selloRecibido || state.mhResponse.selloRecepcion,
     });
+
+    await saveDTEDocument({
+      codigo_generacion: dteToPersist.identificacion?.codigoGeneracion,
+      tipo_dte: dteToPersist.identificacion?.tipoDte,
+      numero_control: dteToPersist.identificacion?.numeroControl,
+      sello_recibido: state.mhResponse.selloRecibido || state.mhResponse.selloRecepcion,
+      fh_procesamiento: state.mhResponse.fechaHoraProcesamiento || state.mhResponse.fhProcesamiento,
+      business_id: businessId!,
+      issuer_nit: nitEmisor,
+      receiver_nit: (dteToPersist as any)?.receptor?.nit || (dteToPersist as any)?.receptor?.numDocumento || null,
+      dte_json: dteToPersist,
+      firma_jws: state.signature,
+      estado: 'transmitted',
+      clase_documento: 'emitido',
+      mh_response: state.mhResponse,
+    } as any);
 
     logger.info('Respuesta MH guardada en Supabase', {
       responseId: savedResponse.id,

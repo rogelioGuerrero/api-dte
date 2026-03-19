@@ -10,9 +10,7 @@
     "start:prod": "NODE_ENV=production node dist/index.js",
     "test": "jest",
     "lint": "eslint src/**/*.ts",
-    "clean": "rimraf dist",
-    "commit": "node scripts/auto-commit.js",
-    "build-commit": "node scripts/build-and-commit.js"
+    "clean": "rimraf dist"
   },
   "keywords": [
     "dte",
