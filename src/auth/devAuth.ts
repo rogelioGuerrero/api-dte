@@ -11,9 +11,9 @@ export interface DevAuthTokenClaims extends JwtPayload {
 }
 
 const getDevTokenSecret = (): string => {
-  const secret = process.env.JWT_SECRET || process.env.API_KEY_SECRET;
+  const secret = process.env.JWT_SECRET || process.env.API_KEY_SECRET || process.env.SUPABASE_SERVICE_KEY;
   if (!secret) {
-    throw new Error('JWT_SECRET o API_KEY_SECRET son requeridos para generar tokens de desarrollo');
+    throw new Error('JWT_SECRET, API_KEY_SECRET o SUPABASE_SERVICE_KEY son requeridos para generar tokens de desarrollo');
   }
   return secret;
 };

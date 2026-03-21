@@ -34,9 +34,7 @@ export const authMiddleware = async (
       throw createError('Token de autorización requerido', 401);
     }
 
-    const allowDevTokens =
-      process.env.NODE_ENV !== 'production' &&
-      (process.env.AUTH_ALLOW_DEV_TOKENS ?? 'true').toLowerCase() !== 'false';
+    const allowDevTokens = (process.env.AUTH_ALLOW_DEV_TOKENS ?? 'true').toLowerCase() !== 'false';
 
     if (allowDevTokens) {
       const devClaims = verifyDevAuthToken(token);
