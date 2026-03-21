@@ -12,6 +12,15 @@ import { reserveControlNumberNode } from './nodes/reserveControlNumberNode';
 import { contingencyNode } from "./nodes/contingencyNode";
 import { taxNode } from "./nodes/taxNode";
 import { postValidationProbeNode } from "./nodes/postValidationProbeNode";
+import {
+  WORKFLOW_NODES,
+  routeAfterPostValidation,
+  routeAfterReserveControlNumber,
+  routeAfterSigner,
+  routeAfterStart,
+  routeAfterTokenManager,
+  routeAfterTransmitter,
+} from "./workflowRoutes";
 
 const StateAnnotation = Annotation.Root({
   dte: Annotation<any>({ reducer: (_x: any, y: any) => y }),
@@ -51,27 +60,27 @@ const StateAnnotation = Annotation.Root({
 });
 
 const workflow = new StateGraph(StateAnnotation)
-  .addNode("validator", validateNode)
-  .addNode("post_validation_probe", postValidationProbeNode)
-  .addNode("reserve_control_number", reserveControlNumberNode)
-  .addNode("signer", signNode)
-  .addNode("token_manager", tokenNode)
-  .addNode("transmitter", transmitNode)
-  .addNode("persist_response", persistResponseNode)
-  .addNode("prepare_documents", prepareDocumentsNode)
-  .addNode("email_sender", emailNode)
-  .addNode("contingency", contingencyNode)
-  .addNode("tax_keeper", taxNode)
+  .addNode(WORKFLOW_NODES.VALIDATOR, validateNode)
+  .addNode(WORKFLOW_NODES.POST_VALIDATION_PROBE, postValidationProbeNode)
+  .addNode(WORKFLOW_NODES.RESERVE_CONTROL_NUMBER, reserveControlNumberNode)
+  .addNode(WORKFLOW_NODES.SIGNER, signNode)
+  .addNode(WORKFLOW_NODES.TOKEN_MANAGER, tokenNode)
+  .addNode(WORKFLOW_NODES.TRANSMITTER, transmitNode)
+  .addNode(WORKFLOW_NODES.PERSIST_RESPONSE, persistResponseNode)
+  .addNode(WORKFLOW_NODES.PREPARE_DOCUMENTS, prepareDocumentsNode)
+  .addNode(WORKFLOW_NODES.EMAIL_SENDER, emailNode)
+  .addNode(WORKFLOW_NODES.CONTINGENCY, contingencyNode)
+  .addNode(WORKFLOW_NODES.TAX_KEEPER, taxNode)
 
   // Router Inicial de emisión
-  .addConditionalEdges(START, (state: any) => {
+  .addConditionalEdges(START, () => {
     console.log('🔀 Start router: usando validator estándar');
-    return "validator";
+    return routeAfterStart();
   })
 
   // Flujo Emisión
-  .addEdge("validator", "post_validation_probe")
-  .addConditionalEdges("post_validation_probe", (state: any) => {
+  .addEdge(WORKFLOW_NODES.VALIDATOR, WORKFLOW_NODES.POST_VALIDATION_PROBE)
+  .addConditionalEdges(WORKFLOW_NODES.POST_VALIDATION_PROBE, (state: any) => {
     console.log('🔀 Post-Validation transition check:', { 
       isValid: state.isValid, 
       status: state.status,
@@ -81,41 +90,35 @@ const workflow = new StateGraph(StateAnnotation)
     // Si la validación falló, terminamos el flujo aquí retornando los errores
     if (state.status === 'failed' || state.isValid === false) {
       console.log('⛔ Validación fallida. Deteniendo flujo antes de firmar.');
-      return END;
+      return routeAfterPostValidation(state);
     }
 
-    return "reserve_control_number";
+    return routeAfterPostValidation(state);
   })
 
-  .addConditionalEdges("reserve_control_number", (state: any) => {
+  .addConditionalEdges(WORKFLOW_NODES.RESERVE_CONTROL_NUMBER, (state: any) => {
     console.log('🔀 Reserve Control Number transition:', { status: state.status, currentStep: state.currentStep });
-    if (state.status === 'failed') return END;
-    return "signer";
+    return routeAfterReserveControlNumber(state);
   })
 
-  .addConditionalEdges("signer", (state: any) => {
+  .addConditionalEdges(WORKFLOW_NODES.SIGNER, (state: any) => {
     console.log('🔀 Signer transition:', { status: state.status, isSigned: state.isSigned, currentStep: state.currentStep });
     // Si la firma falló o no se generó, terminar (o manejar error)
-    if (state.status === 'failed' || !state.isSigned) return END;
-    return "token_manager";
+    return routeAfterSigner(state);
   })
-  .addConditionalEdges("token_manager", (state: any) => {
+  .addConditionalEdges(WORKFLOW_NODES.TOKEN_MANAGER, (state: any) => {
     console.log('🔀 Token Manager transition:', { status: state.status, currentStep: state.currentStep });
-    if (state.status === 'failed') return END;
-    return "transmitter";
+    return routeAfterTokenManager(state);
   })
-  .addConditionalEdges("transmitter", (state: any) => {
+  .addConditionalEdges(WORKFLOW_NODES.TRANSMITTER, (state: any) => {
     console.log('🔀 Transmitter transition:', { status: state.status, isTransmitted: state.isTransmitted, currentStep: state.currentStep });
-      if (state.status === 'completed') return "persist_response";
-      if (state.status === 'contingency') return "contingency";
-      if (state.status === 'transmitting') return "transmitter"; 
-      return END;
+      return routeAfterTransmitter(state);
   })
-  .addEdge("persist_response", "prepare_documents")
-  .addEdge("prepare_documents", "email_sender")
-  .addEdge("email_sender", "tax_keeper")
-  .addEdge("contingency", "tax_keeper")
+  .addEdge(WORKFLOW_NODES.PERSIST_RESPONSE, WORKFLOW_NODES.PREPARE_DOCUMENTS)
+  .addEdge(WORKFLOW_NODES.PREPARE_DOCUMENTS, WORKFLOW_NODES.EMAIL_SENDER)
+  .addEdge(WORKFLOW_NODES.EMAIL_SENDER, WORKFLOW_NODES.TAX_KEEPER)
+  .addEdge(WORKFLOW_NODES.CONTINGENCY, WORKFLOW_NODES.TAX_KEEPER)
 
-  .addEdge("tax_keeper", END);
+  .addEdge(WORKFLOW_NODES.TAX_KEEPER, END);
 
 export const dteGraph = workflow.compile();

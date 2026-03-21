@@ -1,5 +1,29 @@
 import { DTEJSON } from '../dte/generator';
-import { MonthlyTaxAccumulator } from '../tax/types';
+
+export type WorkflowStatus =
+  | 'draft'
+  | 'validating'
+  | 'signing'
+  | 'transmitting'
+  | 'completed'
+  | 'failed'
+  | 'contingency'
+  | 'processing_reception'
+  | 'processing';
+
+export type WorkflowStep =
+  | 'start'
+  | 'validator'
+  | 'post_validation_probe'
+  | 'reserve_control_number'
+  | 'signer'
+  | 'token_manager'
+  | 'transmitter'
+  | 'persist_response'
+  | 'prepare_documents'
+  | 'email_sender'
+  | 'contingency'
+  | 'tax_keeper';
 
 export interface DTEState {
   // Inputs iniciales
@@ -30,12 +54,12 @@ export interface DTEState {
   taxImpact?: any;          // MonthlyTaxAccumulator
   
   // Control global
-  status?: 'draft' | 'validating' | 'signing' | 'transmitting' | 'completed' | 'failed' | 'contingency' | 'processing_reception';
+  status?: WorkflowStatus;
   retryCount?: number;
   
   // Para UI más rica
   progressPercentage?: number; // 0-100
-  currentStep?: string;       // "validator", "signer", etc.
+  currentStep?: WorkflowStep;       // "validator", "signer", etc.
   estimatedTime?: number;     // segundos restantes
   
   // Para errores específicos
