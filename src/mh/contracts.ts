@@ -27,8 +27,6 @@ const creditFiscal03Contract: DteTypeContract = {
   normalize: (dte, helpers) => ({
     receptor: {
       ...(dte as any).receptor,
-      tipoDocumento: null,
-      numDocumento: null,
       nit: helpers.onlyDigits((dte as any).receptor?.nit),
       nrc: helpers.onlyDigits((dte as any).receptor?.nrc),
       nombre: (dte as any).receptor?.nombre ? String((dte as any).receptor.nombre).trim() : '',
