@@ -79,15 +79,6 @@ const creditFiscal03Contract: DteTypeContract = {
       });
     }
 
-    if ((dte.resumen.totalIva ?? 0) <= 0) {
-      errores.push({
-        codigo: 'RULE-0302',
-        campo: 'resumen.totalIva',
-        descripcion: 'CCF 03 requiere totalIva mayor a 0',
-        severidad: 'ERROR',
-      });
-    }
-
     if (!Array.isArray(dte.resumen.tributos) || dte.resumen.tributos.length === 0) {
       errores.push({
         codigo: 'RULE-0303',
@@ -145,11 +136,20 @@ const creditFiscal03Contract: DteTypeContract = {
     });
 
     const ivaTributo = dte.resumen.tributos?.find((t) => t.codigo === '20');
-    if (ivaTributo && !helpers.near(ivaTributo.valor, dte.resumen.totalIva ?? 0, 0.01)) {
+    const totalIvaCalculado = dte.resumen.totalIva ?? ivaTributo?.valor ?? 0;
+
+    if (!ivaTributo) {
+      errores.push({
+        codigo: 'RULE-0305A',
+        campo: 'resumen.tributos[codigo=20]',
+        descripcion: 'El IVA consolidado debe declararse en resumen.tributos con el código 20',
+        severidad: 'ERROR',
+      });
+    } else if (!helpers.near(ivaTributo.valor, totalIvaCalculado, 0.01)) {
       errores.push({
         codigo: 'RULE-0305',
         campo: 'resumen.tributos[codigo=20].valor',
-        descripcion: 'El IVA consolidado en resumen.tributos debe coincidir con resumen.totalIva',
+        descripcion: 'El IVA consolidado en resumen.tributos debe coincidir con el IVA calculado',
         severidad: 'ERROR',
       });
     }

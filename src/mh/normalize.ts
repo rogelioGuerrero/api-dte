@@ -100,8 +100,8 @@ export const normalizeDTE = (dte: DTEJSON): DTEJSON => {
       descActividad: (dte as any).emisor?.descActividad ? String((dte as any).emisor.descActividad).trim() : '',
       nombreComercial: trimOrNull((dte as any).emisor?.nombreComercial) as any,
       tipoEstablecimiento: (dte as any).emisor?.tipoEstablecimiento ?? null,
-      codEstable: (trimOrNull((dte as any).emisor?.codEstable) ?? ((dte as any).emisor?.codEstableMH ?? 'M001')) as any,
-      codPuntoVenta: (trimOrNull((dte as any).emisor?.codPuntoVenta) ?? ((dte as any).emisor?.codPuntoVentaMH ?? 'P001')) as any,
+      codEstable: null,
+      codPuntoVenta: null,
       codEstableMH: ((dte as any).emisor?.codEstableMH ?? 'M001')?.toString().trim().toUpperCase().padEnd(4, '0').slice(0, 4),
       codPuntoVentaMH: ((dte as any).emisor?.codPuntoVentaMH ?? 'P001')?.toString().trim().toUpperCase().padEnd(4, '0').slice(0, 4),
       direccion: {
@@ -162,8 +162,11 @@ export const normalizeDTE = (dte: DTEJSON): DTEJSON => {
       const totalGravada = roundTo(items.reduce((a, b) => a + b.ventaGravada, 0), 2);
       const totalNoSuj = roundTo(items.reduce((a, b) => a + b.ventaNoSuj, 0), 2);
       const totalExenta = roundTo(items.reduce((a, b) => a + b.ventaExenta, 0), 2);
+      const resumenIvaTributo = Array.isArray((dte as any).resumen?.tributos)
+        ? (dte as any).resumen.tributos.find((t: any) => t?.codigo === '20')
+        : null;
       const totalIva = tipoDte === '03'
-        ? roundTo(((dte as any).resumen?.totalIva ?? roundTo(totalGravada * 0.13, 2)) as number, 2)
+        ? roundTo(((dte as any).resumen?.totalIva ?? resumenIvaTributo?.valor ?? roundTo(totalGravada * 0.13, 2)) as number, 2)
         : roundTo(items.reduce((a, b) => a + (b.ivaItem ?? 0), 0), 2);
       // En tipo 01 (Factura consumidor final) montos con IVA incluido; totalIva es informativo.
       const subTotalVentas = roundTo(totalNoSuj + totalExenta + totalGravada, 2);
@@ -189,7 +192,6 @@ export const normalizeDTE = (dte: DTEJSON): DTEJSON => {
         descuGravada: roundTo((dte as any).resumen?.descuGravada ?? 0, 2),
         porcentajeDescuento: roundTo((dte as any).resumen?.porcentajeDescuento ?? 0, 2),
         totalDescu,
-        totalIva,
         ivaPerci1,
         tributos:
           tipoDte === '01'

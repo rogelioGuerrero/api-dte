@@ -79,7 +79,10 @@ export class CreditFiscal03Handler implements DteTypeHandler {
     const resumenTotalGravada = resumen.totalGravada || 0;
     const resumenTotalExenta = resumen.totalExenta || 0;
     const resumenTotalNoSuj = resumen.totalNoSuj || 0;
-    const resumenTotalIva = resumen.totalIva || 0;
+    const ivaTributo = Array.isArray(resumen.tributos)
+      ? resumen.tributos.find((t: any) => t?.codigo === '20')
+      : null;
+    const resumenTotalIva = Number(resumen.totalIva ?? ivaTributo?.valor ?? 0);
     const resumenSubTotal = resumen.subTotal || resumen.subTotalVentas || 0;
     const resumenMontoOperacion = resumen.montoTotalOperacion || 0;
     const resumenTotalPagar = resumen.totalPagar || 0;
@@ -122,20 +125,16 @@ export class CreditFiscal03Handler implements DteTypeHandler {
       valErrors.push('RESUMEN_MONTO_OPERACION_INVALIDO: montoTotalOperacion debe ser mayor a 0 para CCF 03');
     }
 
-    if (resumenTotalIva <= 0) {
-      valErrors.push('RESUMEN_TOTAL_IVA_INVALIDO: totalIva debe ser mayor a 0 para CCF 03');
-    }
-
     if (!Array.isArray(resumen.tributos) || resumen.tributos.length === 0) {
       valErrors.push('RESUMEN_TRIBUTOS_REQUERIDOS: resumen.tributos debe ser un arreglo con el IVA consolidado');
     }
 
     if (resumen.tributos && Array.isArray(resumen.tributos)) {
-      const ivaTributo = resumen.tributos.find((t: any) => t?.codigo === '20');
-      if (!ivaTributo) {
+      const ivaTributoLocal = resumen.tributos.find((t: any) => t?.codigo === '20');
+      if (!ivaTributoLocal) {
         valErrors.push('RESUMEN_IVA_CODIGO_20_REQUERIDO: resumen.tributos debe incluir el código 20');
-      } else if (!near(Number(ivaTributo.valor || 0), Number(resumenTotalIva || 0))) {
-        valErrors.push(`RESUMEN_IVA_VALOR_MISMATCH: resumen.tributos[codigo=20].valor ${ivaTributo.valor} ≠ resumen.totalIva ${resumenTotalIva}`);
+      } else if (!near(Number(ivaTributoLocal.valor || 0), Number(resumenTotalIva || 0))) {
+        valErrors.push(`RESUMEN_IVA_VALOR_MISMATCH: resumen.tributos[codigo=20].valor ${ivaTributoLocal.valor} ≠ IVA calculado ${resumenTotalIva}`);
       }
     }
 
