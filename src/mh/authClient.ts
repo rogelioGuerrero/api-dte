@@ -44,11 +44,11 @@ export const isLikelyJwt = (rawToken?: string): boolean => {
 
 const isTokenExpired = (updatedAt: string | undefined, ambiente: '00' | '01'): boolean => {
   if (!updatedAt) return true;
-  const updated = new Date(updatedAt);
-  if (Number.isNaN(updated.getTime())) return true;
+  const updatedMs = parseFlexibleTimestampMs(updatedAt);
+  if (updatedMs === null) return true;
   const ttlHours = ambiente === '00' ? 48 : 24;
   const bufferHours = 1;
-  const expiresAt = new Date(updated.getTime() + (ttlHours - bufferHours) * 60 * 60 * 1000);
+  const expiresAt = new Date(updatedMs + (ttlHours - bufferHours) * 60 * 60 * 1000);
   return new Date() >= expiresAt;
 };
 
@@ -75,6 +75,25 @@ const cacheToken = (
   const defaultExpiresAt = Date.now() + (ttlHours - bufferHours) * 60 * 60 * 1000;
   const expiresAt = explicitExpiresAtMs ? Math.min(explicitExpiresAtMs, defaultExpiresAt) : defaultExpiresAt;
   tokenCache.set(getCacheKey(nit, ambiente), { token, expiresAt });
+};
+
+const parseFlexibleTimestampMs = (value?: string): number | null => {
+  if (!value) return null;
+
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+
+  const direct = new Date(trimmed).getTime();
+  if (!Number.isNaN(direct)) {
+    return direct;
+  }
+
+  const postgresStyle = trimmed
+    .replace(' ', 'T')
+    .replace(/\+00$/, '+00:00');
+
+  const normalized = new Date(postgresStyle).getTime();
+  return Number.isNaN(normalized) ? null : normalized;
 };
 
 const decodeJwtExpMs = (rawToken?: string): number | null => {
@@ -169,8 +188,8 @@ export const shouldRefreshTokenWithExp = (
   if (!apiToken) return true;
   if (!normalizeBearerToken(apiToken)) return true;
   if (!apiTokenExpiresAt) return true;
-  const expiresMs = new Date(apiTokenExpiresAt).getTime();
-  if (Number.isNaN(expiresMs)) return true;
+  const expiresMs = parseFlexibleTimestampMs(apiTokenExpiresAt);
+  if (expiresMs === null) return true;
   const bufferMinutes = 5;
   return Date.now() >= expiresMs - bufferMinutes * 60 * 1000;
 };
