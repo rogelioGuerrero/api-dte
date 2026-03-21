@@ -6,6 +6,7 @@ import { createDevAuthToken } from '../auth/devAuth';
 
 const router = Router();
 const logger = createLogger('testController');
+const testRecipientEmail = process.env.TEST_RECEPTOR_EMAIL || 'guerrero_vi@yahoo.com';
 
 // --- Fixtures básicos para previsualización (ajustar en desarrollo según necesidad) ---
 const sampleDte = {
@@ -17,16 +18,16 @@ const sampleDte = {
     version: 1,
   },
   emisor: {
-    nit: '0614-290786-102-3',
-    nombre: 'Comercial Demo S.A. de C.V.',
-    nombreComercial: 'Demo Market',
-    correo: 'demo@emisor.com',
+    nit: '14012805761025',
+    nombre: 'Rogelio Guerrero',
+    nombreComercial: 'n/a',
+    correo: 'guerrero_vi@yahoo.com',
     logo_url: undefined,
   },
   receptor: {
-    nombre: 'Cliente Prueba',
-    nit: '0614-010101-101-1',
-    correo: 'cliente@example.com',
+    nombre: 'Jackeline Sorayda Granados Martínez',
+    nit: '051881598',
+    correo: testRecipientEmail,
   },
   resumen: {
     totalGravada: 100,

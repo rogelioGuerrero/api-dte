@@ -32,6 +32,7 @@ export interface DTEState {
   passwordPri?: string;     // Password para firma
   ambiente?: '00' | '01';   // Pruebas/Producción
   flowType?: 'emission' | 'reception'; // Tipo de flujo
+  receptorEmail?: string;   // Correo destino para notificaciones/preview
   
   // Identificación para tracking
   codigoGeneracion?: string; // Para fácil identificación

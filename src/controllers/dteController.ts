@@ -76,6 +76,7 @@ interface ProcessDTERequest {
   businessId?: string;
   nit?: string;
   deviceId?: string;
+  receptorEmail?: string;
 }
 
 // POST /api/dte/validate
@@ -403,6 +404,7 @@ router.post('/process', async (req: AuthRequest, res: Response, next: NextFuncti
       flowType: request.flowType || 'emission',
       businessId: identity.businessId,
       nit: identity.nit,
+      receptorEmail: request.receptorEmail?.trim() || undefined,
       deviceId: request.deviceId,
       codigoGeneracion,
       status: 'validating',
