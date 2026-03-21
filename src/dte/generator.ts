@@ -129,7 +129,7 @@ export interface DTEJSON {
       valor: number;
     }> | null;
     subTotal: number;
-    ivaRete: number;
+    ivaRete1: number;
     montoTotalOperacion: number;
     totalNoGravado: number;
     totalPagar: number;

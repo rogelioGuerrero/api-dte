@@ -100,8 +100,8 @@ export const normalizeDTE = (dte: DTEJSON): DTEJSON => {
       descActividad: (dte as any).emisor?.descActividad ? String((dte as any).emisor.descActividad).trim() : '',
       nombreComercial: trimOrNull((dte as any).emisor?.nombreComercial) as any,
       tipoEstablecimiento: (dte as any).emisor?.tipoEstablecimiento ?? null,
-      codEstable: trimOrNull((dte as any).emisor?.codEstable) as any,
-      codPuntoVenta: trimOrNull((dte as any).emisor?.codPuntoVenta) as any,
+      codEstable: (trimOrNull((dte as any).emisor?.codEstable) ?? ((dte as any).emisor?.codEstableMH ?? 'M001')) as any,
+      codPuntoVenta: (trimOrNull((dte as any).emisor?.codPuntoVenta) ?? ((dte as any).emisor?.codPuntoVentaMH ?? 'P001')) as any,
       codEstableMH: ((dte as any).emisor?.codEstableMH ?? 'M001')?.toString().trim().toUpperCase().padEnd(4, '0').slice(0, 4),
       codPuntoVentaMH: ((dte as any).emisor?.codPuntoVentaMH ?? 'P001')?.toString().trim().toUpperCase().padEnd(4, '0').slice(0, 4),
       direccion: {
@@ -163,7 +163,7 @@ export const normalizeDTE = (dte: DTEJSON): DTEJSON => {
       const totalNoSuj = roundTo(items.reduce((a, b) => a + b.ventaNoSuj, 0), 2);
       const totalExenta = roundTo(items.reduce((a, b) => a + b.ventaExenta, 0), 2);
       const totalIva = tipoDte === '03'
-        ? roundTo((dte as any).resumen?.totalIva ?? 0, 2)
+        ? roundTo(((dte as any).resumen?.totalIva ?? roundTo(totalGravada * 0.13, 2)) as number, 2)
         : roundTo(items.reduce((a, b) => a + (b.ivaItem ?? 0), 0), 2);
       // En tipo 01 (Factura consumidor final) montos con IVA incluido; totalIva es informativo.
       const subTotalVentas = roundTo(totalNoSuj + totalExenta + totalGravada, 2);
@@ -171,10 +171,13 @@ export const normalizeDTE = (dte: DTEJSON): DTEJSON => {
       const totalNoGravado = roundTo((dte as any).resumen?.totalNoGravado ?? 0, 2);
       const totalDescu = roundTo((dte as any).resumen?.totalDescu ?? 0, 2);
       const ivaPerci1 = roundTo((dte as any).resumen?.ivaPerci1 ?? 0, 2);
+      const ivaRete1 = roundTo(((dte as any).resumen?.ivaRete1 ?? 0) as number, 2);
+      const reteRenta = roundTo(((dte as any).resumen?.reteRenta ?? 0) as number, 2);
+      const saldoFavor = roundTo((dte as any).resumen?.saldoFavor ?? 0, 2);
       const montoTotalOperacion = tipoDte === '01'
         ? roundTo(subTotal - totalDescu + totalNoGravado, 2)
-        : roundTo(subTotal - totalDescu + totalNoGravado + totalIva, 2);
-      const totalPagar = montoTotalOperacion;
+        : roundTo(subTotal - totalDescu + totalNoGravado + totalIva + ivaPerci1 - ivaRete1 - reteRenta + saldoFavor, 2);
+      const totalPagar = roundTo(montoTotalOperacion, 2);
 
       return {
         totalNoSuj,
@@ -192,23 +195,33 @@ export const normalizeDTE = (dte: DTEJSON): DTEJSON => {
           tipoDte === '01'
             ? null
             : totalIva > 0
-              ? [{ codigo: ivaCodigo, descripcion: 'Impuesto al Valor Agregado 13%', valor: totalIva }]
+              ? [{ codigo: ivaCodigo, descripcion: 'IVA 13%', valor: totalIva }]
               : null,
         subTotal,
-        // MH requiere ivaRete1
-        ivaRete1: roundTo(((dte as any).resumen?.ivaRete1 ?? 0) as number, 2),
-        reteRenta: roundTo(((dte as any).resumen?.reteRenta ?? 0) as number, 2),
+        ivaRete1,
+        reteRenta,
         montoTotalOperacion,
         totalNoGravado,
         totalPagar,
         totalLetras: (dte as any).resumen?.totalLetras ? String((dte as any).resumen.totalLetras).trim() : '',
-        saldoFavor: roundTo((dte as any).resumen?.saldoFavor ?? 0, 2),
+        saldoFavor,
         condicionOperacion: (dte as any).resumen?.condicionOperacion ?? 1,
         pagos: (dte as any).resumen?.pagos ?? null,
         numPagoElectronico: (dte as any).resumen?.numPagoElectronico ?? null,
       } as any;
     })(),
-    extension: null,
+    extension: (() => {
+      const extension = (dte as any).extension || {};
+
+      return {
+        nombEntrega: trimOrNull(extension.nombEntrega) as any,
+        docuEntrega: trimOrNull(extension.docuEntrega) as any,
+        nombRecibe: trimOrNull(extension.nombRecibe) as any,
+        docuRecibe: trimOrNull(extension.docuRecibe) as any,
+        observaciones: trimOrNull(extension.observaciones) as any,
+        placaVehiculo: trimOrNull(extension.placaVehiculo) as any,
+      };
+    })(),
     apendice: null,
   };
 
