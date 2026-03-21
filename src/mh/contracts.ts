@@ -6,15 +6,7 @@ export type DteSchemaRef = 'FE' | 'CCFE' | 'FEXE';
 export interface DteTypeContract {
   readonly tipoDte: string;
   readonly schemaRef: DteSchemaRef;
-  normalize?: (dte: DTEJSON, helpers: DteNormalizationHelpers) => Partial<DTEJSON>;
   validateRules?: (dte: DTEJSON, helpers: DteRuleHelpers) => ErrorValidacionMH[];
-}
-
-export interface DteNormalizationHelpers {
-  onlyDigits: (value: string | null | undefined) => string | null;
-  normalizeTwoDigitCode: (value: string | null | undefined) => string | null;
-  trimOrNull: (value: string | null | undefined) => string | null;
-  roundTo: (value: number, decimals: number) => number;
 }
 
 export interface DteRuleHelpers {
@@ -24,28 +16,6 @@ export interface DteRuleHelpers {
 const creditFiscal03Contract: DteTypeContract = {
   tipoDte: '03',
   schemaRef: 'CCFE',
-  normalize: (dte, helpers) => {
-    const receptor = (dte as any).receptor || {};
-    return {
-      receptor: {
-        nit: helpers.onlyDigits(receptor.nit),
-        nrc: helpers.onlyDigits(receptor.nrc),
-        nombre: receptor.nombre ? String(receptor.nombre).trim() : '',
-        nombreComercial: helpers.trimOrNull(receptor.nombreComercial) as any,
-        codActividad: helpers.trimOrNull(receptor.codActividad) as any,
-        descActividad: helpers.trimOrNull(receptor.descActividad) as any,
-        direccion: receptor.direccion
-          ? {
-              departamento: helpers.normalizeTwoDigitCode(receptor.direccion.departamento) as any,
-              municipio: helpers.normalizeTwoDigitCode(receptor.direccion.municipio) as any,
-              complemento: helpers.trimOrNull(receptor.direccion.complemento) as any,
-            }
-          : null,
-        telefono: helpers.trimOrNull(receptor.telefono) as any,
-        correo: helpers.trimOrNull(receptor.correo) as any,
-      } as any,
-    };
-  },
   validateRules: (dte, helpers) => {
     const errores: ErrorValidacionMH[] = [];
 

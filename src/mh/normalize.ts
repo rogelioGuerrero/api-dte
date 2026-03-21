@@ -1,5 +1,4 @@
 ﻿import type { DTEJSON } from '../dte/generator';
-import { resolveDteContract } from './contracts';
 
 const onlyDigits = (value: string | null | undefined): string | null => {
   if (value === null || value === undefined) return null;
@@ -27,7 +26,6 @@ const roundTo = (value: number, decimals: number): number => {
 
 export const normalizeDTE = (dte: DTEJSON): DTEJSON => {
   const tipoDte = (dte.identificacion?.tipoDte || '').trim();
-  const contract = resolveDteContract(tipoDte);
   const versionIdentificacion = tipoDte === '03'
     ? 3
     : tipoDte === '11'
@@ -151,18 +149,7 @@ export const normalizeDTE = (dte: DTEJSON): DTEJSON => {
               : null,
           } as any;
 
-      if (!contract?.normalize) {
-        return baseReceptor;
-      }
-
-      const contractNormalization = contract.normalize(dte, {
-        onlyDigits,
-        normalizeTwoDigitCode,
-        trimOrNull,
-        roundTo,
-      });
-
-      return contractNormalization.receptor ?? baseReceptor;
+      return baseReceptor;
     })(),
     otrosDocumentos: (dte as any).otrosDocumentos ?? null,
     ventaTercero: (dte as any).ventaTercero ?? null,
