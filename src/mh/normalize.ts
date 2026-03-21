@@ -168,6 +168,7 @@ export const normalizeDTE = (dte: DTEJSON): DTEJSON => {
       const subTotal = subTotalVentas;
       const totalNoGravado = roundTo((dte as any).resumen?.totalNoGravado ?? 0, 2);
       const totalDescu = roundTo((dte as any).resumen?.totalDescu ?? 0, 2);
+      const ivaPerci1 = roundTo((dte as any).resumen?.ivaPerci1 ?? 0, 2);
       const montoTotalOperacion = tipoDte === '01'
         ? roundTo(subTotal - totalDescu + totalNoGravado, 2)
         : roundTo(subTotal - totalDescu + totalNoGravado + totalIva, 2);
@@ -184,6 +185,7 @@ export const normalizeDTE = (dte: DTEJSON): DTEJSON => {
         porcentajeDescuento: roundTo((dte as any).resumen?.porcentajeDescuento ?? 0, 2),
         totalDescu,
         totalIva,
+        ivaPerci1,
         tributos:
           tipoDte === '01'
             ? null

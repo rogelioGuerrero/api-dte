@@ -122,6 +122,7 @@ export interface DTEJSON {
     porcentajeDescuento: number;
     totalDescu: number;
     totalIva: number;
+    ivaPerci1: number;
     tributos: Array<{
       codigo: string;
       descripcion: string;
