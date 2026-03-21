@@ -34,6 +34,7 @@ const creditFiscal03Contract: DteTypeContract = {
         nit: helpers.onlyDigits(receptor.nit),
         nrc: helpers.onlyDigits(receptor.nrc),
         nombre: receptor.nombre ? String(receptor.nombre).trim() : '',
+        nombreComercial: receptor.nombreComercial ? String(receptor.nombreComercial).trim() : null,
         codActividad: helpers.trimOrNull(receptor.codActividad) as any,
         descActividad: helpers.trimOrNull(receptor.descActividad) as any,
         correo: helpers.trimOrNull(receptor.correo) as any,
