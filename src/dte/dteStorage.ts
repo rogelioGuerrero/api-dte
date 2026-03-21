@@ -4,6 +4,26 @@ import { DTEJSON } from './generator';
 
 const logger = createLogger('dteStorage');
 
+const normalizeTimestampForDb = (value?: string | null): string | null => {
+  if (!value) return null;
+
+  const trimmed = String(value).trim();
+  if (!trimmed) return null;
+
+  const isoCandidate = new Date(trimmed);
+  if (!Number.isNaN(isoCandidate.getTime())) {
+    return isoCandidate.toISOString();
+  }
+
+  const match = trimmed.match(/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2}):(\d{2})$/);
+  if (match) {
+    const [, dd, mm, yyyy, hh, mi, ss] = match;
+    return `${yyyy}-${mm}-${dd} ${hh}:${mi}:${ss}`;
+  }
+
+  return trimmed;
+};
+
 export interface DTEDocument {
   id?: string;
   codigo_generacion: string;
@@ -35,7 +55,7 @@ export const saveDTEDocument = async (doc: DTEDocument): Promise<void> => {
         tipo_dte: doc.tipo_dte,
         numero_control: doc.numero_control,
         sello_recibido: doc.sello_recibido,
-        fh_procesamiento: doc.fh_procesamiento,
+        fh_procesamiento: normalizeTimestampForDb(doc.fh_procesamiento),
         business_id: doc.business_id,
         issuer_nit: doc.issuer_nit,
         receiver_nit: doc.receiver_nit,
