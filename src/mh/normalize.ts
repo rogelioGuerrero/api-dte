@@ -205,7 +205,11 @@ export const normalizeDTE = (dte: DTEJSON): DTEJSON => {
         montoTotalOperacion,
         totalNoGravado,
         totalPagar,
-        totalLetras: (dte as any).resumen?.totalLetras ? String((dte as any).resumen.totalLetras).trim() : '',
+        totalLetras: (() => {
+          const raw = (dte as any).resumen?.totalLetras ? String((dte as any).resumen.totalLetras).trim() : '';
+          if (!raw) return '';
+          return raw.endsWith('USD') ? raw : `${raw} USD`;
+        })(),
         saldoFavor,
         condicionOperacion: (dte as any).resumen?.condicionOperacion ?? 1,
         pagos: (dte as any).resumen?.pagos ?? null,
