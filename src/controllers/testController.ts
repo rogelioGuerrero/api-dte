@@ -78,7 +78,11 @@ router.post('/dev-token', (req: Request, res: Response) => {
       },
     });
   } catch (error) {
-    logger.error('Error generando token dev', { error });
+    logger.error('Error generando token dev', {
+      errorName: error instanceof Error ? error.name : typeof error,
+      errorMessage: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+    });
     res.status(500).json({
       success: false,
       error: error instanceof Error ? error.message : 'No se pudo generar el token dev',
