@@ -26,19 +26,15 @@ const creditFiscal03Contract: DteTypeContract = {
   schemaRef: 'CCFE',
   normalize: (dte, helpers) => {
     const receptor = (dte as any).receptor || {};
-    const { tipoDocumento: _tipoDocumento, numDocumento: _numDocumento, ...receptorBase } = receptor;
-
     return {
       receptor: {
-        ...receptorBase,
+        tipoDocumento: null,
+        numDocumento: null,
         nit: helpers.onlyDigits(receptor.nit),
         nrc: helpers.onlyDigits(receptor.nrc),
         nombre: receptor.nombre ? String(receptor.nombre).trim() : '',
-        nombreComercial: receptor.nombreComercial ? String(receptor.nombreComercial).trim() : null,
         codActividad: helpers.trimOrNull(receptor.codActividad) as any,
         descActividad: helpers.trimOrNull(receptor.descActividad) as any,
-        correo: helpers.trimOrNull(receptor.correo) as any,
-        telefono: helpers.trimOrNull(receptor.telefono) as any,
         direccion: receptor.direccion
           ? {
               departamento: helpers.normalizeTwoDigitCode(receptor.direccion.departamento) as any,
@@ -46,6 +42,8 @@ const creditFiscal03Contract: DteTypeContract = {
               complemento: helpers.trimOrNull(receptor.direccion.complemento) as any,
             }
           : null,
+        telefono: helpers.trimOrNull(receptor.telefono) as any,
+        correo: helpers.trimOrNull(receptor.correo) as any,
       } as any,
     };
   },

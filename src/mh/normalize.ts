@@ -113,32 +113,44 @@ export const normalizeDTE = (dte: DTEJSON): DTEJSON => {
       correo: (dte as any).emisor?.correo ? String((dte as any).emisor.correo).trim() : '',
     } as any,
     receptor: (() => {
-      const baseReceptor = {
-        ...(dte as any).receptor,
-        ...(tipoDte === '03'
-          ? {
-              tipoDocumento: null,
-              numDocumento: null,
-            }
-          : {
-              tipoDocumento: (trimOrNull((dte as any).receptor?.tipoDocumento) as any) ?? null,
-              numDocumento: onlyDigits((dte as any).receptor?.numDocumento),
-            }),
-        nit: onlyDigits((dte as any).receptor?.nit),
-        nrc: onlyDigits((dte as any).receptor?.nrc),
-        nombre: (dte as any).receptor?.nombre ? String((dte as any).receptor.nombre).trim() : '',
-        codActividad: trimOrNull((dte as any).receptor?.codActividad) as any,
-        descActividad: trimOrNull((dte as any).receptor?.descActividad) as any,
-        correo: trimOrNull((dte as any).receptor?.correo) as any,
-        telefono: trimOrNull((dte as any).receptor?.telefono) as any,
-        direccion: (dte as any).receptor?.direccion
-          ? {
-              departamento: normalizeTwoDigitCode((dte as any).receptor.direccion.departamento) as any,
-              municipio: normalizeTwoDigitCode((dte as any).receptor.direccion.municipio) as any,
-              complemento: trimOrNull((dte as any).receptor.direccion.complemento) as any,
-            }
-          : null,
-      } as any;
+      const rawReceptor = (dte as any).receptor || {};
+      const baseReceptor = tipoDte === '03'
+        ? {
+            tipoDocumento: null,
+            numDocumento: null,
+            nit: onlyDigits(rawReceptor.nit),
+            nrc: onlyDigits(rawReceptor.nrc),
+            nombre: rawReceptor.nombre ? String(rawReceptor.nombre).trim() : '',
+            codActividad: trimOrNull(rawReceptor.codActividad) as any,
+            descActividad: trimOrNull(rawReceptor.descActividad) as any,
+            correo: trimOrNull(rawReceptor.correo) as any,
+            telefono: trimOrNull(rawReceptor.telefono) as any,
+            direccion: rawReceptor.direccion
+              ? {
+                  departamento: normalizeTwoDigitCode(rawReceptor.direccion.departamento) as any,
+                  municipio: normalizeTwoDigitCode(rawReceptor.direccion.municipio) as any,
+                  complemento: trimOrNull(rawReceptor.direccion.complemento) as any,
+                }
+              : null,
+          }
+        : {
+            tipoDocumento: (trimOrNull(rawReceptor.tipoDocumento) as any) ?? null,
+            numDocumento: onlyDigits(rawReceptor.numDocumento),
+            nit: onlyDigits(rawReceptor.nit),
+            nrc: onlyDigits(rawReceptor.nrc),
+            nombre: rawReceptor.nombre ? String(rawReceptor.nombre).trim() : '',
+            codActividad: trimOrNull(rawReceptor.codActividad) as any,
+            descActividad: trimOrNull(rawReceptor.descActividad) as any,
+            correo: trimOrNull(rawReceptor.correo) as any,
+            telefono: trimOrNull(rawReceptor.telefono) as any,
+            direccion: rawReceptor.direccion
+              ? {
+                  departamento: normalizeTwoDigitCode(rawReceptor.direccion.departamento) as any,
+                  municipio: normalizeTwoDigitCode(rawReceptor.direccion.municipio) as any,
+                  complemento: trimOrNull(rawReceptor.direccion.complemento) as any,
+                }
+              : null,
+          } as any;
 
       if (!contract?.normalize) {
         return baseReceptor;
