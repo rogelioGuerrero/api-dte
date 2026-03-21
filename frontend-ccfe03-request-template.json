@@ -1,0 +1,125 @@
+{
+  "dte": {
+    "identificacion": {
+      "version": 3,
+      "ambiente": "{{00|01}}",
+      "tipoDte": "03",
+      "numeroControl": "DTE-03-{{COD_ESTABLE_MH}}{{COD_PUNTO_VENTA_MH}}-{{15_DIGITOS}}",
+      "codigoGeneracion": "{{UUID_V4_MAYUS}}",
+      "tipoModelo": 1,
+      "tipoOperacion": 1,
+      "tipoContingencia": null,
+      "motivoContin": null,
+      "fecEmi": "{{YYYY-MM-DD}}",
+      "horEmi": "{{HH:mm:ss}}",
+      "tipoMoneda": "USD"
+    },
+    "documentoRelacionado": null,
+    "emisor": {
+      "nit": "{{NIT_EMISOR}}",
+      "nrc": "{{NRC_EMISOR}}",
+      "nombre": "{{NOMBRE_EMISOR}}",
+      "codActividad": "{{COD_ACTIVIDAD_EMISOR}}",
+      "descActividad": "{{DESC_ACTIVIDAD_EMISOR}}",
+      "nombreComercial": null,
+      "tipoEstablecimiento": "{{TIPO_ESTABLECIMIENTO}}",
+      "direccion": {
+        "departamento": "{{01-14}}",
+        "municipio": "{{01-68}}",
+        "complemento": "{{DIRECCION_COMPLETA_EMISOR}}"
+      },
+      "telefono": "{{TELEFONO_EMISOR}}",
+      "correo": "{{CORREO_EMISOR}}",
+      "codEstableMH": "{{COD_ESTABLE_MH}}",
+      "codPuntoVentaMH": "{{COD_PUNTO_VENTA_MH}}"
+    },
+    "receptor": {
+      "nit": "{{NIT_RECEPTOR}}",
+      "nrc": "{{NRC_RECEPTOR}}",
+      "nombre": "{{NOMBRE_RECEPTOR}}",
+      "nombreComercial": null,
+      "codActividad": "{{COD_ACTIVIDAD_RECEPTOR}}",
+      "descActividad": "{{DESC_ACTIVIDAD_RECEPTOR}}",
+      "direccion": {
+        "departamento": "{{01-14}}",
+        "municipio": "{{01-68}}",
+        "complemento": "{{DIRECCION_COMPLETA_RECEPTOR}}"
+      },
+      "telefono": "{{TELEFONO_RECEPTOR}}",
+      "correo": "{{CORREO_RECEPTOR}}"
+    },
+    "otrosDocumentos": null,
+    "ventaTercero": null,
+    "cuerpoDocumento": [
+      {
+        "numItem": 1,
+        "tipoItem": 2,
+        "cantidad": "{{CANTIDAD}}",
+        "codigo": null,
+        "uniMedida": 59,
+        "descripcion": "{{DESCRIPCION_ITEM}}",
+        "precioUni": "{{PRECIO_UNITARIO}}",
+        "montoDescu": "{{DESCUENTO_ITEM}}",
+        "ventaNoSuj": 0,
+        "ventaExenta": 0,
+        "ventaGravada": "{{VENTA_GRAVADA_ITEM}}",
+        "tributos": ["20"],
+        "numeroDocumento": null,
+        "codTributo": null,
+        "psv": 0,
+        "noGravado": 0
+      }
+    ],
+    "resumen": {
+      "totalNoSuj": 0,
+      "totalExenta": 0,
+      "totalGravada": "{{TOTAL_GRAVADA}}",
+      "subTotalVentas": "{{SUBTOTAL_VENTAS}}",
+      "descuNoSuj": 0,
+      "descuExenta": 0,
+      "descuGravada": "{{TOTAL_DESCUENTO}}",
+      "porcentajeDescuento": 0,
+      "totalDescu": "{{TOTAL_DESCUENTO}}",
+      "tributos": [
+        {
+          "codigo": "20",
+          "descripcion": "IVA 13%",
+          "valor": "{{TOTAL_IVA}}"
+        }
+      ],
+      "subTotal": "{{SUBTOTAL}}",
+      "ivaRete1": 0,
+      "reteRenta": 0,
+      "montoTotalOperacion": "{{MONTO_TOTAL_OPERACION}}",
+      "totalNoGravado": 0,
+      "totalPagar": "{{TOTAL_PAGAR}}",
+      "totalLetras": "{{TOTAL_LETRAS}} USD",
+      "saldoFavor": 0,
+      "condicionOperacion": 1,
+      "pagos": [
+        {
+          "codigo": "01",
+          "montoPago": "{{TOTAL_PAGAR}}",
+          "referencia": null,
+          "plazo": null,
+          "periodo": null
+        }
+      ],
+      "ivaPerci1": 0,
+      "numPagoElectronico": null
+    },
+    "extension": {
+      "nombEntrega": null,
+      "docuEntrega": null,
+      "nombRecibe": null,
+      "docuRecibe": null,
+      "observaciones": null,
+      "placaVehiculo": null
+    },
+    "apendice": null
+  },
+  "ambiente": "{{00|01}}",
+  "flowType": "emission",
+  "businessId": "{{BUSINESS_UUID}}",
+  "receptorEmail": "{{RECEPTOR_EMAIL}}"
+}
