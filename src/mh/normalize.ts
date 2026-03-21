@@ -116,11 +116,10 @@ export const normalizeDTE = (dte: DTEJSON): DTEJSON => {
       const rawReceptor = (dte as any).receptor || {};
       const baseReceptor = tipoDte === '03'
         ? {
-            tipoDocumento: null,
-            numDocumento: null,
             nit: onlyDigits(rawReceptor.nit),
             nrc: onlyDigits(rawReceptor.nrc),
             nombre: rawReceptor.nombre ? String(rawReceptor.nombre).trim() : '',
+            nombreComercial: trimOrNull(rawReceptor.nombreComercial) as any,
             codActividad: trimOrNull(rawReceptor.codActividad) as any,
             descActividad: trimOrNull(rawReceptor.descActividad) as any,
             correo: trimOrNull(rawReceptor.correo) as any,

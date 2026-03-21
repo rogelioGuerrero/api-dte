@@ -28,11 +28,10 @@ const creditFiscal03Contract: DteTypeContract = {
     const receptor = (dte as any).receptor || {};
     return {
       receptor: {
-        tipoDocumento: null,
-        numDocumento: null,
         nit: helpers.onlyDigits(receptor.nit),
         nrc: helpers.onlyDigits(receptor.nrc),
         nombre: receptor.nombre ? String(receptor.nombre).trim() : '',
+        nombreComercial: helpers.trimOrNull(receptor.nombreComercial) as any,
         codActividad: helpers.trimOrNull(receptor.codActividad) as any,
         descActividad: helpers.trimOrNull(receptor.descActividad) as any,
         direccion: receptor.direccion
@@ -49,24 +48,6 @@ const creditFiscal03Contract: DteTypeContract = {
   },
   validateRules: (dte, helpers) => {
     const errores: ErrorValidacionMH[] = [];
-
-    if (dte.receptor.tipoDocumento !== undefined && dte.receptor.tipoDocumento !== null) {
-      errores.push({
-        codigo: 'RULE-0300A',
-        campo: 'receptor.tipoDocumento',
-        descripcion: 'CCF 03 no admite receptor.tipoDocumento',
-        severidad: 'ERROR',
-      });
-    }
-
-    if (dte.receptor.numDocumento !== undefined && dte.receptor.numDocumento !== null) {
-      errores.push({
-        codigo: 'RULE-0300B',
-        campo: 'receptor.numDocumento',
-        descripcion: 'CCF 03 no admite receptor.numDocumento',
-        severidad: 'ERROR',
-      });
-    }
 
     if ((dte.resumen.montoTotalOperacion ?? 0) <= 0) {
       errores.push({
