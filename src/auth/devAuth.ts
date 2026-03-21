@@ -42,7 +42,6 @@ export const createDevAuthToken = (options: {
     issuer: 'api-dte-dev-auth',
     audience: 'api-dte-dev',
     expiresIn: (options.expiresIn || process.env.SWAGGER_DEV_TOKEN_TTL || '8h') as jwt.SignOptions['expiresIn'],
-    subject: email,
   };
 
   return jwt.sign(payload as jwt.JwtPayload, secret as jwt.Secret, signOptions);
