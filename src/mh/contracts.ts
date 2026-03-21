@@ -24,25 +24,30 @@ export interface DteRuleHelpers {
 const creditFiscal03Contract: DteTypeContract = {
   tipoDte: '03',
   schemaRef: 'CCFE',
-  normalize: (dte, helpers) => ({
-    receptor: {
-      ...(dte as any).receptor,
-      nit: helpers.onlyDigits((dte as any).receptor?.nit),
-      nrc: helpers.onlyDigits((dte as any).receptor?.nrc),
-      nombre: (dte as any).receptor?.nombre ? String((dte as any).receptor.nombre).trim() : '',
-      codActividad: helpers.trimOrNull((dte as any).receptor?.codActividad) as any,
-      descActividad: helpers.trimOrNull((dte as any).receptor?.descActividad) as any,
-      correo: helpers.trimOrNull((dte as any).receptor?.correo) as any,
-      telefono: helpers.trimOrNull((dte as any).receptor?.telefono) as any,
-      direccion: (dte as any).receptor?.direccion
-        ? {
-            departamento: helpers.normalizeTwoDigitCode((dte as any).receptor.direccion.departamento) as any,
-            municipio: helpers.normalizeTwoDigitCode((dte as any).receptor.direccion.municipio) as any,
-            complemento: helpers.trimOrNull((dte as any).receptor.direccion.complemento) as any,
-          }
-        : null,
-    } as any,
-  }),
+  normalize: (dte, helpers) => {
+    const receptor = (dte as any).receptor || {};
+    const { tipoDocumento: _tipoDocumento, numDocumento: _numDocumento, ...receptorBase } = receptor;
+
+    return {
+      receptor: {
+        ...receptorBase,
+        nit: helpers.onlyDigits(receptor.nit),
+        nrc: helpers.onlyDigits(receptor.nrc),
+        nombre: receptor.nombre ? String(receptor.nombre).trim() : '',
+        codActividad: helpers.trimOrNull(receptor.codActividad) as any,
+        descActividad: helpers.trimOrNull(receptor.descActividad) as any,
+        correo: helpers.trimOrNull(receptor.correo) as any,
+        telefono: helpers.trimOrNull(receptor.telefono) as any,
+        direccion: receptor.direccion
+          ? {
+              departamento: helpers.normalizeTwoDigitCode(receptor.direccion.departamento) as any,
+              municipio: helpers.normalizeTwoDigitCode(receptor.direccion.municipio) as any,
+              complemento: helpers.trimOrNull(receptor.direccion.complemento) as any,
+            }
+          : null,
+      } as any,
+    };
+  },
   validateRules: (dte, helpers) => {
     const errores: ErrorValidacionMH[] = [];
 
