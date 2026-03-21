@@ -9,7 +9,7 @@ import { getDTEDocument, getDTEDocumentByNumeroControl, updateDTEDocumentStatus 
 import { getDTEsByBusiness } from '../dte/dteStorage';
 import { createProcessResponse, DteProcessResponse } from '../utils/apiResponse';
 import { getDTEResponseByCodigo } from '../business/dteStorage';
-import { resolveBusinessIdentityByNIT } from '../business/businessStorage';
+import { getBusinessById, resolveBusinessIdentityByNIT } from '../business/businessStorage';
 
 const router = Router();
 const logger = createLogger('dteController');
@@ -330,10 +330,29 @@ router.post('/process', async (req: AuthRequest, res: Response, next: NextFuncti
       throw createError('Faltan campos requeridos: dte, businessId o nit', 400);
     }
 
-    const targetNit = request.nit || request.businessId;
-    const identity = await resolveBusinessIdentityByNIT(targetNit);
+    const targetBusinessIdOrNit = request.businessId || request.nit;
+    let identity: { businessId: string; nit: string } | null = null;
+
+    if (request.businessId) {
+      const business = await getBusinessById(request.businessId);
+      if (business?.id && business.nit) {
+        identity = {
+          businessId: business.id,
+          nit: business.nit,
+        };
+      }
+    }
+
+    if (!identity && request.nit) {
+      identity = await resolveBusinessIdentityByNIT(request.nit);
+    }
+
+    if (!identity && targetBusinessIdOrNit) {
+      identity = await resolveBusinessIdentityByNIT(targetBusinessIdOrNit);
+    }
+
     if (!identity) {
-      throw createError(`Business no encontrado para NIT ${targetNit}`, 404);
+      throw createError(`Business no encontrado para businessId/NIT ${targetBusinessIdOrNit}`, 404);
     }
 
     // Extraer cÃ³digo de generaciÃ³n del DTE
