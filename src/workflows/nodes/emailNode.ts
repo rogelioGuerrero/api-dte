@@ -72,24 +72,35 @@ export async function emailNode(state: DTEState): Promise<Partial<DTEState>> {
       emailResults.receptor.error = emailError instanceof Error ? emailError.message : 'Error desconocido';
     }
 
+    const receptorMessageId = emailResults.receptor.messageId || null;
+    const correoEnviado = !!(emailResults.receptor.success && receptorMessageId);
+    const correoError = !correoEnviado ? emailResults.receptor.error || null : null;
+    const correoEnviadoAt = correoEnviado ? new Date().toISOString() : null;
+
     logger.info('Correos enviados', {
       receptorSuccess: emailResults.receptor.success,
+      receptorEmail,
+      receptorMessageId,
+      correoEnviado,
       codigoGeneracion: dteToEmail.identificacion?.codigoGeneracion
     });
-
-    const correoEnviado = !!emailResults.receptor.success;
-    const correoError = !emailResults.receptor.success ? emailResults.receptor.error || null : null;
 
     if (state.responseId) {
       await updateDTEResponseEmailStatus({
         id: state.responseId,
         correoEnviado,
         correoError: correoError || null,
+        correoMessageId: receptorMessageId,
+        correoDestinatario: receptorEmail || null,
+        correoEnviadoAt,
       });
     }
 
     return {
       emailSent: correoEnviado,
+      emailMessageId: receptorMessageId || undefined,
+      emailRecipient: receptorEmail || undefined,
+      emailSentAt: correoEnviadoAt || undefined,
       emailResults: {
         receptor: emailResults.receptor.success
       },

@@ -14,12 +14,18 @@ export interface DTEResponse {
   selloRecibido?: string;
   correoEnviado?: boolean;
   correoError?: string;
+  correoMessageId?: string | null;
+  correoDestinatario?: string | null;
+  correoEnviadoAt?: string | null;
 }
 
 export interface DTEResponseEmailStatus {
   id: string;
   correoEnviado: boolean;
   correoError?: string | null;
+  correoMessageId?: string | null;
+  correoDestinatario?: string | null;
+  correoEnviadoAt?: string | null;
 }
 
 /**
@@ -50,7 +56,10 @@ export async function saveDTEResponse(responseData: DTEResponse) {
           || responseData.mhResponse?.selloRecepcion
           || responseData.mhResponse?.selloRecibido,
         correo_enviado: responseData.correoEnviado || false,
-        correo_error: responseData.correoError
+        correo_error: responseData.correoError,
+        correo_message_id: responseData.correoMessageId ?? null,
+        correo_destinatario: responseData.correoDestinatario ?? null,
+        correo_enviado_at: responseData.correoEnviadoAt ?? null,
       })
       .select()
       .single();
@@ -81,7 +90,10 @@ export async function updateDTEResponseEmailStatus(payload: DTEResponseEmailStat
       .from('dte_responses')
       .update({
         correo_enviado: payload.correoEnviado,
-        correo_error: payload.correoError ?? null
+        correo_error: payload.correoError ?? null,
+        correo_message_id: payload.correoMessageId ?? null,
+        correo_destinatario: payload.correoDestinatario ?? null,
+        correo_enviado_at: payload.correoEnviadoAt ?? null,
       })
       .eq('id', payload.id)
       .select()

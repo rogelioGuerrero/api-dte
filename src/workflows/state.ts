@@ -48,6 +48,9 @@ export interface DTEState {
   isTransmitted?: boolean;  // Resultado del transmitter
   mhResponse?: any;         // Respuesta de MH
   preparedDte?: DTEJSON;    // Documento normalizado y validado listo para MH
+  emailMessageId?: string;   // ID de Resend cuando el correo se envía
+  emailRecipient?: string;   // Correo destinatario usado realmente
+  emailSentAt?: string;      // Timestamp de envío confirmado
   
   // Estados especiales
   isOffline?: boolean;      // Contingencia

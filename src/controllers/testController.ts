@@ -25,7 +25,7 @@ const sampleDte = {
     logo_url: undefined,
   },
   receptor: {
-    nombre: 'Jackeline Sorayda Granados Martínez',
+    nombre: 'Receptor de Prueba MH',
     nit: '051881598',
     correo: testRecipientEmail,
   },
