@@ -59,12 +59,12 @@ export class CreditFiscal03Handler implements DteTypeHandler {
         }
       }
 
-      if (!Object.prototype.hasOwnProperty.call(item, 'codTributo')) {
-        valErrors.push(`ITEM_CODTRIBUTO_REQUERIDO: Item ${item.numItem || ''} debe incluir codTributo`);
-      }
-
-      if ((item.ventaGravada || 0) > 0 && item.codTributo !== '20') {
-        valErrors.push(`ITEM_CODTRIBUTO_INVALIDO: Item ${item.numItem || ''} con ventaGravada debe usar codTributo=20`);
+      if (item.tipoItem === 4) {
+        if (typeof item.codTributo !== 'string' || !item.codTributo.trim()) {
+          valErrors.push(`ITEM_CODTRIBUTO_REQUERIDO: Item ${item.numItem || ''} tipoItem 4 requiere codTributo como cadena`);
+        }
+      } else if (item.codTributo !== undefined && item.codTributo !== null) {
+        valErrors.push(`ITEM_CODTRIBUTO_INVALIDO: Item ${item.numItem || ''} debe enviar codTributo null en CCF 03 para este tipo de ítem`);
       }
 
       if (Object.prototype.hasOwnProperty.call(item, 'ivaItem')) {

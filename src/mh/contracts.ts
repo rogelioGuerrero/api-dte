@@ -98,11 +98,20 @@ const creditFiscal03Contract: DteTypeContract = {
     }
 
     dte.cuerpoDocumento.forEach((item, idx) => {
-      if (item.codTributo !== '20') {
+      if (item.tipoItem === 4) {
+        if (typeof item.codTributo !== 'string' || !item.codTributo.trim()) {
+          errores.push({
+            codigo: 'RULE-0304A',
+            campo: `cuerpoDocumento[${idx + 1}].codTributo`,
+            descripcion: `Item ${idx + 1}: tipoItem 4 requiere codTributo como cadena`,
+            severidad: 'ERROR',
+          });
+        }
+      } else if (item.codTributo !== null && item.codTributo !== undefined) {
         errores.push({
           codigo: 'RULE-0304A',
           campo: `cuerpoDocumento[${idx + 1}].codTributo`,
-          descripcion: `Item ${idx + 1}: codTributo debe ser 20 en CCF 03`,
+          descripcion: `Item ${idx + 1}: codTributo debe ser null en CCF 03 para este tipo de ítem`,
           severidad: 'ERROR',
         });
       }

@@ -57,7 +57,9 @@ export const normalizeDTE = (dte: DTEJSON): DTEJSON => {
       tipoItem: i.tipoItem,
       numeroDocumento: trimOrNull(i.numeroDocumento) as any,
       codigo: i.codigo ? String(i.codigo).trim() : null,
-      codTributo: tipoDte === '03' && ventaGravada > 0 ? '20' : trimOrNull(i.codTributo) as any,
+      codTributo: tipoDte === '03'
+        ? (i.tipoItem === 4 ? trimOrNull(i.codTributo) as any : null)
+        : trimOrNull(i.codTributo) as any,
       descripcion: String(i.descripcion || '').trim(),
       cantidad,
       uniMedida: i.uniMedida,
