@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { createError } from './errorHandler';
 import { createLogger } from '../utils/logger';
 import { supabase } from '../database/supabase';
+import { verifyDevAuthToken } from '../auth/devAuth';
 
 const logger = createLogger('auth');
 
@@ -31,6 +32,40 @@ export const authMiddleware = async (
 
     if (!token) {
       throw createError('Token de autorización requerido', 401);
+    }
+
+    const allowDevTokens =
+      process.env.NODE_ENV !== 'production' &&
+      (process.env.AUTH_ALLOW_DEV_TOKENS ?? 'true').toLowerCase() !== 'false';
+
+    if (allowDevTokens) {
+      const devClaims = verifyDevAuthToken(token);
+      if (devClaims) {
+        req.user = {
+          id: devClaims.sub || devClaims.email,
+          email: devClaims.email,
+          role: devClaims.role,
+          isPlatformAdmin: devClaims.isPlatformAdmin,
+        };
+
+        const businessIdRaw =
+          (req.body && (req.body.businessId || req.body.business_id || req.body.nit)) ||
+          (req.query && (req.query.businessId as string)) ||
+          (req.params && (req.params.businessId || (req.params as any).id)) ||
+          (req.headers['x-business-id'] as string);
+
+        if (businessIdRaw) {
+          req.user.role = devClaims.isPlatformAdmin ? 'admin' : devClaims.role;
+        }
+
+        logger.info('Autenticación dev aceptada para Swagger', {
+          email: devClaims.email,
+          isPlatformAdmin: devClaims.isPlatformAdmin,
+          businessId: devClaims.businessId,
+        });
+
+        return next();
+      }
     }
 
     const { data: userResponse, error: userError } = await supabase.auth.getUser(token);

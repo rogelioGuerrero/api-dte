@@ -14,6 +14,7 @@ import pushController from './controllers/pushController';
 import adminController from './controllers/adminController';
 import licensingController from './controllers/licensingController';
 import testController from './controllers/testController';
+import docsController from './controllers/docsController';
 
 // Cargar variables de entorno
 dotenv.config();
@@ -38,6 +39,7 @@ app.get('/health', (req, res) => {
 });
 
 // API Routes
+app.use('/api', docsController);
 app.use('/api/business', authMiddleware, businessController);
 app.use('/api/dte', authMiddleware, dteController);
 app.use('/api/tax', authMiddleware, taxController);

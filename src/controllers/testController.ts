@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { createLogger } from '../utils/logger';
 import { sendEmail, generateDTEEmailHTML } from '../services/emailService';
 import { generateDtePdfBase64 } from '../services/pdfGenerator';
+import { createDevAuthToken } from '../auth/devAuth';
 
 const router = Router();
 const logger = createLogger('testController');
@@ -43,6 +44,47 @@ const sampleMhResponse = {
   fechaHoraProcesamiento: new Date().toISOString(),
   enlaceConsulta: 'https://example.com/consulta',
 };
+
+// POST /api/test/dev-token - Genera un bearer técnico para Swagger y pruebas automatizadas
+router.post('/dev-token', (req: Request, res: Response) => {
+  try {
+    const {
+      email,
+      role = 'admin',
+      isPlatformAdmin = true,
+      businessId,
+      expiresIn,
+    } = req.body || {};
+
+    const accessToken = createDevAuthToken({
+      email,
+      role,
+      isPlatformAdmin,
+      businessId,
+      expiresIn,
+    });
+
+    res.json({
+      success: true,
+      tokenType: 'Bearer',
+      accessToken,
+      expiresIn: expiresIn || process.env.SWAGGER_DEV_TOKEN_TTL || '8h',
+      user: {
+        id: (email || process.env.SWAGGER_DEV_EMAIL || 'swagger.dev@local').toString().toLowerCase(),
+        email: (email || process.env.SWAGGER_DEV_EMAIL || 'swagger.dev@local').toString().toLowerCase(),
+        role,
+        isPlatformAdmin,
+        businessId: businessId || null,
+      },
+    });
+  } catch (error) {
+    logger.error('Error generando token dev', { error });
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'No se pudo generar el token dev',
+    });
+  }
+});
 
 // POST /api/test/email - Solo para desarrollo/testing (sin auth)
 router.post('/email', async (req: Request, res: Response) => {
