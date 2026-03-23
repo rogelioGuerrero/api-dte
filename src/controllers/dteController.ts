@@ -531,7 +531,7 @@ router.get('/:codigoGeneracion/status',
 );
 
 /**
- * GET /api/business/:businessId/dtes
+ * GET /api/dte/business/:businessId/dtes
  * Lista DTEs de un negocio con filtros opcionales
  */
 router.get('/business/:businessId/dtes', 
@@ -543,7 +543,10 @@ router.get('/business/:businessId/dtes',
         tipo, 
         clase, 
         limit = '50', 
-        offset = '0' 
+        offset = '0',
+        search,
+        fechaDesde,
+        fechaHasta
       } = req.query;
 
       // Opciones de filtrado
@@ -552,7 +555,10 @@ router.get('/business/:businessId/dtes',
         claseDocumento: clase as string,
         estado: estado as string,
         limit: parseInt(limit as string),
-        offset: parseInt(offset as string)
+        offset: parseInt(offset as string),
+        search: search as string,
+        fechaDesde: fechaDesde as string,
+        fechaHasta: fechaHasta as string
       };
 
       // Obtener DTEs del negocio
@@ -568,12 +574,15 @@ router.get('/business/:businessId/dtes',
           claseDocumento: doc.clase_documento,
           createdAt: doc.created_at,
           updatedAt: doc.updated_at,
+          montoTotal: doc.dte_json?.totales?.montoTotalOperacion || 0,
+          receptorNombre: doc.dte_json?.receptor?.nombre || '',
+          receptorNit: doc.dte_json?.receptor?.nit || '',
           
-          // InformaciÃ³n bÃ¡sica de MH
+          // Información básica de MH
           selloRecibido: doc.sello_recibido,
           fhProcesamiento: doc.fh_procesamiento,
           
-          // URLs si estÃ¡n disponibles
+          // URLs si están disponibles
           tienePdf: !!doc.pdf_url,
           tieneXml: !!doc.xml_url,
           tieneJson: !!doc.json_url
@@ -590,6 +599,94 @@ router.get('/business/:businessId/dtes',
 
     } catch (error: any) {
       logger.error('Error listando DTEs del negocio', { error: error.message });
+      next(error);
+    }
+  }
+);
+
+/**
+ * GET /api/dte/business/:businessId/resumen
+ * Obtiene resumen de ventas por período
+ */
+router.get('/business/:businessId/resumen', 
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      const { businessId } = req.params;
+      const { 
+        fechaDesde,
+        fechaHasta,
+        tipoDte
+      } = req.query;
+
+      if (!fechaDesde || !fechaHasta) {
+        throw createError('Se requieren fechaDesde y fechaHasta', 400);
+      }
+
+      // Obtener DTEs del período
+      const options = {
+        tipoDte: tipoDte as string,
+        fechaDesde: fechaDesde as string,
+        fechaHasta: fechaHasta as string,
+        limit: 10000 // Sin límite para resumen
+      };
+
+      const dtes = await getDTEsByBusiness(businessId, options);
+
+      // Calcular resumen
+      const resumen = {
+        totalVentas: 0,
+        totalIva: 0,
+        totalGravada: 0,
+        totalExenta: 0,
+        totalNoSuj: 0,
+        cantidadDocumentos: dtes.length,
+        detallePorTipo: {} as Record<string, { cantidad: number; total: number }>
+      };
+
+      dtes.forEach(doc => {
+        const totales = doc.dte_json?.totales || {};
+        const montoTotal = parseFloat(totales.montoTotalOperacion || '0');
+        const iva = parseFloat(totales.iva || '0');
+        const gravada = parseFloat(totales.totalGravada || '0');
+        const exenta = parseFloat(totales.totalExenta || '0');
+        const noSuj = parseFloat(totales.totalNoSuj || '0');
+        const tipo = doc.tipo_dte;
+
+        // Acumular totales generales
+        resumen.totalVentas += montoTotal;
+        resumen.totalIva += iva;
+        resumen.totalGravada += gravada;
+        resumen.totalExenta += exenta;
+        resumen.totalNoSuj += noSuj;
+
+        // Acumular por tipo
+        if (!resumen.detallePorTipo[tipo]) {
+          resumen.detallePorTipo[tipo] = { cantidad: 0, total: 0 };
+        }
+        resumen.detallePorTipo[tipo].cantidad++;
+        resumen.detallePorTipo[tipo].total += montoTotal;
+      });
+
+      const response = {
+        businessId,
+        periodo: {
+          fechaDesde: fechaDesde,
+          fechaHasta: fechaHasta
+        },
+        resumen: {
+          ...resumen,
+          totalVentas: Math.round(resumen.totalVentas * 100) / 100,
+          totalIva: Math.round(resumen.totalIva * 100) / 100,
+          totalGravada: Math.round(resumen.totalGravada * 100) / 100,
+          totalExenta: Math.round(resumen.totalExenta * 100) / 100,
+          totalNoSuj: Math.round(resumen.totalNoSuj * 100) / 100
+        }
+      };
+
+      res.json(response);
+
+    } catch (error: any) {
+      logger.error('Error generando resumen de ventas', { error: error.message });
       next(error);
     }
   }

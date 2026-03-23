@@ -160,6 +160,9 @@ export const getDTEsByBusiness = async (
     estado?: string;
     limit?: number;
     offset?: number;
+    search?: string;
+    fechaDesde?: string;
+    fechaHasta?: string;
   }
 ): Promise<DTEDocument[]> => {
   try {
@@ -176,6 +179,18 @@ export const getDTEsByBusiness = async (
     }
     if (options?.estado) {
       query = query.eq('estado', options.estado);
+    }
+    if (options?.fechaDesde) {
+      query = query.gte('created_at', options.fechaDesde);
+    }
+    if (options?.fechaHasta) {
+      query = query.lte('created_at', options.fechaHasta + 'T23:59:59');
+    }
+    if (options?.search) {
+      // Búsqueda en nombre o NIT del receptor
+      query = query.or(
+        `dte_json->receptor->>nombre.ilike.%${options.search}%,dte_json->receptor->>nit.ilike.%${options.search}%`
+      );
     }
 
     query = query.order('created_at', { ascending: false });
