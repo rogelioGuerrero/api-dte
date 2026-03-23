@@ -48,10 +48,15 @@ export interface DTEDocument {
 
 export const saveDTEDocument = async (doc: DTEDocument): Promise<void> => {
   try {
+    const persistedDteJson = doc.dte_json ?? doc.mh_response?.dteJson ?? doc.mh_response?.dte_json ?? null;
     const mhResponsePayload = {
       mhResponse: doc.mh_response ?? null,
-      dteJson: doc.dte_json ?? null,
+      dteJson: persistedDteJson,
     };
+
+    if (!persistedDteJson) {
+      throw new Error('dte_json es requerido para guardar dte_documents');
+    }
 
     const { error } = await supabase
       .from('dte_documents')
@@ -66,6 +71,7 @@ export const saveDTEDocument = async (doc: DTEDocument): Promise<void> => {
         receiver_nit: doc.receiver_nit,
         estado: doc.estado,
         clase_documento: doc.clase_documento,
+        dte_json: persistedDteJson,
         firma_jws: doc.firma_jws,
         mh_response: mhResponsePayload,
         pdf_url: doc.pdf_url,
