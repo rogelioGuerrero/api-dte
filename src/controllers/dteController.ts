@@ -79,6 +79,12 @@ const resolveBusinessIdForHistory = async (businessIdOrNit: string): Promise<{ b
   return { businessId: rawValue.replace(/[^0-9a-f-]/gi, '') };
 };
 
+const getPersistedDteJson = (doc: any) => doc?.dte_json || doc?.mh_response?.dteJson || doc?.mh_response?.dte_json || null;
+
+const getPersistedTotals = (doc: any) => getPersistedDteJson(doc)?.resumen || {};
+
+const getPersistedReceptor = (doc: any) => getPersistedDteJson(doc)?.receptor || {};
+
 const buildPendingSignerResponse = (result: any, dte: any) => ({
   success: true,
   estado: 'PENDIENTE_FIRMA',
@@ -601,9 +607,9 @@ router.get('/business/:businessId/dtes',
           claseDocumento: doc.clase_documento,
           createdAt: doc.created_at,
           updatedAt: doc.updated_at,
-          montoTotal: doc.dte_json?.totales?.montoTotalOperacion || 0,
-          receptorNombre: doc.dte_json?.receptor?.nombre || '',
-          receptorNit: doc.dte_json?.receptor?.nit || '',
+          montoTotal: getPersistedTotals(doc)?.montoTotalOperacion || 0,
+          receptorNombre: getPersistedReceptor(doc)?.nombre || '',
+          receptorNit: getPersistedReceptor(doc)?.nit || '',
           
           // Información básica de MH
           selloRecibido: doc.sello_recibido,
@@ -674,7 +680,7 @@ router.get('/business/:businessId/resumen',
       };
 
       dtes.forEach(doc => {
-        const totales = doc.dte_json?.totales || {};
+        const totales = getPersistedTotals(doc);
         const montoTotal = parseFloat(totales.montoTotalOperacion || '0');
         const iva = parseFloat(totales.iva || '0');
         const gravada = parseFloat(totales.totalGravada || '0');

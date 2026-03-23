@@ -34,7 +34,7 @@ export interface DTEDocument {
   business_id: string;
   issuer_nit: string;
   receiver_nit?: string;
-  dte_json: DTEJSON;
+  dte_json?: DTEJSON;
   firma_jws?: string;
   estado: string;
   clase_documento: string;
@@ -48,6 +48,11 @@ export interface DTEDocument {
 
 export const saveDTEDocument = async (doc: DTEDocument): Promise<void> => {
   try {
+    const mhResponsePayload = {
+      mhResponse: doc.mh_response ?? null,
+      dteJson: doc.dte_json ?? null,
+    };
+
     const { error } = await supabase
       .from('dte_documents')
       .upsert({
@@ -61,9 +66,8 @@ export const saveDTEDocument = async (doc: DTEDocument): Promise<void> => {
         receiver_nit: doc.receiver_nit,
         estado: doc.estado,
         clase_documento: doc.clase_documento,
-        dte_json: doc.dte_json,
         firma_jws: doc.firma_jws,
-        mh_response: doc.mh_response,
+        mh_response: mhResponsePayload,
         pdf_url: doc.pdf_url,
         xml_url: doc.xml_url,
         json_url: doc.json_url,
