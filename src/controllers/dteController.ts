@@ -9,7 +9,7 @@ import { getDTEDocument, getDTEDocumentByNumeroControl, updateDTEDocumentStatus 
 import { getDTEsByBusiness } from '../dte/dteStorage';
 import { createProcessResponse, DteProcessResponse } from '../utils/apiResponse';
 import { getDTEResponseByCodigo } from '../business/dteStorage';
-import { getBusinessById, resolveBusinessIdentityByNIT } from '../business/businessStorage';
+import { getBusinessById, getBusinessByNIT, resolveBusinessIdentityByNIT } from '../business/businessStorage';
 
 const router = Router();
 const logger = createLogger('dteController');
@@ -53,6 +53,31 @@ const buildReconciledMhResponse = (payload: {
 // Request interface para /api/dte/process
 const isTemporarySignerWait = (result: any) =>
   result?.currentStep === 'signer' && result?.errorCode === 'SIGNER_TEMPORARILY_UNAVAILABLE';
+
+const isUuid = (value: string) =>
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
+
+const resolveBusinessIdForHistory = async (businessIdOrNit: string): Promise<{ businessId: string; nit?: string }> => {
+  const rawValue = (businessIdOrNit || '').trim();
+
+  if (!rawValue) {
+    return { businessId: rawValue };
+  }
+
+  if (isUuid(rawValue)) {
+    return { businessId: rawValue };
+  }
+
+  const business = await getBusinessByNIT(rawValue);
+  if (business?.id) {
+    return {
+      businessId: business.id,
+      nit: (business.nit_clean || business.nit || rawValue).replace(/[^0-9]/g, ''),
+    };
+  }
+
+  return { businessId: rawValue.replace(/[^0-9a-f-]/gi, '') };
+};
 
 const buildPendingSignerResponse = (result: any, dte: any) => ({
   success: true,
@@ -537,7 +562,7 @@ router.get('/:codigoGeneracion/status',
 router.get('/business/:businessId/dtes', 
   async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
-      const { businessId } = req.params;
+      const { businessId: businessIdParam } = req.params;
       const { 
         estado, 
         tipo, 
@@ -548,6 +573,8 @@ router.get('/business/:businessId/dtes',
         fechaDesde,
         fechaHasta
       } = req.query;
+
+      const resolvedBusiness = await resolveBusinessIdForHistory(businessIdParam);
 
       // Opciones de filtrado
       const options = {
@@ -562,10 +589,10 @@ router.get('/business/:businessId/dtes',
       };
 
       // Obtener DTEs del negocio
-      const dtes = await getDTEsByBusiness(businessId, options);
+      const dtes = await getDTEsByBusiness(resolvedBusiness.businessId, options);
 
       const response = {
-        businessId,
+        businessId: resolvedBusiness.businessId,
         dtes: dtes.map(doc => ({
           codigoGeneracion: doc.codigo_generacion,
           tipoDte: doc.tipo_dte,
@@ -588,6 +615,7 @@ router.get('/business/:businessId/dtes',
           tieneJson: !!doc.json_url
         })),
         total: dtes.length,
+        resolvedFrom: isUuid(businessIdParam) ? 'uuid' : 'nit',
         pagination: {
           limit: options.limit,
           offset: options.offset,
