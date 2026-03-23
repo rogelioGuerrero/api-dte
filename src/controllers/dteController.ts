@@ -639,12 +639,14 @@ router.get('/business/:businessId/dtes',
 router.get('/business/:businessId/resumen', 
   async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
-      const { businessId } = req.params;
+      const { businessId: businessIdParam } = req.params;
       const { 
         fechaDesde,
         fechaHasta,
         tipoDte
       } = req.query;
+
+      const resolvedBusiness = await resolveBusinessIdForHistory(businessIdParam);
 
       if (!fechaDesde || !fechaHasta) {
         throw createError('Se requieren fechaDesde y fechaHasta', 400);
@@ -658,7 +660,7 @@ router.get('/business/:businessId/resumen',
         limit: 10000 // Sin límite para resumen
       };
 
-      const dtes = await getDTEsByBusiness(businessId, options);
+      const dtes = await getDTEsByBusiness(resolvedBusiness.businessId, options);
 
       // Calcular resumen
       const resumen = {
@@ -696,7 +698,8 @@ router.get('/business/:businessId/resumen',
       });
 
       const response = {
-        businessId,
+        businessId: resolvedBusiness.businessId,
+        resolvedFrom: isUuid(businessIdParam) ? 'uuid' : 'nit',
         periodo: {
           fechaDesde: fechaDesde,
           fechaHasta: fechaHasta
