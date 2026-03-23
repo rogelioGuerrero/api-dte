@@ -5,10 +5,8 @@ import { dteGraph } from '../workflows/dteWorkflow';
 import { INITIAL_STATE, DTEState } from '../workflows/state';
 import { processDTE } from '../mh/process';
 import { AuthRequest } from '../middleware/auth';
-import { getDTEDocument, getDTEDocumentByNumeroControl, updateDTEDocumentStatus } from '../dte/dteStorage';
-import { getDTEsByBusiness } from '../dte/dteStorage';
 import { createProcessResponse, DteProcessResponse } from '../utils/apiResponse';
-import { getDTEResponseByCodigo } from '../business/dteStorage';
+import { getDTEResponseByCodigo, getDTEResponseByNumeroControl, getDTEResponses } from '../business/dteStorage';
 import { getBusinessById, getBusinessByNIT, resolveBusinessIdentityByNIT } from '../business/businessStorage';
 
 const router = Router();
@@ -84,6 +82,24 @@ const getPersistedDteJson = (doc: any) => doc?.dte_json || doc?.mh_response?.dte
 const getPersistedTotals = (doc: any) => getPersistedDteJson(doc)?.resumen || {};
 
 const getPersistedReceptor = (doc: any) => getPersistedDteJson(doc)?.receptor || {};
+
+const toHistoricalRecord = (doc: any) => ({
+  codigoGeneracion: doc.codigo_generacion,
+  tipoDte: doc.tipo_dte,
+  numeroControl: getPersistedDteJson(doc)?.identificacion?.numeroControl || '',
+  estado: doc.estado || doc.mh_response?.estado || 'procesado',
+  claseDocumento: 'emitido',
+  createdAt: doc.created_at,
+  updatedAt: doc.fecha_hora_procesamiento || doc.created_at,
+  montoTotal: getPersistedTotals(doc)?.montoTotalOperacion || 0,
+  receptorNombre: getPersistedReceptor(doc)?.nombre || '',
+  receptorNit: getPersistedReceptor(doc)?.nit || '',
+  selloRecibido: doc.sello_recibido || doc.mh_response?.selloRecepcion || doc.mh_response?.selloRecibido,
+  fhProcesamiento: doc.fecha_hora_procesamiento || doc.mh_response?.fechaHoraProcesamiento || null,
+  tienePdf: !!doc.pdf_url,
+  tieneXml: !!doc.xml_url,
+  tieneJson: !!doc.json_url,
+});
 
 const buildPendingSignerResponse = (result: any, dte: any) => ({
   success: true,
@@ -257,7 +273,7 @@ router.post('/transmit', async (req: AuthRequest, res: Response, next: NextFunct
 
       const [existingResponse, existingDocument] = await Promise.all([
         getDTEResponseByCodigo(codigoGeneracion).catch(() => null),
-        getDTEDocumentByNumeroControl(identity.businessId, numeroControl, tipoDte).catch(() => null),
+        getDTEResponseByNumeroControl(identity.businessId, numeroControl, undefined, tipoDte).catch(() => null),
       ]);
 
       const existingMhResponse =
@@ -516,40 +532,41 @@ router.get('/:codigoGeneracion/status',
         throw createError('Se requiere x-business-id header', 400);
       }
 
-      // Consultar estado actual del DTE
-      const dteDoc = await getDTEDocument(codigoGeneracion);
-      
-      if (!dteDoc) {
+      const responseDte = await getDTEResponseByCodigo(codigoGeneracion);
+
+      if (!responseDte) {
         throw createError('DTE no encontrado', 404);
       }
 
       // Verificar que pertenezca al negocio
-      if (dteDoc.business_id !== businessId) {
+      if (responseDte.business_id !== businessId) {
         throw createError('No autorizado para acceder a este DTE', 403);
       }
 
+      const persistedDteJson = getPersistedDteJson(responseDte);
+
       const status = {
         codigoGeneracion,
-        estado: dteDoc.estado,
-        tipoDte: dteDoc.tipo_dte,
-        claseDocumento: dteDoc.clase_documento,
-        createdAt: dteDoc.created_at,
-        updatedAt: dteDoc.updated_at,
+        estado: responseDte.estado || responseDte.mh_response?.estado,
+        tipoDte: responseDte.tipo_dte,
+        claseDocumento: 'emitido',
+        createdAt: responseDte.created_at,
+        updatedAt: responseDte.fecha_hora_procesamiento || responseDte.created_at,
         
         // Respuesta de MH si estÃ¡ disponible
-        mhResponse: dteDoc.mh_response ? {
-          estado: dteDoc.mh_response.estado,
-          selloRecepcion: dteDoc.mh_response.selloRecepcion,
-          fechaHoraRecepcion: dteDoc.mh_response.fhProcesamiento,
-          mensaje: dteDoc.mh_response.mensaje
-        } : null,
+        mhResponse: responseDte.mh_response ? responseDte.mh_response : null,
         
         // URLs de documentos
         documentos: {
-          pdf: dteDoc.pdf_url,
-          xml: dteDoc.xml_url,
-          json: dteDoc.json_url
-        }
+          pdf: responseDte.pdf_url,
+          xml: responseDte.xml_url,
+          json: responseDte.json_url
+        },
+        dte: persistedDteJson ? {
+          identificacion: persistedDteJson.identificacion,
+          receptor: persistedDteJson.receptor,
+          resumen: persistedDteJson.resumen,
+        } : null
       };
 
       res.json(status);
@@ -595,37 +612,37 @@ router.get('/business/:businessId/dtes',
       };
 
       // Obtener DTEs del negocio
-      const dtes = await getDTEsByBusiness(resolvedBusiness.businessId, options);
+      const dtes = await getDTEResponses(resolvedBusiness.businessId, Math.max(options.limit, 1), options.offset);
+
+      const filteredDtes = dtes.filter((doc: any) => {
+        const dteJson = getPersistedDteJson(doc);
+        const createdAt = doc.fecha_hora_procesamiento || doc.created_at;
+        const searchValue = (options.search || '').trim().toLowerCase();
+
+        if (options.tipoDte && doc.tipo_dte !== options.tipoDte) return false;
+        if (options.estado && `${doc.estado || ''}`.toLowerCase() !== `${options.estado}`.toLowerCase()) return false;
+        if (options.fechaDesde && createdAt && new Date(createdAt) < new Date(options.fechaDesde)) return false;
+        if (options.fechaHasta && createdAt && new Date(createdAt) > new Date(`${options.fechaHasta}T23:59:59`)) return false;
+
+        if (searchValue) {
+          const receptorNombre = `${dteJson?.receptor?.nombre || ''}`.toLowerCase();
+          const receptorNit = `${dteJson?.receptor?.nit || ''}`.toLowerCase();
+          const numeroControl = `${dteJson?.identificacion?.numeroControl || ''}`.toLowerCase();
+          return receptorNombre.includes(searchValue) || receptorNit.includes(searchValue) || numeroControl.includes(searchValue);
+        }
+
+        return true;
+      });
 
       const response = {
         businessId: resolvedBusiness.businessId,
-        dtes: dtes.map(doc => ({
-          codigoGeneracion: doc.codigo_generacion,
-          tipoDte: doc.tipo_dte,
-          numeroControl: doc.numero_control,
-          estado: doc.estado,
-          claseDocumento: doc.clase_documento,
-          createdAt: doc.created_at,
-          updatedAt: doc.updated_at,
-          montoTotal: getPersistedTotals(doc)?.montoTotalOperacion || 0,
-          receptorNombre: getPersistedReceptor(doc)?.nombre || '',
-          receptorNit: getPersistedReceptor(doc)?.nit || '',
-          
-          // Información básica de MH
-          selloRecibido: doc.sello_recibido,
-          fhProcesamiento: doc.fh_procesamiento,
-          
-          // URLs si están disponibles
-          tienePdf: !!doc.pdf_url,
-          tieneXml: !!doc.xml_url,
-          tieneJson: !!doc.json_url
-        })),
-        total: dtes.length,
+        dtes: filteredDtes.map(toHistoricalRecord),
+        total: filteredDtes.length,
         resolvedFrom: isUuid(businessIdParam) ? 'uuid' : 'nit',
         pagination: {
           limit: options.limit,
           offset: options.offset,
-          hasMore: dtes.length === options.limit
+          hasMore: filteredDtes.length === options.limit
         }
       };
 
@@ -666,7 +683,7 @@ router.get('/business/:businessId/resumen',
         limit: 10000 // Sin límite para resumen
       };
 
-      const dtes = await getDTEsByBusiness(resolvedBusiness.businessId, options);
+      const dtes = await getDTEResponses(resolvedBusiness.businessId, 10000, 0);
 
       // Calcular resumen
       const resumen = {
@@ -679,7 +696,7 @@ router.get('/business/:businessId/resumen',
         detallePorTipo: {} as Record<string, { cantidad: number; total: number }>
       };
 
-      dtes.forEach(doc => {
+      dtes.forEach((doc: any) => {
         const totales = getPersistedTotals(doc);
         const montoTotal = parseFloat(totales.montoTotalOperacion || '0');
         const iva = parseFloat(totales.iva || '0');
@@ -745,25 +762,21 @@ router.post('/:codigoGeneracion/retry',
       }
 
       // Buscar DTE en contingencia
-      const dteDoc = await getDTEDocument(codigoGeneracion);
-      
-      if (!dteDoc) {
+      const responseDte = await getDTEResponseByCodigo(codigoGeneracion);
+
+      if (!responseDte) {
         throw createError('DTE no encontrado', 404);
       }
 
-      if (dteDoc.business_id !== businessId) {
+      if (responseDte.business_id !== businessId) {
         throw createError('No autorizado para acceder a este DTE', 403);
       }
 
-      if (dteDoc.estado !== 'contingency') {
+      if ((responseDte.estado || '').toLowerCase() !== 'contingency') {
         throw createError('Solo se pueden reintentar DTEs en contingencia', 400);
       }
 
       logger.info('Reintentando transmisiÃ³n DTE', { codigoGeneracion, businessId });
-
-      // AquÃ­ reprocesarÃ­amos el DTE con el workflow
-      // Por ahora actualizamos el estado a transmitting
-      await updateDTEDocumentStatus(codigoGeneracion, 'transmitting');
 
       const result = {
         success: true,
