@@ -21,15 +21,27 @@ export async function persistResponseNode(state: DTEState): Promise<Partial<DTES
 
     const nitEmisor = state.nit || dteToPersist?.emisor?.nit || dteToPersist?.identificacion?.nit;
     const businessId = state.businessId;
+    const persistedDteJson = dteToPersist;
+    const persistedMhResponse = {
+      mhResponse: state.mhResponse,
+      dteJson: persistedDteJson,
+    };
 
     if (!nitEmisor || !businessId) {
       throw new Error('No se puede identificar el emisor del DTE');
     }
 
+    logger.info('Persistiendo DTE en Supabase', {
+      codigoGeneracion: dteToPersist.identificacion?.codigoGeneracion,
+      businessId,
+      hasDteJson: !!persistedDteJson,
+      hasMhResponse: !!state.mhResponse,
+    });
+
     const savedResponse = await saveDTEResponse({
       businessId: businessId!,
       nit: nitEmisor,
-      dteJson: dteToPersist,
+      dteJson: persistedDteJson,
       mhResponse: state.mhResponse,
       ambiente: dteToPersist.identificacion.ambiente || state.ambiente || '00',
       tipoDte: (dteToPersist as any).tipoDte || dteToPersist.identificacion?.tipoDte,
@@ -46,11 +58,11 @@ export async function persistResponseNode(state: DTEState): Promise<Partial<DTES
       business_id: businessId!,
       issuer_nit: nitEmisor,
       receiver_nit: (dteToPersist as any)?.receptor?.nit || (dteToPersist as any)?.receptor?.numDocumento || null,
-      dte_json: dteToPersist,
+      dte_json: persistedDteJson,
       firma_jws: state.signature,
       estado: 'transmitted',
       clase_documento: 'emitido',
-      mh_response: state.mhResponse,
+      mh_response: persistedMhResponse,
     } as any);
 
     logger.info('Respuesta MH guardada en Supabase', {
