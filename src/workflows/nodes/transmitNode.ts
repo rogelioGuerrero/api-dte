@@ -1,9 +1,8 @@
 ﻿import { DTEState } from "../state";
-import { consultarDTESandbox, transmitirDTESandbox } from "../../mh/sandboxClient";
+import { transmitirDTESandbox } from "../../mh/sandboxClient";
 import { createLogger } from '../../utils/logger';
 import { getMHCredentialsByNIT, updateMHTokenByNIT } from '../../business/businessStorage';
-import { randomUUID } from 'crypto';
-import { getCachedMHAuthToken, normalizeBearerToken, requestMHAuthToken, shouldRefreshTokenWithExp } from '../../mh/authClient';
+import { getCachedMHAuthToken, normalizeBearerToken, shouldRefreshTokenWithExp } from '../../mh/authClient';
 import { saveSignedDteDebug } from '../../database/debugLogger';
 
 const decodeJwsPayload = (jws: string) => {
@@ -20,6 +19,8 @@ const decodeJwsPayload = (jws: string) => {
 };
 
 const logger = createLogger('transmitNode');
+
+const MAX_CONTROL_NUMBER_RETRIES = 3;
 
 const isNumeroControlDuplicateResponse = (result: any) => {
   const duplicateCode = result?.codigoMsg === '004';
@@ -161,47 +162,46 @@ export const transmitNode = async (state: DTEState): Promise<Partial<DTEState>> 
     console.error("❌ MH Rechazo/Error:", result);
 
     if (isNumeroControlDuplicateResponse(result) && dteToTransmit?.identificacion?.codigoGeneracion) {
-      try {
-        const consultaMh = await consultarDTESandbox<any>(
-          dteToTransmit.identificacion.codigoGeneracion,
-          ambiente
-        );
+      const retryCount = state.controlNumberRetryCount || 0;
 
-        logger.warn('Consulta MH tras duplicado numeroControl', {
+      if (retryCount >= MAX_CONTROL_NUMBER_RETRIES) {
+        logger.warn('Se agotaron los reintentos automáticos por duplicado de número de control', {
           codigoGeneracion: dteToTransmit.identificacion.codigoGeneracion,
           numeroControl: dteToTransmit.identificacion?.numeroControl,
           ambiente,
-          consultaMh,
+          retryCount,
         });
 
         return {
           status: 'failed',
           mhResponse: result,
-          mhDuplicateCheck: consultaMh,
-          errorCode: 'TRANSMIT_ERROR_DUPLICATE_NUMERO_CONTROL',
-          errorMessage: result.mensaje || 'Número de control ya registrado en MH',
-          canRetry: false,
-          progressPercentage: 60,
-          currentStep: 'transmitter'
-        };
-      } catch (consultaError: any) {
-        logger.warn('No se pudo consultar MH tras duplicado numeroControl', {
-          codigoGeneracion: dteToTransmit.identificacion.codigoGeneracion,
-          numeroControl: dteToTransmit.identificacion?.numeroControl,
-          ambiente,
-          error: consultaError?.message,
-        });
-
-        return {
-          status: 'failed',
-          mhResponse: result,
-          errorCode: 'TRANSMIT_ERROR_DUPLICATE_NUMERO_CONTROL',
-          errorMessage: result.mensaje || 'Número de control ya registrado en MH',
-          canRetry: false,
+          errorCode: 'TRANSMIT_ERROR_DUPLICATE_NUMERO_CONTROL_EXHAUSTED',
+          errorMessage: 'No se pudo asignar un número de control disponible. Intenta nuevamente.',
+          canRetry: true,
           progressPercentage: 60,
           currentStep: 'transmitter'
         };
       }
+
+      const nextRetryCount = retryCount + 1;
+      logger.warn('MH devolvió 004; solicitando un nuevo número de control y reintentando', {
+        codigoGeneracion: dteToTransmit.identificacion.codigoGeneracion,
+        numeroControl: dteToTransmit.identificacion?.numeroControl,
+        ambiente,
+        nextRetryCount,
+      });
+
+      return {
+        status: 'retrying_control_number',
+        mhResponse: result,
+        errorCode: undefined,
+        errorMessage: undefined,
+        canRetry: false,
+        forceReserveControlNumber: true,
+        controlNumberRetryCount: nextRetryCount,
+        progressPercentage: 55,
+        currentStep: 'transmitter'
+      };
     }
 
     const mhRejected = result.estado === 'RECHAZADO' || (result as any).codigoMsg || (result as any).clasificaMsg;

@@ -73,6 +73,10 @@ export const routeAfterTransmitter = (state: DTEState): WorkflowRouteTarget => {
     return WORKFLOW_NODES.CONTINGENCY;
   }
 
+  if (state.status === 'retrying_control_number') {
+    return WORKFLOW_NODES.RESERVE_CONTROL_NUMBER;
+  }
+
   if (state.status === 'transmitting') {
     return WORKFLOW_NODES.TRANSMITTER;
   }

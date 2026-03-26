@@ -63,7 +63,7 @@ export const MHErrorMapping = {
     category: 'data' as const,
     code: 'MH_DATA_ALREADY_EXISTS',
     message: 'Registro ya existe',
-    userMessage: 'Estás intentando enviar una factura con un número que ya habías enviado antes. Revisa tu correlativo; no puedes repetir números de control.',
+    userMessage: 'Hacienda detectó que ese número de control ya fue usado. El sistema intentará obtener otro correlativo automáticamente.',
     canRetry: false,
     severity: 'error' as const
   },

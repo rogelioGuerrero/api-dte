@@ -7,6 +7,7 @@ const logger = createLogger('reserveControlNumberNode');
 
 export const reserveControlNumberNode = async (state: DTEState): Promise<Partial<DTEState>> => {
   const dteBase = state.preparedDte || state.dte;
+  const forceReserve = !!state.forceReserveControlNumber;
 
   if (!dteBase) {
     return {
@@ -26,7 +27,7 @@ export const reserveControlNumberNode = async (state: DTEState): Promise<Partial
   }
 
   const existing = (dteBase as any)?.identificacion?.numeroControl;
-  if (typeof existing === 'string' && existing.trim().length > 0) {
+  if (!forceReserve && typeof existing === 'string' && existing.trim().length > 0) {
     return {
       currentStep: 'reserve_control_number',
     };
@@ -61,9 +62,10 @@ export const reserveControlNumberNode = async (state: DTEState): Promise<Partial
       };
     }
 
-    const correlativo = Number(data?.correlativo);
+    const reserveResult = data as any;
+    const correlativo = Number(reserveResult?.correlativo);
     if (!Number.isFinite(correlativo) || correlativo <= 0) {
-      logger.error('Correlativo inválido recibido desde Supabase', { businessId, correlativo: data?.correlativo });
+      logger.error('Correlativo inválido recibido desde Supabase', { businessId, correlativo: reserveResult?.correlativo });
       return {
         status: 'failed',
         errorCode: 'CONTROL_NUMBER_INVALID_SEQUENCE',
@@ -76,8 +78,8 @@ export const reserveControlNumberNode = async (state: DTEState): Promise<Partial
     const numeroControl = generarNumeroControl(
       tipoDte,
       correlativo,
-      data?.cod_estable_mh ?? null,
-      data?.cod_punto_venta_mh ?? null
+      reserveResult?.cod_estable_mh ?? null,
+      reserveResult?.cod_punto_venta_mh ?? null
     );
 
     const updatedDte = {
@@ -101,6 +103,9 @@ export const reserveControlNumberNode = async (state: DTEState): Promise<Partial
       preparedDte: updatedDte,
       reservedCorrelativo: correlativo,
       reservedNumeroControl: numeroControl,
+      forceReserveControlNumber: false,
+      controlNumberRetryCount: state.controlNumberRetryCount || 0,
+      status: 'signing',
       currentStep: 'reserve_control_number',
     };
   } catch (e: any) {

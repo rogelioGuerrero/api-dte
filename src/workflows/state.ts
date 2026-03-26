@@ -5,6 +5,7 @@ export type WorkflowStatus =
   | 'validating'
   | 'signing'
   | 'transmitting'
+  | 'retrying_control_number'
   | 'completed'
   | 'failed'
   | 'contingency'
@@ -70,6 +71,10 @@ export interface DTEState {
   errorCode?: string;         // MH_ERROR_106, etc.
   errorMessage?: string;      // Mensaje amigable para usuario
   canRetry?: boolean;         // Si el usuario puede reintentar
+
+  // Control interno de reintentos por duplicado de número de control
+  forceReserveControlNumber?: boolean;
+  controlNumberRetryCount?: number;
   
   // Allow dynamic properties for LangGraph internal state handling
   [key: string]: any;
@@ -88,5 +93,7 @@ export const INITIAL_STATE: DTEState = {
   progressPercentage: 0,
   currentStep: 'start',
   estimatedTime: 60, // 60 segundos estimados totales
-  canRetry: true
+  canRetry: true,
+  forceReserveControlNumber: false,
+  controlNumberRetryCount: 0
 };

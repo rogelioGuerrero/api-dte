@@ -6,7 +6,7 @@ import { INITIAL_STATE, DTEState } from '../workflows/state';
 import { processDTE } from '../mh/process';
 import { AuthRequest } from '../middleware/auth';
 import { createProcessResponse, DteProcessResponse } from '../utils/apiResponse';
-import { getDTEResponseByCodigo, getDTEResponseByNumeroControl, getDTEResponses } from '../business/dteStorage';
+import { getDTEResponseByCodigo, getDTEResponses } from '../business/dteStorage';
 import { getBusinessById, getBusinessByNIT, resolveBusinessIdentityByNIT } from '../business/businessStorage';
 
 const router = Router();
@@ -15,38 +15,6 @@ const activeEmissionRequests = new Map<string, number>();
 
 const buildEmissionLockKey = (businessId: string, codigoGeneracion: string) =>
   `${businessId}:${codigoGeneracion.trim().toUpperCase()}`;
-
-const isDuplicateNumeroControlMhResponse = (mhResponse: any) => {
-  if (!mhResponse) return false;
-  const message = `${mhResponse.mensaje || ''} ${mhResponse.descripcionMsg || ''}`.toUpperCase();
-  return mhResponse.codigoMsg === '004' || message.includes('YA EXISTE UN REGISTRO CON ESE VALOR');
-};
-
-const buildReconciledMhResponse = (payload: {
-  existingMhResponse?: any;
-  codigoGeneracion?: string;
-  numeroControl?: string;
-  duplicateMhResponse?: any;
-  source: 'mh_consulta' | 'local_storage';
-}) => {
-  const mh = payload.existingMhResponse || {};
-  return {
-    success: true,
-    estado: mh.estado || 'PROCESADO',
-    codigoGeneracion: mh.codigoGeneracion || payload.codigoGeneracion,
-    numeroControl: mh.numeroControl || payload.numeroControl,
-    selloRecepcion: mh.selloRecepcion || mh.selloRecibido,
-    fechaHoraRecepcion: mh.fechaHoraRecepcion,
-    fechaHoraProcesamiento: mh.fechaHoraProcesamiento || mh.fhProcesamiento,
-    mensaje: mh.mensaje || 'Documento ya procesado previamente en MH y reconciliado exitosamente.',
-    enlaceConsulta: mh.enlaceConsulta,
-    advertencias: mh.advertencias,
-    errores: mh.errores,
-    reconciled: true,
-    reconciliationSource: payload.source,
-    originalDuplicateResponse: payload.duplicateMhResponse,
-  };
-};
 
 // Request interface para /api/dte/process
 const isTemporarySignerWait = (result: any) =>
@@ -229,92 +197,6 @@ router.post('/transmit', async (req: AuthRequest, res: Response, next: NextFunct
       errorMessage: result?.errorMessage,
       validationErrors: result?.validationErrors,
     });
-
-    const duplicateMhResponse = result?.mhResponse;
-    const isDuplicateNumeroControl = isDuplicateNumeroControlMhResponse(duplicateMhResponse);
-    const codigoGeneracion = dte?.identificacion?.codigoGeneracion;
-    const numeroControl = dte?.identificacion?.numeroControl;
-    const tipoDte = dte?.identificacion?.tipoDte;
-
-    if (isDuplicateNumeroControl && codigoGeneracion && numeroControl) {
-      const consultaMh = result?.mhDuplicateCheck;
-      const consultaEstado = `${consultaMh?.estado || consultaMh?.status || ''}`.toUpperCase();
-      const mhAlreadyProcessed = ['PROCESADO', 'ACEPTADO', 'ACEPTADO_CON_ADVERTENCIAS'].includes(consultaEstado);
-
-      if (mhAlreadyProcessed) {
-        const reconciledMhResponse = buildReconciledMhResponse({
-          existingMhResponse: consultaMh,
-          codigoGeneracion,
-          numeroControl,
-          duplicateMhResponse,
-          source: 'mh_consulta',
-        });
-
-        logger.warn('DTE reconciliado desde consulta MH tras duplicado numeroControl', {
-          codigoGeneracion,
-          numeroControl,
-          businessId: identity.businessId,
-          estadoConsulta: consultaEstado,
-        });
-
-        return res.json({
-          transmitted: true,
-          mhResponse: reconciledMhResponse,
-          signature: result.signature,
-          isOffline: false,
-          contingencyReason: undefined,
-          status: 'completed',
-          currentStep: result.currentStep,
-          errorCode: undefined,
-          errorMessage: undefined,
-          validationErrors: result.validationErrors,
-        });
-      }
-
-      const [existingResponse, existingDocument] = await Promise.all([
-        getDTEResponseByCodigo(codigoGeneracion).catch(() => null),
-        getDTEResponseByNumeroControl(identity.businessId, numeroControl, undefined, tipoDte).catch(() => null),
-      ]);
-
-      const existingMhResponse =
-        existingResponse?.mh_response ||
-        existingResponse?.mhResponse ||
-        existingDocument?.mh_response;
-
-      const existingProcessedState = `${existingMhResponse?.estado || existingDocument?.estado || ''}`.toUpperCase();
-      const hasExistingProcessed =
-        ['PROCESADO', 'ACEPTADO', 'ACEPTADO_CON_ADVERTENCIAS', 'TRANSMITTED', 'COMPLETED', 'PROCESSED'].includes(existingProcessedState);
-
-      if (hasExistingProcessed && existingMhResponse) {
-        const reconciledMhResponse = buildReconciledMhResponse({
-          existingMhResponse,
-          codigoGeneracion,
-          numeroControl,
-          duplicateMhResponse,
-          source: 'local_storage',
-        });
-
-        logger.warn('DTE reconciliado desde persistencia local tras duplicado numeroControl', {
-          codigoGeneracion,
-          numeroControl,
-          businessId: identity.businessId,
-          existingProcessedState,
-        });
-
-        return res.json({
-          transmitted: true,
-          mhResponse: reconciledMhResponse,
-          signature: result.signature,
-          isOffline: false,
-          contingencyReason: undefined,
-          status: 'completed',
-          currentStep: result.currentStep,
-          errorCode: undefined,
-          errorMessage: undefined,
-          validationErrors: result.validationErrors,
-        });
-      }
-    }
 
     const fallbackMhResponse = !result.mhResponse
       ? {
