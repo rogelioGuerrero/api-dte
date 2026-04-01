@@ -113,11 +113,15 @@ export const normalizeDTE = (dte: DTEJSON): DTEJSON => {
     receptor: (() => {
       const rawReceptor = (dte as any).receptor || {};
       
-      // Para DTE 01 (Factura Consumidor Final), el receptor es simplificado
+      // Para DTE 01 (Factura Consumidor Final), el receptor incluye campos específicos
       if (tipoDte === '01') {
+        const tipoDocumento = trimOrNull(rawReceptor.tipoDocumento) as any;
+        const nrcValue = tipoDocumento === '36' ? null : trimOrNull(rawReceptor.nrc) as any;
+        
         return {
-          tipoDocumento: (trimOrNull(rawReceptor.tipoDocumento) as any) ?? null,
+          tipoDocumento: tipoDocumento ?? null,
           numDocumento: onlyDigits(rawReceptor.numDocumento),
+          nrc: nrcValue,
           nombre: rawReceptor.nombre ? String(rawReceptor.nombre).trim() : '',
           codActividad: trimOrNull(rawReceptor.codActividad) as any,
           descActividad: trimOrNull(rawReceptor.descActividad) as any,
