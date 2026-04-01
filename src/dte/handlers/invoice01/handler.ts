@@ -45,13 +45,14 @@ export class Invoice01Handler implements DteTypeHandler {
     const esperadoTotalVentas = round2(sumaGravada + sumaExenta + sumaNoSuj);
     const esperadoSubTotal = round2(esperadoTotalVentas - (resumen.totalDescu || 0));
     const esperadoTotalIva = round2(sumaIvaItems);
-    const esperadoMontoOperacion = round2(esperadoSubTotal + (resumen.totalNoGravado || 0));
     const esperadoTotalPagar = round2(
-      esperadoMontoOperacion
+      esperadoSubTotal
+      + esperadoTotalIva
       - (resumen.ivaRete1 || 0)
       - (resumen.reteRenta || 0)
       + (resumen.saldoFavor || 0)
     );
+    const esperadoMontoOperacion = round2(esperadoTotalPagar);
 
     const resumenTotalGravada = resumen.totalGravada || 0;
     const resumenTotalExenta = resumen.totalExenta || 0;
