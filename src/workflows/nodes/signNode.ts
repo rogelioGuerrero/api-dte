@@ -3,6 +3,7 @@ import { getMHCredentialsByNIT } from '../../business/businessStorage';
 import { limpiarDteParaFirma } from "../../integrations/firmaClient";
 import { processDTE } from "../../mh/process";
 import { signWithConfiguredProvider } from "../../signature/service";
+import { obtenerFechaActual, obtenerHoraActual, actualizarFechasDTE } from "../../dte/generator";
 
 const isTemporaryFirmaAvailabilityError = (error: any) => {
   const message = `${error?.message || ''}`.toUpperCase();
@@ -45,7 +46,12 @@ export const signNode = async (state: DTEState): Promise<Partial<DTEState>> => {
   try {
     console.log("🔄 [signNode] Preparando DTE para firma...");
     const processed = state.preparedDte ? { dte: state.preparedDte, errores: [] } : processDTE(dteToSign);
-    const dteLimpio = limpiarDteParaFirma(processed.dte as unknown as Record<string, unknown>);
+    
+    // Actualizar fecha y hora al momento exacto de la firma
+    console.log("🕐 [signNode] Actualizando fecha/hora a la fecha actual...");
+    const dteConFechaActual = actualizarFechasDTE(processed.dte);
+    
+    const dteLimpio = limpiarDteParaFirma(dteConFechaActual as unknown as Record<string, unknown>);
 
     const nitEmisor = (state.nit || dteToSign.emisor?.nit || '').toString().replace(/[\s-]/g, '').trim();
     console.log(`🆔 [signNode] NIT Emisor detectado: ${nitEmisor}`);
@@ -120,8 +126,8 @@ export const signNode = async (state: DTEState): Promise<Partial<DTEState>> => {
     console.log(`📝 [signNode] JWS longitud: ${jws?.length}`);
 
     return {
-      dte: processed.dte,
-      preparedDte: processed.dte,
+      dte: dteConFechaActual,
+      preparedDte: dteConFechaActual,
       isSigned: true,
       signature: jws,
       status: 'transmitting',
