@@ -112,42 +112,45 @@ export const normalizeDTE = (dte: DTEJSON): DTEJSON => {
     } as any,
     receptor: (() => {
       const rawReceptor = (dte as any).receptor || {};
-      const baseReceptor = tipoDte === '03'
-        ? {
-            nit: onlyDigits(rawReceptor.nit),
-            nrc: onlyDigits(rawReceptor.nrc),
-            nombre: rawReceptor.nombre ? String(rawReceptor.nombre).trim() : '',
-            nombreComercial: trimOrNull(rawReceptor.nombreComercial) as any,
-            codActividad: trimOrNull(rawReceptor.codActividad) as any,
-            descActividad: trimOrNull(rawReceptor.descActividad) as any,
-            correo: trimOrNull(rawReceptor.correo) as any,
-            telefono: trimOrNull(rawReceptor.telefono) as any,
-            direccion: rawReceptor.direccion
-              ? {
-                  departamento: normalizeTwoDigitCode(rawReceptor.direccion.departamento) as any,
-                  municipio: normalizeTwoDigitCode(rawReceptor.direccion.municipio) as any,
-                  complemento: trimOrNull(rawReceptor.direccion.complemento) as any,
-                }
-              : null,
-          }
-        : {
-            tipoDocumento: (trimOrNull(rawReceptor.tipoDocumento) as any) ?? null,
-            numDocumento: onlyDigits(rawReceptor.numDocumento),
-            nit: onlyDigits(rawReceptor.nit),
-            nrc: onlyDigits(rawReceptor.nrc),
-            nombre: rawReceptor.nombre ? String(rawReceptor.nombre).trim() : '',
-            codActividad: trimOrNull(rawReceptor.codActividad) as any,
-            descActividad: trimOrNull(rawReceptor.descActividad) as any,
-            correo: trimOrNull(rawReceptor.correo) as any,
-            telefono: trimOrNull(rawReceptor.telefono) as any,
-            direccion: rawReceptor.direccion
-              ? {
-                  departamento: normalizeTwoDigitCode(rawReceptor.direccion.departamento) as any,
-                  municipio: normalizeTwoDigitCode(rawReceptor.direccion.municipio) as any,
-                  complemento: trimOrNull(rawReceptor.direccion.complemento) as any,
-                }
-              : null,
-          } as any;
+      
+      // Para DTE 01 (Factura Consumidor Final), el receptor es simplificado
+      if (tipoDte === '01') {
+        return {
+          tipoDocumento: (trimOrNull(rawReceptor.tipoDocumento) as any) ?? null,
+          numDocumento: onlyDigits(rawReceptor.numDocumento),
+          nombre: rawReceptor.nombre ? String(rawReceptor.nombre).trim() : '',
+          codActividad: trimOrNull(rawReceptor.codActividad) as any,
+          descActividad: trimOrNull(rawReceptor.descActividad) as any,
+          correo: trimOrNull(rawReceptor.correo) as any,
+          telefono: trimOrNull(rawReceptor.telefono) as any,
+          direccion: rawReceptor.direccion
+            ? {
+                departamento: normalizeTwoDigitCode(rawReceptor.direccion.departamento) as any,
+                municipio: normalizeTwoDigitCode(rawReceptor.direccion.municipio) as any,
+                complemento: trimOrNull(rawReceptor.direccion.complemento) as any,
+              }
+            : null,
+        } as any;
+      }
+      
+      // Para otros DTE (03, etc.), incluir campos fiscales completos
+      const baseReceptor = {
+        nit: onlyDigits(rawReceptor.nit),
+        nrc: onlyDigits(rawReceptor.nrc),
+        nombre: rawReceptor.nombre ? String(rawReceptor.nombre).trim() : '',
+        nombreComercial: trimOrNull(rawReceptor.nombreComercial) as any,
+        codActividad: trimOrNull(rawReceptor.codActividad) as any,
+        descActividad: trimOrNull(rawReceptor.descActividad) as any,
+        correo: trimOrNull(rawReceptor.correo) as any,
+        telefono: trimOrNull(rawReceptor.telefono) as any,
+        direccion: rawReceptor.direccion
+          ? {
+              departamento: normalizeTwoDigitCode(rawReceptor.direccion.departamento) as any,
+              municipio: normalizeTwoDigitCode(rawReceptor.direccion.municipio) as any,
+              complemento: trimOrNull(rawReceptor.direccion.complemento) as any,
+            }
+          : null,
+      };
 
       return baseReceptor;
     })(),
@@ -190,7 +193,7 @@ export const normalizeDTE = (dte: DTEJSON): DTEJSON => {
         descuGravada: roundTo((dte as any).resumen?.descuGravada ?? 0, 2),
         porcentajeDescuento: roundTo((dte as any).resumen?.porcentajeDescuento ?? 0, 2),
         totalDescu,
-        ivaPerci1,
+        ...(tipoDte === '01' ? {} : { ivaPerci1: roundTo((dte as any).resumen?.ivaPerci1 ?? 0, 2) }),
         tributos:
           tipoDte === '01'
             ? null
