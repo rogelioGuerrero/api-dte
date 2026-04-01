@@ -278,3 +278,14 @@ export const convertirAContingencia = (dte: DTEJSON, motivo: string = 'Falla en 
   
   return cloned;
 };
+
+// Actualizar fecha y hora de un DTE a la fecha actual
+export const actualizarFechasDTE = (dte: DTEJSON): DTEJSON => {
+  const cloned = JSON.parse(JSON.stringify(dte));
+  
+  // Actualizar fecha y hora al momento actual
+  cloned.identificacion.fecEmi = obtenerFechaActual();
+  cloned.identificacion.horEmi = obtenerHoraActual();
+  
+  return cloned;
+};
