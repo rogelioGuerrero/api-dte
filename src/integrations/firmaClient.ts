@@ -75,13 +75,15 @@ export const firmarDocumento = async (request: FirmaRequest): Promise<string> =>
     };
 
     const maxAttempts = 3;
+    const attemptTimeoutMs = 45000;
+    const retryScheduleMs = [10000, 25000];
     let lastError: any;
 
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
         const response = await axios.post(FIRMA_SIGN_URL, payload, {
           headers,
-          timeout: 30000,
+          timeout: attemptTimeoutMs,
           validateStatus: () => true,
         });
 
@@ -121,7 +123,8 @@ export const firmarDocumento = async (request: FirmaRequest): Promise<string> =>
 
         if (!isLast) {
           const retryAfterMs = err?.retryAfterMs;
-          const delay = retryAfterMs || (err?.code === 'FIRMA_RATE_LIMIT' ? 3000 * attempt : 1000 * attempt);
+          const configuredDelay = retryScheduleMs[Math.min(attempt - 1, retryScheduleMs.length - 1)];
+          const delay = retryAfterMs || configuredDelay;
           logger.warn(`Reintento firma (${attempt}/${maxAttempts - 1}) en ${delay}ms`, {
             error: err.message,
             code: err?.code,
