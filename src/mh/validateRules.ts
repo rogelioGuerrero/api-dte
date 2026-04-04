@@ -10,14 +10,8 @@ export const validateDteRules = (dte: DTEJSON): ErrorValidacionMH[] => {
   const contract = resolveDteContract(tipoDte);
 
   if (tipoDte === '01' && dte.resumen.montoTotalOperacion < 1095) {
-    if (dte.receptor.tipoDocumento !== null || dte.receptor.numDocumento !== null) {
-      errores.push({
-        codigo: 'RULE-0001',
-        campo: 'receptor.tipoDocumento',
-        descripcion: 'FE < $1095: receptor.tipoDocumento y receptor.numDocumento deben ser null',
-        severidad: 'ERROR',
-      });
-    }
+    // MH permite identificación opcional para montos menores a $1095.
+    // No se genera error si el receptor está identificado.
   }
 
   if (tipoDte === '01' && dte.resumen.montoTotalOperacion >= 1095) {

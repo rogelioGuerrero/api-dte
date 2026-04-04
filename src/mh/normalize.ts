@@ -44,9 +44,11 @@ export const normalizeDTE = (dte: DTEJSON): DTEJSON => {
     if (tipoDte === '01' && gross > 0) {
       // Para factura consumidor final: montos llevan IVA incluido.
       // MH espera montos con IVA; IVA se envía informativo, no se suma al total.
-      ventaGravada = roundTo(gross, 2);
-      ivaCalculado = roundTo(gross * 0.13, 2); // IVA directo 13%
-      precioUni = roundTo(gross / cantidad, 8); // precio unitario con IVA
+      const inputIva = i.ivaItem ?? 0;
+      ventaGravada = roundTo(gross + inputIva, 2);
+      // El IVA para MH en la 01 se extrae del total: IVA = Total - (Total / 1.13)
+      ivaCalculado = roundTo(ventaGravada - roundTo(ventaGravada / 1.13, 4), 2);
+      precioUni = roundTo(ventaGravada / cantidad, 8); // precio unitario con IVA
     }
 
     return {
@@ -182,7 +184,7 @@ export const normalizeDTE = (dte: DTEJSON): DTEJSON => {
       const reteRenta = roundTo(((dte as any).resumen?.reteRenta ?? 0) as number, 2);
       const saldoFavor = roundTo((dte as any).resumen?.saldoFavor ?? 0, 2);
       const montoTotalOperacion = tipoDte === '01'
-        ? roundTo(subTotal - totalDescu + totalNoGravado + totalIva, 2)
+        ? roundTo(subTotal - totalDescu + totalNoGravado, 2)
         : roundTo(subTotal - totalDescu + totalNoGravado + totalIva + ivaPerci1 - ivaRete1 - reteRenta + saldoFavor, 2);
       const totalPagar = roundTo(montoTotalOperacion, 2);
 

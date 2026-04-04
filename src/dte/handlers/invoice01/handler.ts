@@ -45,9 +45,9 @@ export class Invoice01Handler implements DteTypeHandler {
     const esperadoTotalVentas = round2(sumaGravada + sumaExenta + sumaNoSuj);
     const esperadoSubTotal = round2(esperadoTotalVentas - (resumen.totalDescu || 0));
     const esperadoTotalIva = round2(sumaIvaItems);
+    // En la 01, el total a pagar NO suma el IVA porque ya está incluido en el subtotal.
     const esperadoTotalPagar = round2(
       esperadoSubTotal
-      + esperadoTotalIva
       - (resumen.ivaRete1 || 0)
       - (resumen.reteRenta || 0)
       + (resumen.saldoFavor || 0)
