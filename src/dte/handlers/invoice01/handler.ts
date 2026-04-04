@@ -6,6 +6,34 @@ const round8 = (value: number) => Math.round(value * 1e8) / 1e8;
 const round2 = (value: number) => Math.round(value * 1e2) / 1e2;
 const near = (a: number, b: number, tol = 0.01) => Math.abs(a - b) <= tol;
 
+type ResumenExpectations = {
+  subTotal: number;
+  totalIva: number;
+  totalPagarWithIva: number;
+  totalPagarWithoutIva: number;
+};
+
+const computeResumenExpectations = (
+  resumen: any,
+  totals: { sumaGravada: number; sumaExenta: number; sumaNoSuj: number; sumaIvaItems: number }
+): ResumenExpectations => {
+  const esperadoTotalVentas = round2(totals.sumaGravada + totals.sumaExenta + totals.sumaNoSuj);
+  const subTotal = round2(esperadoTotalVentas - (resumen.totalDescu || 0));
+  const totalIva = round2(totals.sumaIvaItems);
+  const ajustes = round2(
+    -(resumen.ivaRete1 || 0)
+    - (resumen.reteRenta || 0)
+    + (resumen.saldoFavor || 0)
+  );
+
+  return {
+    subTotal,
+    totalIva,
+    totalPagarWithIva: round2(subTotal + totalIva + ajustes),
+    totalPagarWithoutIva: round2(subTotal + ajustes),
+  };
+};
+
 const mapProcessErrors = (errores: { codigo: string; descripcion: string; campo?: string; valorActual?: unknown }[]) => {
   return errores.map((e) => {
     let msg = `${e.codigo}: ${e.descripcion}`;
@@ -42,19 +70,12 @@ export class Invoice01Handler implements DteTypeHandler {
     }
 
     const resumen = rawDte.resumen || {};
-    const esperadoTotalVentas = round2(sumaGravada + sumaExenta + sumaNoSuj);
-    const esperadoSubTotal = round2(esperadoTotalVentas - (resumen.totalDescu || 0));
-    const esperadoTotalIva = round2(sumaIvaItems);
-    // En la 01 validamos contra el payload crudo del frontend: totalPagar y
-    // montoTotalOperacion deben reflejar subtotal + IVA (menos retenciones + saldoFavor).
-    const esperadoTotalPagar = round2(
-      esperadoSubTotal
-      + esperadoTotalIva
-      - (resumen.ivaRete1 || 0)
-      - (resumen.reteRenta || 0)
-      + (resumen.saldoFavor || 0)
-    );
-    const esperadoMontoOperacion = round2(esperadoTotalPagar);
+    const expectations = computeResumenExpectations(resumen, {
+      sumaGravada,
+      sumaExenta,
+      sumaNoSuj,
+      sumaIvaItems,
+    });
 
     const resumenTotalGravada = resumen.totalGravada || 0;
     const resumenTotalExenta = resumen.totalExenta || 0;
@@ -73,17 +94,31 @@ export class Invoice01Handler implements DteTypeHandler {
     if (!near(resumenTotalNoSuj, sumaNoSuj)) {
       valErrors.push(`RESUMEN_TOTAL_NOSUJ_MISMATCH: ${resumenTotalNoSuj} ≠ suma ítems ${sumaNoSuj.toFixed(2)}`);
     }
-    if (!near(resumenTotalIva, esperadoTotalIva)) {
-      valErrors.push(`RESUMEN_TOTAL_IVA_MISMATCH: ${resumenTotalIva} ≠ IVA ítems ${esperadoTotalIva}`);
+    if (!near(resumenTotalIva, expectations.totalIva)) {
+      valErrors.push(`RESUMEN_TOTAL_IVA_MISMATCH: ${resumenTotalIva} ≠ IVA ítems ${expectations.totalIva}`);
     }
-    if (!near(resumenSubTotal, esperadoSubTotal)) {
-      valErrors.push(`RESUMEN_SUBTOTAL_MISMATCH: ${resumenSubTotal} ≠ esperado ${esperadoSubTotal}`);
+    if (!near(resumenSubTotal, expectations.subTotal)) {
+      valErrors.push(`RESUMEN_SUBTOTAL_MISMATCH: ${resumenSubTotal} ≠ esperado ${expectations.subTotal}`);
     }
-    if (!near(resumenMontoOperacion, esperadoMontoOperacion)) {
-      valErrors.push(`RESUMEN_MONTO_OPERACION_MISMATCH: ${resumenMontoOperacion} ≠ esperado ${esperadoMontoOperacion}`);
+
+    const montoOperacionEsValido =
+      near(resumenMontoOperacion, expectations.totalPagarWithIva)
+      || near(resumenMontoOperacion, expectations.totalPagarWithoutIva);
+
+    if (!montoOperacionEsValido) {
+      valErrors.push(
+        `RESUMEN_MONTO_OPERACION_MISMATCH: ${resumenMontoOperacion} ≠ esperado ${expectations.totalPagarWithIva} (con IVA) o ${expectations.totalPagarWithoutIva} (sin IVA)`
+      );
     }
-    if (!near(resumenTotalPagar, esperadoTotalPagar)) {
-      valErrors.push(`RESUMEN_TOTAL_PAGAR_MISMATCH: ${resumenTotalPagar} ≠ esperado ${esperadoTotalPagar}`);
+
+    const totalPagarEsValido =
+      near(resumenTotalPagar, expectations.totalPagarWithIva)
+      || near(resumenTotalPagar, expectations.totalPagarWithoutIva);
+
+    if (!totalPagarEsValido) {
+      valErrors.push(
+        `RESUMEN_TOTAL_PAGAR_MISMATCH: ${resumenTotalPagar} ≠ esperado ${expectations.totalPagarWithIva} (con IVA) o ${expectations.totalPagarWithoutIva} (sin IVA)`
+      );
     }
 
     return valErrors;
