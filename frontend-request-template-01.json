@@ -61,10 +61,11 @@
         "descripcion": "{{DESCRIPCION_ITEM}}",
         "precioUni": "{{PRECIO_UNITARIO}}",
         "montoDescu": "{{DESCUENTO_ITEM}}",
+        "ivaItem": "{{IVA_ITEM}}",
         "ventaNoSuj": 0,
         "ventaExenta": 0,
         "ventaGravada": "{{VENTA_GRAVADA_ITEM}}",
-        "tributos": ["20"],
+        "tributos": null,
         "numeroDocumento": null,
         "codTributo": null,
         "psv": 0,
@@ -81,13 +82,7 @@
       "descuGravada": "{{TOTAL_DESCUENTO}}",
       "porcentajeDescuento": 0,
       "totalDescu": "{{TOTAL_DESCUENTO}}",
-      "tributos": [
-        {
-          "codigo": "20",
-          "descripcion": "IVA 13%",
-          "valor": "{{TOTAL_IVA}}"
-        }
-      ],
+      "tributos": null,
       "subTotal": "{{SUBTOTAL}}",
       "ivaRete1": 0,
       "reteRenta": 0,
