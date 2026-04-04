@@ -246,6 +246,13 @@ Los logs se estructuran por servicio:
 - **Redondeo**: Precisión de 11.8 para cantidades, 2 decimales para resumen
 - **Contingencia**: Manejo automático de fallas de comunicación
 
+## ✅ Estado de Pruebas por Tipo DTE
+
+- **DTE 01 (Factura Consumidor Final): PROBADO Y FUNCIONANDO**
+  - Flujo end-to-end validado en backend desplegado.
+  - Pasos verificados: validación, firma, transmisión MH, persistencia, generación de documentos y envío de correo.
+  - Resultado observado: factura procesada y correo recibido correctamente.
+
 ---
 
 **🚀 Listo para facturar electrónicamente en El Salvador**
