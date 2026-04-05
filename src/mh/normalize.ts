@@ -65,7 +65,7 @@ export const normalizeDTE = (dte: DTEJSON): DTEJSON => {
       ventaNoSuj: roundTo(i.ventaNoSuj, 8),
       ventaExenta: roundTo(i.ventaExenta, 8),
       ventaGravada,
-      tributos: ventaGravada > 0 ? ['20'] : null,
+      tributos: tipoDte === '03' && ventaGravada > 0 ? ['20'] : null,
       psv: roundTo(i.psv ?? 0, 2),
       noGravado: roundTo(i.noGravado ?? 0, 2),
       ...(tipoDte === '03' ? {} : { ivaItem: ivaCalculado }),
@@ -200,7 +200,7 @@ export const normalizeDTE = (dte: DTEJSON): DTEJSON => {
         totalDescu,
         ...(tipoDte === '01' ? {} : { ivaPerci1: roundTo((dte as any).resumen?.ivaPerci1 ?? 0, 2) }),
         tributos:
-          totalIva > 0
+          tipoDte === '03' && totalIva > 0
             ? [{ codigo: ivaCodigo, descripcion: 'Impuesto al Valor Agregado 13%', valor: totalIva }]
             : null,
         subTotal,

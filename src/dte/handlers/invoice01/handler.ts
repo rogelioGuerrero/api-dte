@@ -29,11 +29,9 @@ export class Invoice01Handler implements DteTypeHandler {
         valErrors.push(`ITEM_TOTAL_MISMATCH: Item ${item.numItem || ''} total ${totalItem} ≠ ventaGravada+Exenta+NoSuj ${sumaTipos}`);
       }
 
-      if ((item.ventaGravada || 0) > 0) {
-        if (!Array.isArray(item.tributos) || item.tributos.length === 0) {
-          valErrors.push(`ITEM_TRIBUTOS_REQUERIDOS: Item ${item.numItem || ''} gravado debe incluir tributos[]`);
-        } else if (item.tributos.some((tributo: any) => tributo !== '20')) {
-          valErrors.push(`ITEM_TRIBUTOS_INVALIDOS: Item ${item.numItem || ''} solo debe incluir código 20 en tributos[]`);
+      if ((item.ventaGravada || 0) > 0 && item.tributos != null) {
+        if (!Array.isArray(item.tributos)) {
+          valErrors.push(`ITEM_TRIBUTOS_INVALIDOS: Item ${item.numItem || ''} tributos debe ser null o array`);
         }
       }
 
@@ -81,18 +79,8 @@ export class Invoice01Handler implements DteTypeHandler {
       valErrors.push(`RESUMEN_TOTAL_PAGAR_MISMATCH: ${resumenTotalPagar} ≠ esperado ${expectations.totalPagar}`);
     }
 
-    const resumenTributos = Array.isArray(resumen.tributos) ? resumen.tributos : [];
-    if (expectations.totalIva > 0) {
-      if (resumenTributos.length === 0) {
-        valErrors.push('RESUMEN_TRIBUTOS_REQUERIDOS: resumen.tributos debe incluir IVA consolidado en FE 01 gravada');
-      } else {
-        const ivaTributo = resumenTributos.find((t: any) => t?.codigo === '20');
-        if (!ivaTributo) {
-          valErrors.push('RESUMEN_IVA_CODIGO_20_REQUERIDO: resumen.tributos debe incluir código 20');
-        } else if (!near(Number(ivaTributo.valor || 0), expectations.totalIva)) {
-          valErrors.push(`RESUMEN_IVA_VALOR_MISMATCH: resumen.tributos[codigo=20].valor ${ivaTributo.valor} ≠ esperado ${expectations.totalIva}`);
-        }
-      }
+    if (resumen.tributos != null && !Array.isArray(resumen.tributos)) {
+      valErrors.push('RESUMEN_TRIBUTOS_INVALIDOS: resumen.tributos debe ser null o array');
     }
 
     return valErrors;

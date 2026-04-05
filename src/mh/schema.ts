@@ -54,10 +54,10 @@
           ventaGravada: { type: 'number', multipleOf: 0.00000001, minimum: 0 },
           tributos: {
             type: ['array', 'null'],
-            items: { type: 'string', pattern: '^(20)$' },
+            items: { type: 'string', minLength: 2, maxLength: 2 },
           },
           numeroDocumento: { type: ['string', 'null'], maxLength: 30 },
-          codTributo: { type: ['string', 'null'], pattern: '^(20)$' },
+          codTributo: { type: ['string', 'null'], minLength: 2, maxLength: 2 },
           psv: { type: 'number', multipleOf: 0.01, minimum: 0 },
           noGravado: { type: 'number', multipleOf: 0.01, minimum: 0 },
           ivaItem: { type: 'number', multipleOf: 0.01, minimum: 0 },
@@ -107,7 +107,7 @@
             type: 'object',
             required: ['codigo', 'descripcion', 'valor'],
             properties: {
-              codigo: { type: 'string' },
+              codigo: { type: 'string', minLength: 2, maxLength: 2 },
               descripcion: { type: 'string', maxLength: 300 },
               valor: { type: 'number', multipleOf: 0.01, minimum: 0 },
             },
