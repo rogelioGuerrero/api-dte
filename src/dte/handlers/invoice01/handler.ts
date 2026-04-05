@@ -1,38 +1,7 @@
 import type { DTEJSON } from '../../../dte/generator';
 import { processDTE } from '../../../mh/process';
 import type { DtePreparationResult, DteTypeHandler } from '../base/DteTypeHandler';
-
-const round8 = (value: number) => Math.round(value * 1e8) / 1e8;
-const round2 = (value: number) => Math.round(value * 1e2) / 1e2;
-const near = (a: number, b: number, tol = 0.01) => Math.abs(a - b) <= tol;
-
-type ResumenExpectations = {
-  subTotal: number;
-  totalIva: number;
-  totalPagarWithIva: number;
-  totalPagarWithoutIva: number;
-};
-
-const computeResumenExpectations = (
-  resumen: any,
-  totals: { sumaGravada: number; sumaExenta: number; sumaNoSuj: number; sumaIvaItems: number }
-): ResumenExpectations => {
-  const esperadoTotalVentas = round2(totals.sumaGravada + totals.sumaExenta + totals.sumaNoSuj);
-  const subTotal = round2(esperadoTotalVentas - (resumen.totalDescu || 0));
-  const totalIva = round2(totals.sumaIvaItems);
-  const ajustes = round2(
-    -(resumen.ivaRete1 || 0)
-    - (resumen.reteRenta || 0)
-    + (resumen.saldoFavor || 0)
-  );
-
-  return {
-    subTotal,
-    totalIva,
-    totalPagarWithIva: round2(subTotal + totalIva + ajustes),
-    totalPagarWithoutIva: round2(subTotal + ajustes),
-  };
-};
+import { computeFe01Expectations, near, readItemTotals, round8 } from '../../calculation/fiscalRules';
 
 const mapProcessErrors = (errores: { codigo: string; descripcion: string; campo?: string; valorActual?: unknown }[]) => {
   return errores.map((e) => {
@@ -50,12 +19,9 @@ export class Invoice01Handler implements DteTypeHandler {
     const rawDte: any = input;
     const valErrors: string[] = [];
 
-    let sumaGravada = 0;
-    let sumaExenta = 0;
-    let sumaNoSuj = 0;
-    let sumaIvaItems = 0;
+    const items = Array.isArray(rawDte.cuerpoDocumento) ? rawDte.cuerpoDocumento : [];
 
-    for (const item of rawDte.cuerpoDocumento || []) {
+    for (const item of items) {
       const totalItem = round8((item.precioUni || 0) * (item.cantidad || 0) - (item.montoDescu || 0));
       const sumaTipos = round8((item.ventaGravada || 0) + (item.ventaExenta || 0) + (item.ventaNoSuj || 0));
 
@@ -63,19 +29,22 @@ export class Invoice01Handler implements DteTypeHandler {
         valErrors.push(`ITEM_TOTAL_MISMATCH: Item ${item.numItem || ''} total ${totalItem} ≠ ventaGravada+Exenta+NoSuj ${sumaTipos}`);
       }
 
-      sumaGravada += item.ventaGravada || 0;
-      sumaExenta += item.ventaExenta || 0;
-      sumaNoSuj += item.ventaNoSuj || 0;
-      sumaIvaItems += item.ivaItem || 0;
+      if ((item.ventaGravada || 0) > 0) {
+        if (!Array.isArray(item.tributos) || item.tributos.length === 0) {
+          valErrors.push(`ITEM_TRIBUTOS_REQUERIDOS: Item ${item.numItem || ''} gravado debe incluir tributos[]`);
+        } else if (item.tributos.some((tributo: any) => tributo !== '20')) {
+          valErrors.push(`ITEM_TRIBUTOS_INVALIDOS: Item ${item.numItem || ''} solo debe incluir código 20 en tributos[]`);
+        }
+      }
+
+      if (!Object.prototype.hasOwnProperty.call(item, 'ivaItem')) {
+        valErrors.push(`ITEM_IVAITEM_REQUERIDO: Item ${item.numItem || ''} debe incluir ivaItem en FE 01`);
+      }
     }
 
     const resumen = rawDte.resumen || {};
-    const expectations = computeResumenExpectations(resumen, {
-      sumaGravada,
-      sumaExenta,
-      sumaNoSuj,
-      sumaIvaItems,
-    });
+    const totals = readItemTotals(items);
+    const expectations = computeFe01Expectations(resumen, totals);
 
     const resumenTotalGravada = resumen.totalGravada || 0;
     const resumenTotalExenta = resumen.totalExenta || 0;
@@ -85,14 +54,14 @@ export class Invoice01Handler implements DteTypeHandler {
     const resumenMontoOperacion = resumen.montoTotalOperacion || 0;
     const resumenTotalPagar = resumen.totalPagar || 0;
 
-    if (!near(resumenTotalGravada, sumaGravada)) {
-      valErrors.push(`RESUMEN_TOTAL_GRAVADA_MISMATCH: ${resumenTotalGravada} ≠ suma ítems ${sumaGravada.toFixed(2)}`);
+    if (!near(resumenTotalGravada, expectations.totalGravadaBase)) {
+      valErrors.push(`RESUMEN_TOTAL_GRAVADA_MISMATCH: ${resumenTotalGravada} ≠ base esperada ${expectations.totalGravadaBase}`);
     }
-    if (!near(resumenTotalExenta, sumaExenta)) {
-      valErrors.push(`RESUMEN_TOTAL_EXENTA_MISMATCH: ${resumenTotalExenta} ≠ suma ítems ${sumaExenta.toFixed(2)}`);
+    if (!near(resumenTotalExenta, totals.sumaExenta)) {
+      valErrors.push(`RESUMEN_TOTAL_EXENTA_MISMATCH: ${resumenTotalExenta} ≠ suma ítems ${totals.sumaExenta.toFixed(2)}`);
     }
-    if (!near(resumenTotalNoSuj, sumaNoSuj)) {
-      valErrors.push(`RESUMEN_TOTAL_NOSUJ_MISMATCH: ${resumenTotalNoSuj} ≠ suma ítems ${sumaNoSuj.toFixed(2)}`);
+    if (!near(resumenTotalNoSuj, totals.sumaNoSuj)) {
+      valErrors.push(`RESUMEN_TOTAL_NOSUJ_MISMATCH: ${resumenTotalNoSuj} ≠ suma ítems ${totals.sumaNoSuj.toFixed(2)}`);
     }
     if (!near(resumenTotalIva, expectations.totalIva)) {
       valErrors.push(`RESUMEN_TOTAL_IVA_MISMATCH: ${resumenTotalIva} ≠ IVA ítems ${expectations.totalIva}`);
@@ -100,25 +69,30 @@ export class Invoice01Handler implements DteTypeHandler {
     if (!near(resumenSubTotal, expectations.subTotal)) {
       valErrors.push(`RESUMEN_SUBTOTAL_MISMATCH: ${resumenSubTotal} ≠ esperado ${expectations.subTotal}`);
     }
-
-    const montoOperacionEsValido =
-      near(resumenMontoOperacion, expectations.totalPagarWithIva)
-      || near(resumenMontoOperacion, expectations.totalPagarWithoutIva);
-
-    if (!montoOperacionEsValido) {
-      valErrors.push(
-        `RESUMEN_MONTO_OPERACION_MISMATCH: ${resumenMontoOperacion} ≠ esperado ${expectations.totalPagarWithIva} (con IVA) o ${expectations.totalPagarWithoutIva} (sin IVA)`
-      );
+    const resumenSubTotalVentas = resumen.subTotalVentas || 0;
+    if (!near(resumenSubTotalVentas, expectations.subTotalVentas)) {
+      valErrors.push(`RESUMEN_SUBTOTAL_VENTAS_MISMATCH: ${resumenSubTotalVentas} ≠ esperado ${expectations.subTotalVentas}`);
     }
 
-    const totalPagarEsValido =
-      near(resumenTotalPagar, expectations.totalPagarWithIva)
-      || near(resumenTotalPagar, expectations.totalPagarWithoutIva);
+    if (!near(resumenMontoOperacion, expectations.montoTotalOperacion)) {
+      valErrors.push(`RESUMEN_MONTO_OPERACION_MISMATCH: ${resumenMontoOperacion} ≠ esperado ${expectations.montoTotalOperacion}`);
+    }
+    if (!near(resumenTotalPagar, expectations.totalPagar)) {
+      valErrors.push(`RESUMEN_TOTAL_PAGAR_MISMATCH: ${resumenTotalPagar} ≠ esperado ${expectations.totalPagar}`);
+    }
 
-    if (!totalPagarEsValido) {
-      valErrors.push(
-        `RESUMEN_TOTAL_PAGAR_MISMATCH: ${resumenTotalPagar} ≠ esperado ${expectations.totalPagarWithIva} (con IVA) o ${expectations.totalPagarWithoutIva} (sin IVA)`
-      );
+    const resumenTributos = Array.isArray(resumen.tributos) ? resumen.tributos : [];
+    if (expectations.totalIva > 0) {
+      if (resumenTributos.length === 0) {
+        valErrors.push('RESUMEN_TRIBUTOS_REQUERIDOS: resumen.tributos debe incluir IVA consolidado en FE 01 gravada');
+      } else {
+        const ivaTributo = resumenTributos.find((t: any) => t?.codigo === '20');
+        if (!ivaTributo) {
+          valErrors.push('RESUMEN_IVA_CODIGO_20_REQUERIDO: resumen.tributos debe incluir código 20');
+        } else if (!near(Number(ivaTributo.valor || 0), expectations.totalIva)) {
+          valErrors.push(`RESUMEN_IVA_VALOR_MISMATCH: resumen.tributos[codigo=20].valor ${ivaTributo.valor} ≠ esperado ${expectations.totalIva}`);
+        }
+      }
     }
 
     return valErrors;

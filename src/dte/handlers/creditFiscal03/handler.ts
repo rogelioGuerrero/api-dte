@@ -1,10 +1,7 @@
 import type { DTEJSON } from '../../../dte/generator';
 import { processDTE } from '../../../mh/process';
 import type { DtePreparationResult, DteTypeHandler } from '../base/DteTypeHandler';
-
-const round8 = (value: number) => Math.round(value * 1e8) / 1e8;
-const round2 = (value: number) => Math.round(value * 1e2) / 1e2;
-const near = (a: number, b: number, tol = 0.01) => Math.abs(a - b) <= tol;
+import { computeCcf03Expectations, near, readItemTotals, round8 } from '../../calculation/fiscalRules';
 
 const mapProcessErrors = (errores: { codigo: string; descripcion: string; campo?: string; valorActual?: unknown }[]) => {
   return errores.map((e) => {
@@ -37,10 +34,6 @@ export class CreditFiscal03Handler implements DteTypeHandler {
       valErrors.push('RECEPTOR_CAMPO_INVALIDO: receptor.numDocumento no debe enviarse en CCF 03');
     }
 
-    let sumaGravada = 0;
-    let sumaExenta = 0;
-    let sumaNoSuj = 0;
-
     for (const item of items) {
       const totalItem = round8((item.precioUni || 0) * (item.cantidad || 0) - (item.montoDescu || 0));
       const sumaTipos = round8((item.ventaGravada || 0) + (item.ventaExenta || 0) + (item.ventaNoSuj || 0));
@@ -70,11 +63,9 @@ export class CreditFiscal03Handler implements DteTypeHandler {
       if (Object.prototype.hasOwnProperty.call(item, 'ivaItem')) {
         valErrors.push(`ITEM_IVAITEM_INVALIDO: Item ${item.numItem || ''} no debe incluir ivaItem en CCF 03; el IVA consolidado lo define resumen.totalIva`);
       }
-
-      sumaGravada += item.ventaGravada || 0;
-      sumaExenta += item.ventaExenta || 0;
-      sumaNoSuj += item.ventaNoSuj || 0;
     }
+
+    const totals = readItemTotals(items);
 
     const resumenTotalGravada = resumen.totalGravada || 0;
     const resumenTotalExenta = resumen.totalExenta || 0;
@@ -87,38 +78,35 @@ export class CreditFiscal03Handler implements DteTypeHandler {
     const resumenMontoOperacion = resumen.montoTotalOperacion || 0;
     const resumenTotalPagar = resumen.totalPagar || 0;
 
-    const esperadoSubTotalVentas = round2(sumaGravada + sumaExenta + sumaNoSuj);
-    const esperadoSubTotal = round2(esperadoSubTotalVentas - (resumen.totalDescu || 0));
-    const esperadoMontoOperacion = round2(esperadoSubTotal + (resumen.totalNoGravado || 0) + resumenTotalIva);
-    const esperadoTotalPagar = round2(
-      esperadoMontoOperacion
-      - (resumen.ivaRete1 || 0)
-      - (resumen.reteRenta || 0)
-      + (resumen.saldoFavor || 0)
-    );
+    const expectations = computeCcf03Expectations(resumen, totals, Number(resumenTotalIva || 0));
 
-    if (!near(resumenTotalGravada, sumaGravada)) {
-      valErrors.push(`RESUMEN_TOTAL_GRAVADA_MISMATCH: ${resumenTotalGravada} ≠ suma ítems ${sumaGravada.toFixed(2)}`);
+    if (!near(resumenTotalGravada, totals.sumaGravada)) {
+      valErrors.push(`RESUMEN_TOTAL_GRAVADA_MISMATCH: ${resumenTotalGravada} ≠ suma ítems ${totals.sumaGravada.toFixed(2)}`);
     }
 
-    if (!near(resumenTotalExenta, sumaExenta)) {
-      valErrors.push(`RESUMEN_TOTAL_EXENTA_MISMATCH: ${resumenTotalExenta} ≠ suma ítems ${sumaExenta.toFixed(2)}`);
+    if (!near(resumenTotalExenta, totals.sumaExenta)) {
+      valErrors.push(`RESUMEN_TOTAL_EXENTA_MISMATCH: ${resumenTotalExenta} ≠ suma ítems ${totals.sumaExenta.toFixed(2)}`);
     }
 
-    if (!near(resumenTotalNoSuj, sumaNoSuj)) {
-      valErrors.push(`RESUMEN_TOTAL_NOSUJ_MISMATCH: ${resumenTotalNoSuj} ≠ suma ítems ${sumaNoSuj.toFixed(2)}`);
+    if (!near(resumenTotalNoSuj, totals.sumaNoSuj)) {
+      valErrors.push(`RESUMEN_TOTAL_NOSUJ_MISMATCH: ${resumenTotalNoSuj} ≠ suma ítems ${totals.sumaNoSuj.toFixed(2)}`);
     }
 
-    if (!near(resumenSubTotal, esperadoSubTotal)) {
-      valErrors.push(`RESUMEN_SUBTOTAL_MISMATCH: ${resumenSubTotal} ≠ esperado ${esperadoSubTotal}`);
+    if (!near(resumenSubTotal, expectations.subTotal)) {
+      valErrors.push(`RESUMEN_SUBTOTAL_MISMATCH: ${resumenSubTotal} ≠ esperado ${expectations.subTotal}`);
     }
 
-    if (!near(resumenMontoOperacion, esperadoMontoOperacion)) {
-      valErrors.push(`RESUMEN_MONTO_OPERACION_MISMATCH: ${resumenMontoOperacion} ≠ esperado ${esperadoMontoOperacion}`);
+    const resumenSubTotalVentas = resumen.subTotalVentas || 0;
+    if (!near(resumenSubTotalVentas, expectations.subTotalVentas)) {
+      valErrors.push(`RESUMEN_SUBTOTAL_VENTAS_MISMATCH: ${resumenSubTotalVentas} ≠ esperado ${expectations.subTotalVentas}`);
     }
 
-    if (!near(resumenTotalPagar, esperadoTotalPagar)) {
-      valErrors.push(`RESUMEN_TOTAL_PAGAR_MISMATCH: ${resumenTotalPagar} ≠ esperado ${esperadoTotalPagar}`);
+    if (!near(resumenMontoOperacion, expectations.montoTotalOperacion)) {
+      valErrors.push(`RESUMEN_MONTO_OPERACION_MISMATCH: ${resumenMontoOperacion} ≠ esperado ${expectations.montoTotalOperacion}`);
+    }
+
+    if (!near(resumenTotalPagar, expectations.totalPagar)) {
+      valErrors.push(`RESUMEN_TOTAL_PAGAR_MISMATCH: ${resumenTotalPagar} ≠ esperado ${expectations.totalPagar}`);
     }
 
     if (resumenMontoOperacion <= 0) {
