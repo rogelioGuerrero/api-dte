@@ -19,6 +19,7 @@ function buildFe01Payload(sequence = 1) {
   const numeroControl = `DTE-01-M010P010-${pad(sequence, 15)}`;
 
   // Modelo MH real para FE-01: items CON IVA incluido.
+  // Caso base SIN descuento (confirmado funcionando contra MH)
   const precioUniConIVA = 10.0;
   const cantidad = 1;
   const montoDescu = 0;
@@ -101,7 +102,7 @@ function buildFe01Payload(sequence = 1) {
       totalNoSuj: 0,
       totalExenta: 0,
       totalGravada: totalGravadaBase,
-      subTotalVentas: subTotal,
+      subTotalVentas: subTotalVentas,
       descuNoSuj: 0,
       descuExenta: 0,
       descuGravada: 0,
