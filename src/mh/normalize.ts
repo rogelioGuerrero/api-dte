@@ -43,9 +43,10 @@ export const normalizeDTE = (dte: DTEJSON): DTEJSON => {
     let ivaCalculado = roundTo(i.ivaItem ?? 0, 8);
 
     if (tipoDte === '01' && gross > 0) {
-      // FE01: precio y venta gravada con IVA; descuento se descuenta de la línea.
+      // FE-01: precioUni y ventaGravada vienen SIN IVA (base), igual que CCF-03.
+      // ivaItem = ventaGravada * 0.13 (IVA calculado sobre base).
       ventaGravada = ventaGravadaInput > 0 ? roundTo(ventaGravadaInput, 8) : roundTo(gross - montoDescu, 8);
-      ivaCalculado = roundTo(i.ivaItem ?? (ventaGravada - roundTo(ventaGravada / 1.13, 8)), 8);
+      ivaCalculado = roundTo(i.ivaItem ?? roundTo(ventaGravada * 0.13, 8), 8);
       precioUni = roundTo(precioUni, 8);
     }
 
@@ -65,7 +66,7 @@ export const normalizeDTE = (dte: DTEJSON): DTEJSON => {
       ventaNoSuj: roundTo(i.ventaNoSuj, 8),
       ventaExenta: roundTo(i.ventaExenta, 8),
       ventaGravada,
-      tributos: (tipoDte === '03' || tipoDte === '01') && ventaGravada > 0 ? ['20'] : null,
+      tributos: tipoDte === '03' && ventaGravada > 0 ? ['20'] : null,
       psv: roundTo(i.psv ?? 0, 2),
       noGravado: roundTo(i.noGravado ?? 0, 2),
       ...(tipoDte === '03' ? {} : { ivaItem: ivaCalculado }),
@@ -164,9 +165,8 @@ export const normalizeDTE = (dte: DTEJSON): DTEJSON => {
       const ivaCodigo = '20';
       const items = normalizedItems;
       const totalGravadaConIva = roundTo(items.reduce((a, b) => a + b.ventaGravada, 0), 8);
-      const totalGravada = tipoDte === '01'
-        ? roundTo(items.reduce((a, b) => a + roundTo((b.ventaGravada || 0) / 1.13, 8), 0), 2)
-        : roundTo(totalGravadaConIva, 2);
+      // FE-01 y CCF-03: ventaGravada es base sin IVA; totalGravada = suma directa.
+      const totalGravada = roundTo(totalGravadaConIva, 2);
       const totalNoSuj = roundTo(items.reduce((a, b) => a + b.ventaNoSuj, 0), 2);
       const totalExenta = roundTo(items.reduce((a, b) => a + b.ventaExenta, 0), 2);
       const resumenIvaTributo = Array.isArray((dte as any).resumen?.tributos)
@@ -200,7 +200,7 @@ export const normalizeDTE = (dte: DTEJSON): DTEJSON => {
         totalDescu,
         ...(tipoDte === '01' ? {} : { ivaPerci1: roundTo((dte as any).resumen?.ivaPerci1 ?? 0, 2) }),
         tributos:
-          (tipoDte === '03' || tipoDte === '01') && totalIva > 0
+          tipoDte === '03' && totalIva > 0
             ? [{ codigo: ivaCodigo, descripcion: 'Impuesto al Valor Agregado 13%', valor: totalIva }]
             : null,
         subTotal,

@@ -18,17 +18,16 @@ function buildFe01Payload(sequence = 1) {
   const horEmi = now.toTimeString().slice(0, 8);
   const numeroControl = `DTE-01-M010P010-${pad(sequence, 15)}`;
 
-  // Caso: consumidor final compra un servicio por $10 (con IVA) sin descuento.
-  // Modelo híbrido FE-01:
-  //  ítem: precioUni y ventaGravada CON IVA, ivaItem = ventaGravada - ventaGravada/1.13
-  //  resumen: totalGravada = sum(ventaGravada)/1.13 (BASE)
-  const precioUniConIVA = 10.0;
+  // Modelo FE-01 = CCF-03: items en BASE sin IVA.
+  // precioUni y ventaGravada = base. ivaItem = ventaGravada * 0.13.
+  // totalGravada = sum(ventaGravada). totalPagar = subTotal + totalIva.
+  const precioUniBase = 8.84955752; // base = 10/1.13
   const cantidad = 1;
   const montoDescu = 0;
-  const ventaGravada = +(cantidad * precioUniConIVA - montoDescu).toFixed(8);
-  const ivaItem = +(ventaGravada - ventaGravada / 1.13).toFixed(8); // 1.15044248
-  const totalGravadaBase = +(ventaGravada / 1.13).toFixed(2); // 8.85
-  const totalIva = +ivaItem.toFixed(2); // 1.15
+  const ventaGravada = +(cantidad * precioUniBase - montoDescu).toFixed(8);
+  const ivaItem = +(ventaGravada * 0.13).toFixed(8);
+  const totalGravadaBase = +ventaGravada.toFixed(2);
+  const totalIva = +ivaItem.toFixed(2);
   const subTotalVentas = totalGravadaBase;
   const subTotal = subTotalVentas;
   const montoTotalOperacion = +(subTotal + totalIva).toFixed(2); // 10.00
@@ -89,12 +88,12 @@ function buildFe01Payload(sequence = 1) {
         descripcion: 'Servicio de prueba FE-01',
         cantidad,
         uniMedida: 59,
-        precioUni: precioUniConIVA,
+        precioUni: precioUniBase,
         montoDescu,
         ventaNoSuj: 0,
         ventaExenta: 0,
         ventaGravada,
-        tributos: ['20'],
+        tributos: null,
         psv: 0,
         noGravado: 0,
         ivaItem,
@@ -110,9 +109,7 @@ function buildFe01Payload(sequence = 1) {
       descuGravada: 0,
       porcentajeDescuento: 0,
       totalDescu: 0,
-      tributos: [
-        { codigo: '20', descripcion: 'Impuesto al Valor Agregado 13%', valor: totalIva },
-      ],
+      tributos: null,
       subTotal,
       totalIva,
       ivaRete1: 0,
