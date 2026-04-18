@@ -34,15 +34,20 @@ export type Fe01Expectations = {
   totalPagar: number;
 };
 
+// FE-01 (Factura Consumidor Final): ventaGravada en cuerpoDocumento viene con IVA incluido.
+// ivaItem y resumen.totalIva son informativos (IVA contenido dentro del precio).
+// Por tanto: totalGravada = suma de ventaGravada (con IVA), y montoTotalOperacion NO vuelve a sumar totalIva.
 export const computeFe01Expectations = (resumen: any, totals: ItemTotals): Fe01Expectations => {
-  const totalGravadaBase = round2(totals.sumaGravada / 1.13);
+  const totalGravadaBase = round2(totals.sumaGravada);
   const subTotalVentas = round2(totalGravadaBase + totals.sumaExenta + totals.sumaNoSuj);
-  const subTotal = subTotalVentas;
+  const descuentosGlobales = round2(
+    Number(resumen?.descuNoSuj || 0) + Number(resumen?.descuExenta || 0) + Number(resumen?.descuGravada || 0)
+  );
+  const subTotal = round2(subTotalVentas - descuentosGlobales);
   const totalIva = round2(totals.sumaIvaItems);
 
   const montoTotalOperacion = round2(
     subTotal
-    + totalIva
     + Number(resumen?.totalNoGravado || 0)
     - Number(resumen?.ivaRete1 || 0)
     - Number(resumen?.reteRenta || 0)
