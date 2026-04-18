@@ -34,12 +34,18 @@ export type Fe01Expectations = {
   totalPagar: number;
 };
 
-// FE-01 (Factura Consumidor Final): ventaGravada en cuerpoDocumento viene SIN IVA (base),
-// igual que CCF-03. La diferencia con CCF-03 es sólo el contenedor del IVA:
-// FE-01 usa ivaItem por línea y resumen.totalIva escalar; CCF-03 usa tributos[].
-// Semántica: totalGravada = suma de ventaGravada (base) y montoTotalOperacion SÍ suma totalIva.
+// FE-01 (Factura Consumidor Final): modelo híbrido MH.
+//  - ÍTEMS (cuerpoDocumento) vienen con IVA INCLUIDO:
+//      precioUni, ventaGravada = con IVA
+//      ivaItem = ventaGravada - ventaGravada/1.13  (IVA contenido en el precio)
+//  - RESUMEN usa BASE sin IVA:
+//      totalGravada = sum(ventaGravada) / 1.13
+//      totalIva = sum(ivaItem)
+//      montoTotalOperacion = subTotal + totalIva (vuelve a subir al monto con IVA)
+//      totalPagar = montoTotalOperacion
+// Por eso FE-01 se diferencia de CCF-03: en CCF los ítems ya vienen sin IVA.
 export const computeFe01Expectations = (resumen: any, totals: ItemTotals): Fe01Expectations => {
-  const totalGravadaBase = round2(totals.sumaGravada);
+  const totalGravadaBase = round2(totals.sumaGravada / 1.13);
   const subTotalVentas = round2(totalGravadaBase + totals.sumaExenta + totals.sumaNoSuj);
   const descuentosGlobales = round2(
     Number(resumen?.descuNoSuj || 0) + Number(resumen?.descuExenta || 0) + Number(resumen?.descuGravada || 0)
