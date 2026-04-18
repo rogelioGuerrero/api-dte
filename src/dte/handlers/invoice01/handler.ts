@@ -90,17 +90,45 @@ export class Invoice01Handler implements DteTypeHandler {
     return processDTE(input);
   }
 
+  // Normaliza el resumen a partir de los ítems (fuente de verdad).
+  // Si el frontend envió valores inconsistentes en resumen, los sobrescribe
+  // con los derivados de cuerpoDocumento. No altera ítems ni campos ajenos
+  // al cálculo (retenciones, descuentos globales, pagos, letras, etc.).
+  private normalizeResumenFromItems(input: DTEJSON): DTEJSON {
+    const raw: any = input;
+    const items = Array.isArray(raw.cuerpoDocumento) ? raw.cuerpoDocumento : [];
+    const totals = readItemTotals(items);
+    const resumenActual = raw.resumen || {};
+    const expectations = computeFe01Expectations(resumenActual, totals);
+
+    const nuevoResumen = {
+      ...resumenActual,
+      totalNoSuj: round8(totals.sumaNoSuj),
+      totalExenta: round8(totals.sumaExenta),
+      totalGravada: expectations.totalGravadaBase,
+      subTotalVentas: expectations.subTotalVentas,
+      subTotal: expectations.subTotal,
+      totalIva: expectations.totalIva,
+      montoTotalOperacion: expectations.montoTotalOperacion,
+      totalPagar: expectations.totalPagar,
+    };
+
+    return { ...raw, resumen: nuevoResumen } as DTEJSON;
+  }
+
   prepare(input: DTEJSON): DtePreparationResult {
-    const rawErrors = this.validateRaw(input);
+    const normalized = this.normalizeResumenFromItems(input);
+
+    const rawErrors = this.validateRaw(normalized);
     if (rawErrors.length > 0) {
       return {
-        dte: input,
+        dte: normalized,
         isValid: false,
         validationErrors: rawErrors,
       };
     }
 
-    const processed = this.process(input);
+    const processed = this.process(normalized);
     const schemaErrors = mapProcessErrors(processed.errores);
 
     return {
