@@ -195,4 +195,18 @@ router.get('/pdf-preview', async (_req: Request, res: Response) => {
   }
 });
 
+// GET /api/test/pdf-download - Dev: descargar PDF directamente
+router.get('/pdf-download', async (_req: Request, res: Response) => {
+  try {
+    const pdfBase64 = await generateDtePdfBase64({ dte: sampleDte, mhResponse: sampleMhResponse, logoUrl: sampleDte.emisor.logo_url });
+    const pdfBuffer = Buffer.from(pdfBase64, 'base64');
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', 'attachment; filename="factura-ejemplo.pdf"');
+    res.send(pdfBuffer);
+  } catch (error) {
+    logger.error('Error en pdf-download', { error });
+    res.status(500).json({ error: 'Error generando descarga de PDF' });
+  }
+});
+
 export default router;
