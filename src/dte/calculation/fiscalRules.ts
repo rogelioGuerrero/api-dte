@@ -34,18 +34,18 @@ export type Fe01Expectations = {
   totalPagar: number;
 };
 
-// FE-01 (Factura Consumidor Final): misma matemática que CCF-03.
-//  - ÍTEMS (cuerpoDocumento) vienen SIN IVA (base):
-//      precioUni, ventaGravada = base sin IVA
-//      ivaItem = ventaGravada * 0.13 (IVA calculado sobre base)
-//  - RESUMEN también en base sin IVA, IVA se suma al final:
-//      totalGravada = sum(ventaGravada) (base)
-//      totalIva = sum(ivaItem)
-//      montoTotalOperacion = subTotal + totalIva (suma IVA)
+// FE-01 (Factura Consumidor Final): modelo MH real (verificado live).
+//  - ÍTEMS (cuerpoDocumento) vienen CON IVA incluido:
+//      precioUni, ventaGravada = con IVA
+//      ivaItem = ventaGravada - ventaGravada/1.13 (IVA contenido en el precio)
+//  - RESUMEN:
+//      totalGravada = sum(ventaGravada)  [con IVA]
+//      subTotal = totalGravada + totalExenta + totalNoSuj - descuentos
+//      totalIva = sum(ivaItem) (informativo; IVA contenido)
+//      montoTotalOperacion = subTotal - retenciones (NO re-sumar IVA, ya está en subTotal)
 //      totalPagar = montoTotalOperacion
-// Única diferencia con CCF-03: FE-01 usa ivaItem por línea y resumen.totalIva;
-// CCF-03 no tiene ivaItem y en lugar usa resumen.tributos[{codigo:'20'}].
-// El código '20' NO está permitido en FE-01 (schema fe-fc-v1).
+// Diferencia con CCF-03: CCF items en base sin IVA, tributos[{codigo:'20'}] en resumen.
+// En FE-01 el código '20' NO está permitido; el IVA queda implícito por ivaItem.
 export const computeFe01Expectations = (resumen: any, totals: ItemTotals): Fe01Expectations => {
   const totalGravadaBase = round2(totals.sumaGravada);
   const subTotalVentas = round2(totalGravadaBase + totals.sumaExenta + totals.sumaNoSuj);
@@ -57,7 +57,6 @@ export const computeFe01Expectations = (resumen: any, totals: ItemTotals): Fe01E
 
   const montoTotalOperacion = round2(
     subTotal
-    + totalIva
     + Number(resumen?.totalNoGravado || 0)
     - Number(resumen?.ivaRete1 || 0)
     - Number(resumen?.reteRenta || 0)

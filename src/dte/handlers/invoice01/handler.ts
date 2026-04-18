@@ -38,11 +38,11 @@ export class Invoice01Handler implements DteTypeHandler {
       if (!Object.prototype.hasOwnProperty.call(item, 'ivaItem')) {
         valErrors.push(`ITEM_IVAITEM_REQUERIDO: Item ${item.numItem || ''} debe incluir ivaItem en FE 01`);
       } else if ((item.ventaGravada || 0) > 0) {
-        // FE-01: ventaGravada es BASE (sin IVA). ivaItem = ventaGravada * 0.13.
+        // FE-01: ventaGravada es CON IVA. ivaItem = ventaGravada - ventaGravada/1.13.
         const vg = Number(item.ventaGravada || 0);
-        const expectedIva = round8(vg * 0.13);
+        const expectedIva = round8(vg - vg / 1.13);
         if (!near(Number(item.ivaItem), expectedIva)) {
-          valErrors.push(`ITEM_IVAITEM_MISMATCH: Item ${item.numItem || ''} ivaItem=${item.ivaItem} ≠ esperado ${expectedIva} (= ventaGravada * 0.13)`);
+          valErrors.push(`ITEM_IVAITEM_MISMATCH: Item ${item.numItem || ''} ivaItem=${item.ivaItem} ≠ esperado ${expectedIva} (= ventaGravada - ventaGravada/1.13)`);
         }
       }
     }

@@ -43,10 +43,11 @@ export const normalizeDTE = (dte: DTEJSON): DTEJSON => {
     let ivaCalculado = roundTo(i.ivaItem ?? 0, 8);
 
     if (tipoDte === '01' && gross > 0) {
-      // FE-01: precioUni y ventaGravada vienen SIN IVA (base), igual que CCF-03.
-      // ivaItem = ventaGravada * 0.13 (IVA calculado sobre base).
+      // FE-01: precioUni y ventaGravada vienen CON IVA incluido.
+      // ivaItem = ventaGravada - ventaGravada/1.13 (IVA contenido dentro del precio).
+      // Siempre recalculamos ivaItem para que cuadre con la fórmula que valida MH.
       ventaGravada = ventaGravadaInput > 0 ? roundTo(ventaGravadaInput, 8) : roundTo(gross - montoDescu, 8);
-      ivaCalculado = roundTo(i.ivaItem ?? roundTo(ventaGravada * 0.13, 8), 8);
+      ivaCalculado = roundTo(ventaGravada - roundTo(ventaGravada / 1.13, 8), 8);
       precioUni = roundTo(precioUni, 8);
     }
 
@@ -183,8 +184,10 @@ export const normalizeDTE = (dte: DTEJSON): DTEJSON => {
       const ivaRete1 = roundTo(((dte as any).resumen?.ivaRete1 ?? 0) as number, 2);
       const reteRenta = roundTo(((dte as any).resumen?.reteRenta ?? 0) as number, 2);
       const saldoFavor = roundTo((dte as any).resumen?.saldoFavor ?? 0, 2);
+      // FE-01: ventaGravada ya viene con IVA; no se vuelve a sumar totalIva al monto.
+      // CCF-03: ventaGravada es base; sí se suma totalIva al monto.
       const montoTotalOperacion = tipoDte === '01'
-        ? roundTo(subTotal + totalNoGravado + totalIva - ivaRete1 - reteRenta + saldoFavor, 2)
+        ? roundTo(subTotal + totalNoGravado - ivaRete1 - reteRenta + saldoFavor, 2)
         : roundTo(subTotal - totalDescu + totalNoGravado + totalIva + ivaPerci1 - ivaRete1 - reteRenta + saldoFavor, 2);
       const totalPagar = roundTo(montoTotalOperacion, 2);
 

@@ -18,19 +18,17 @@ function buildFe01Payload(sequence = 1) {
   const horEmi = now.toTimeString().slice(0, 8);
   const numeroControl = `DTE-01-M010P010-${pad(sequence, 15)}`;
 
-  // Modelo FE-01 = CCF-03: items en BASE sin IVA.
-  // precioUni y ventaGravada = base. ivaItem = ventaGravada * 0.13.
-  // totalGravada = sum(ventaGravada). totalPagar = subTotal + totalIva.
-  const precioUniBase = 8.84955752; // base = 10/1.13
+  // Modelo MH real para FE-01: items CON IVA incluido.
+  const precioUniConIVA = 10.0;
   const cantidad = 1;
   const montoDescu = 0;
-  const ventaGravada = +(cantidad * precioUniBase - montoDescu).toFixed(8);
-  const ivaItem = +(ventaGravada * 0.13).toFixed(8);
-  const totalGravadaBase = +ventaGravada.toFixed(2);
-  const totalIva = +ivaItem.toFixed(2);
-  const subTotalVentas = totalGravadaBase;
+  const ventaGravada = +(cantidad * precioUniConIVA - montoDescu).toFixed(8); // 10
+  const ivaItem = +(ventaGravada - ventaGravada / 1.13).toFixed(8); // 1.15044248
+  const totalGravadaBase = +ventaGravada.toFixed(2); // 10.00
+  const totalIva = +ivaItem.toFixed(2); // 1.15
+  const subTotalVentas = totalGravadaBase; // 10.00
   const subTotal = subTotalVentas;
-  const montoTotalOperacion = +(subTotal + totalIva).toFixed(2); // 10.00
+  const montoTotalOperacion = subTotal; // 10.00 (NO se suma IVA; ya está dentro)
   const totalPagar = montoTotalOperacion;
 
   return {
@@ -88,7 +86,7 @@ function buildFe01Payload(sequence = 1) {
         descripcion: 'Servicio de prueba FE-01',
         cantidad,
         uniMedida: 59,
-        precioUni: precioUniBase,
+        precioUni: precioUniConIVA,
         montoDescu,
         ventaNoSuj: 0,
         ventaExenta: 0,
