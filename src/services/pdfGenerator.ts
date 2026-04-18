@@ -44,6 +44,11 @@ const tiposDocumento = [
 const safe = (val: any) => (val === undefined || val === null || val === '' ? '—' : String(val));
 const money = (val: any) => Number(val || 0).toFixed(2);
 
+const capitalize = (val: string) => {
+  if (!val || val === '—') return val;
+  return val.toLowerCase().replace(/\b\w/g, (char) => char.toUpperCase());
+};
+
 const clampText = (text: string, maxLen: number) => {
   const t = String(text ?? '').trim();
   if (!t) return '—';
@@ -239,7 +244,7 @@ export const generateDtePdfBase64 = async ({ dte, mhResponse, logoUrl }: Generat
   const receptor = dte.receptor || {};
 
   const emisorLines = [
-    { label: 'Nombre', value: safe(emisor.nombre || emisor.nombreComercial) },
+    { label: 'Nombre', value: capitalize(safe(emisor.nombre || emisor.nombreComercial)) },
     { label: 'NIT', value: safe(emisor.nit) },
     { label: 'NRC', value: safe(emisor.nrc) },
     { label: 'Dirección', value: safe(emisor.direccion?.complemento || emisor.direccion) },
@@ -247,7 +252,7 @@ export const generateDtePdfBase64 = async ({ dte, mhResponse, logoUrl }: Generat
   ];
 
   const receptorLines = [
-    { label: 'Nombre', value: safe(receptor.nombre) },
+    { label: 'Nombre', value: capitalize(safe(receptor.nombre)) },
     { label: 'Documento', value: safe(receptor.numDocumento || receptor.dui || receptor.nit) },
     { label: 'Dirección', value: safe(receptor.direccion?.complemento || receptor.direccion) },
     { label: 'Correo', value: safe(receptor.correo) },
@@ -337,7 +342,7 @@ export const generateDtePdfBase64 = async ({ dte, mhResponse, logoUrl }: Generat
 
   doc.y = y + 14;
 
-  // Totals (right aligned), IVA hidden for tipo 01
+  // Totals (right aligned)
   const totalsW = 200;
   const totalsX = pageW - marginR - totalsW;
   let ty = doc.y;
@@ -353,6 +358,23 @@ export const generateDtePdfBase64 = async ({ dte, mhResponse, logoUrl }: Generat
 
   drawTotalRow('Subtotal ventas', money(dte.resumen?.subTotalVentas));
   drawTotalRow('Subtotal', money(dte.resumen?.subTotal));
+
+  // Mostrar IVA según tipo de DTE
+  const tipoDte = dte.identificacion?.tipoDte || '';
+  if (tipoDte === '03') {
+    // CCF-03: IVA explícito (en tributos o totalIva)
+    const ivaValor = dte.resumen?.tributos?.[0]?.valor || dte.resumen?.totalIva || 0;
+    if (ivaValor > 0) {
+      drawTotalRow('IVA (13%)', money(ivaValor));
+    }
+  } else if (tipoDte === '01') {
+    // FE-01: IVA incluido (informativo)
+    const ivaValor = dte.resumen?.totalIva || 0;
+    if (ivaValor > 0) {
+      drawTotalRow('IVA (incluido)', money(ivaValor));
+    }
+  }
+
   ty += 4;
   doc.font('Helvetica-Bold').fontSize(12).fillColor('#0F172A').text('TOTAL', totalsX, ty, { width: totalsW - 70, align: 'right' });
   doc.font('Helvetica-Bold').fontSize(12).fillColor('#0F172A').text(money(dte.resumen?.totalPagar), totalsX + (totalsW - 70), ty, { width: 70, align: 'right' });
