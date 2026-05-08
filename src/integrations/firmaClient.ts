@@ -106,7 +106,9 @@ export const firmarDocumento = async (request: FirmaRequest): Promise<string> =>
           const retryAfterMs = parseRetryAfterMs(response.headers['retry-after']);
           const msg = `Servicio de firma respondió 429 Too Many Requests${retryAfterMs ? `; reintentar en ${Math.ceil(retryAfterMs / 1000)}s` : ''}.`;
           logger.warn(msg, { nit: request.nit, retryAfterMs });
-          throw createRateLimitError(msg, retryAfterMs);
+          const error = createRateLimitError(msg, retryAfterMs) as Error & { shouldRetry?: boolean };
+          error.shouldRetry = Boolean(retryAfterMs);
+          throw error;
         }
 
         if (data.success && data.jws) {
@@ -120,6 +122,10 @@ export const firmarDocumento = async (request: FirmaRequest): Promise<string> =>
       } catch (err: any) {
         lastError = err;
         const isLast = attempt === maxAttempts;
+
+        if (err?.code === 'FIRMA_RATE_LIMIT' && !err?.shouldRetry) {
+          throw err;
+        }
 
         if (!isLast) {
           const retryAfterMs = err?.retryAfterMs;
